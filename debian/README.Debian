@@ -1,0 +1,20 @@
+* Lynx does not display colors!
+
+ If you find that lynx does display colors, you may be using the wrong
+ terminal type. The terminal type vt100 does not support color, but "linux"
+ and "xterm-color" do.
+
+ Alternatively, you can invoke lynx as 'lynx -color' to force the colors on.
+
+* How do I get a white background on black text?
+
+ Use the following 'COLOR' definitions in your /etc/lynx.cfg file:
+
+ COLOR:0:black:white
+ COLOR:1:blue:white
+ COLOR:2:yellow:blue
+ COLOR:3:green:white
+ COLOR:4:magenta:white
+ COLOR:5:blue:white
+ COLOR:6:red:white
+ COLOR:7:magenta:cyan

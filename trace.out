@@ -1,0 +1,1221 @@
+LYNX_SIG_FILE set to '/home/chrish/.lynxsig'
+Loading cfg file '/etc/lynx.cfg'.
+HTMLDTD: Copying DTD element info of size 5192, 118 * 44
+HTSetConversion: application/postscript, ghostview %s&
+HTSetConversion: image/gif, 
+HTSetConversion: image/x-xbm, 
+HTSetConversion: image/x-xbitmap, 
+HTSetConversion: image/x-png, 
+HTSetConversion: image/png, 
+HTSetConversion: image/x-rgb, 
+HTSetConversion: image/x-tiff, 
+HTSetConversion: image/tiff, 
+HTSetConversion: image/jpeg, 
+HTSetConversion: video/mpeg, mpeg_play %s &
+HTSetConversion: application/x-csh, csh %s
+HTSetConversion: application/x-sh, sh %s
+HTSetConversion: application/x-ksh, ksh %s
+ProcessMailcapFile: Loading file '/etc/mailcap'.
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion application/ghostview :  gv %s
+HTSetConversion: application/ghostview,  gv %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion application/pdf :  /usr/bin/X11/xpdf %s
+HTSetConversion: application/pdf,  /usr/bin/X11/xpdf %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion application/pdf :  gv %s
+HTSetConversion: application/pdf,  gv %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion application/postscript :  gv %s
+HTSetConversion: application/postscript,  gv %s
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+ProcessMailcapEntry Setting up conversion application/x-debian-package :  /usr/lib/mime/debian-view %s
+HTSetConversion: application/x-debian-package,  /usr/lib/mime/debian-view %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion audio/basic :  xanim +Ze %s
+HTSetConversion: audio/basic,  xanim +Ze %s
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+ProcessMailcapEntry Setting up conversion audio/basic :  bplay %s
+HTSetConversion: audio/basic,  bplay %s
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+ProcessMailcapEntry Setting up conversion audio/basic :  /usr/lib/mime/playaudio %s
+HTSetConversion: audio/basic,  /usr/lib/mime/playaudio %s
+ProcessMailcapEntry: Found testcommand:test -z "$DISPLAY"
+PassesTest: Testing for NON_XWINDOWS environment.
+PassesTest: Test failed!
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion audio/midi :  xplaymidi `cat /etc/playmidi/playmidi.conf` %s
+HTSetConversion: audio/midi,  xplaymidi `cat /etc/playmidi/playmidi.conf` %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion audio/x-pn-realaudio :  rvplayer %s
+HTSetConversion: audio/x-pn-realaudio,  rvplayer %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion audio/x-wav :  xanim +Ze %s
+HTSetConversion: audio/x-wav,  xanim +Ze %s
+ProcessMailcapEntry Setting up conversion audio/x-wav :  bplay %s
+HTSetConversion: audio/x-wav,  bplay %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/avs :  /usr/X11R6/bin/display %s
+HTSetConversion: image/avs,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/bie :  /usr/X11R6/bin/display %s
+HTSetConversion: image/bie,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/bmp :  /usr/X11R6/bin/display %s
+HTSetConversion: image/bmp,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/bmp :  /usr/bin/X11/xv %s
+HTSetConversion: image/bmp,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/cmu-raster :  /usr/bin/X11/xv %s
+HTSetConversion: image/cmu-raster,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/cmyk :  /usr/X11R6/bin/display %s
+HTSetConversion: image/cmyk,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/dcx :  /usr/X11R6/bin/display %s
+HTSetConversion: image/dcx,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/eps :  /usr/X11R6/bin/display %s
+HTSetConversion: image/eps,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/fax :  /usr/X11R6/bin/display %s
+HTSetConversion: image/fax,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/fits :  /usr/X11R6/bin/display %s
+HTSetConversion: image/fits,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/fits :  /usr/bin/X11/xv %s
+HTSetConversion: image/fits,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/gif :  /usr/X11R6/bin/display %s
+HTSetConversion: image/gif,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/gif :  /usr/bin/X11/xv %s
+HTSetConversion: image/gif,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/gif :  xanim %s
+HTSetConversion: image/gif,  xanim %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/gradation :  /usr/X11R6/bin/display %s
+HTSetConversion: image/gradation,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/gray :  /usr/X11R6/bin/display %s
+HTSetConversion: image/gray,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/hdf :  /usr/X11R6/bin/display %s
+HTSetConversion: image/hdf,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/jpeg :  /usr/X11R6/bin/display %s
+HTSetConversion: image/jpeg,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/jpeg :  /usr/bin/X11/xv %s
+HTSetConversion: image/jpeg,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/jpeg :  xanim %s
+HTSetConversion: image/jpeg,  xanim %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/map :  /usr/X11R6/bin/display %s
+HTSetConversion: image/map,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/miff :  /usr/X11R6/bin/display %s
+HTSetConversion: image/miff,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/mono :  /usr/X11R6/bin/display %s
+HTSetConversion: image/mono,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/mtv :  /usr/X11R6/bin/display %s
+HTSetConversion: image/mtv,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/pcd :  /usr/X11R6/bin/display %s
+HTSetConversion: image/pcd,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/pcx :  /usr/X11R6/bin/display %s
+HTSetConversion: image/pcx,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/pdf :  /usr/X11R6/bin/display %s
+HTSetConversion: image/pdf,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/pict :  /usr/X11R6/bin/display %s
+HTSetConversion: image/pict,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/pm :  /usr/bin/X11/xv %s
+HTSetConversion: image/pm,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/png :  /usr/X11R6/bin/display %s
+HTSetConversion: image/png,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/png :  /usr/bin/X11/xv %s
+HTSetConversion: image/png,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/postscript :  /usr/bin/X11/xv %s
+HTSetConversion: image/postscript,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/ps :  /usr/X11R6/bin/display %s
+HTSetConversion: image/ps,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/rad :  /usr/X11R6/bin/display %s
+HTSetConversion: image/rad,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/rgba :  /usr/X11R6/bin/display %s
+HTSetConversion: image/rgba,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/rla :  /usr/X11R6/bin/display %s
+HTSetConversion: image/rla,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/rle :  /usr/X11R6/bin/display %s
+HTSetConversion: image/rle,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/sgi :  /usr/X11R6/bin/display %s
+HTSetConversion: image/sgi,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/sun-raster :  /usr/X11R6/bin/display %s
+HTSetConversion: image/sun-raster,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/targa :  /usr/X11R6/bin/display %s
+HTSetConversion: image/targa,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/targa :  /usr/bin/X11/xv %s
+HTSetConversion: image/targa,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/tiff :  /usr/X11R6/bin/display %s
+HTSetConversion: image/tiff,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/tiff :  /usr/bin/X11/xv %s
+HTSetConversion: image/tiff,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/uyvu :  /usr/X11R6/bin/display %s
+HTSetConversion: image/uyvu,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/vid :  /usr/X11R6/bin/display %s
+HTSetConversion: image/vid,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/viff :  /usr/X11R6/bin/display %s
+HTSetConversion: image/viff,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-bitmap :  /usr/X11R6/bin/display %s
+HTSetConversion: image/x-bitmap,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-pixmap :  /usr/X11R6/bin/display %s
+HTSetConversion: image/x-pixmap,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-portable-anymap :  /usr/X11R6/bin/display %s
+HTSetConversion: image/x-portable-anymap,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-portable-bitmap :  /usr/X11R6/bin/display %s
+HTSetConversion: image/x-portable-bitmap,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-portable-bitmap :  /usr/bin/X11/xv %s
+HTSetConversion: image/x-portable-bitmap,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-portable-graymap :  /usr/X11R6/bin/display %s
+HTSetConversion: image/x-portable-graymap,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-portable-graymap :  /usr/bin/X11/xv %s
+HTSetConversion: image/x-portable-graymap,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-portable-pixmap :  /usr/X11R6/bin/display %s
+HTSetConversion: image/x-portable-pixmap,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-portable-pixmap :  /usr/bin/X11/xv %s
+HTSetConversion: image/x-portable-pixmap,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-rgb :  /usr/X11R6/bin/display %s
+HTSetConversion: image/x-rgb,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-rgb :  /usr/bin/X11/xv %s
+HTSetConversion: image/x-rgb,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-xbitmap :  /usr/bin/X11/xv %s
+HTSetConversion: image/x-xbitmap,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-xpixmap :  /usr/bin/X11/xv %s
+HTSetConversion: image/x-xpixmap,  /usr/bin/X11/xv %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/x-xwindowdump :  /usr/X11R6/bin/display %s
+HTSetConversion: image/x-xwindowdump,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry: Found testcommand:test -n "$DISPLAY"
+ProcessMailcapEntry: Ignoring mailcap flag 'nametemplate'.
+PassesTest: Testing for XWINDOWS environment.
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion image/yuv :  /usr/X11R6/bin/display %s
+HTSetConversion: image/yuv,  /usr/X11R6/bin/display %s
+ProcessMailcapEntry Setting up conversion message/external-body :  showexternal %s %{access-type} %{name} %{site} %{directory} %{mode} %{server}
+HTSetConversion: message/external-body,  showexternal %s %{access-type} %{name} %{site} %{directory} %{mode} %{server}
+ProcessMailcapEntry: Ignoring mailcap flag 'composetyped'.
+ProcessMailcapEntry Setting up conversion message/external-body :  echo "No viewer for type 'message/external-body'"
+HTSetConversion: message/external-body,  echo "No viewer for type 'message/external-body'"
+ProcessMailcapEntry Setting up conversion message/partial :  showpartial %s %{id} %{number} %{total}
+HTSetConversion: message/partial,  showpartial %s %{id} %{number} %{total}
+ProcessMailcapEntry Setting up conversion text/enriched :  richtext -e %s
+HTSetConversion: text/enriched,  richtext -e %s
+ProcessMailcapEntry: Found testcommand:test "`echo %{charset} | tr "[A-Z]" "[a-z]"`" = iso-8859-1 -a "$DISPLAY" != ""
+BuildCommand: Ignoring unrecognized format code in mailcap file '%{'.
+PassesTest: Executing test command: test "`echo charset} | tr "[A-Z]" "[a-z]"`" = iso-8859-1 -a "$DISPLAY" != ""
+PassesTest: Test failed!
+ProcessMailcapEntry: Ignoring mailcap entry: text/html; /usr/bin/lynx -force_html %s; needsterminal; description=HTML Text; nametemplate=%s.html
+ProcessMailcapEntry: Ignoring mailcap entry: text/plain; shownonascii iso-8859-1 %s; test=test "`echo %{charset} | tr "[A-Z]" "[a-z]"`" = iso-8859-1 -a "$DISPLAY" != ""; description=Plain ASCII Text
+ProcessMailcapEntry Setting up conversion text/richtext :  richtext %s
+HTSetConversion: text/richtext,  richtext %s
+ProcessMailcapEntry: Found testcommand:test "`echo %{charset} | tr "[A-Z]" "[a-z]"`" = iso-8859-1 -a "$DISPLAY" != ""
+BuildCommand: Ignoring unrecognized format code in mailcap file '%{'.
+PassesTest: Executing test command: test "`echo charset} | tr "[A-Z]" "[a-z]"`" = iso-8859-1 -a "$DISPLAY" != ""
+PassesTest: Test failed!
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion video/dl :  xanim %s
+HTSetConversion: video/dl,  xanim %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion video/fli :  xanim %s
+HTSetConversion: video/fli,  xanim %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion video/mpeg :  xanim %s
+HTSetConversion: video/mpeg,  xanim %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion video/quicktime :  xanim %s
+HTSetConversion: video/quicktime,  xanim %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion video/x-msvideo :  xanim %s
+HTSetConversion: video/x-msvideo,  xanim %s
+ProcessMailcapEntry: Found testcommand:test "$DISPLAY" != ""
+PassesTest: Executing test command: test "$DISPLAY" != ""
+PassesTest: Test passed!
+ProcessMailcapEntry Setting up conversion video/x-sgi-movie :  xanim %s
+HTSetConversion: video/x-sgi-movie,  xanim %s
+ProcessMailcapFile: Loading file '/home/chrish/.mailcap'.
+ProcessMailcapFile: Could not open '/home/chrish/.mailcap'.
+HTFormat: Looking up presentation for text/plain to www/present
+FindPresentation: found exact match: text/plain
+HTFormat: Looking up presentation for text/html to www/present
+FindPresentation: found exact match: text/html
+HTFileInit: Loading default (HTInit) extension maps.
+HTLoadExtensionsConfigFile: Loading file '/etc/mime.types'.
+SETTING SUFFIX '.csm' to 'application/cu-seeme'.
+SETTING SUFFIX '.cu' to 'application/cu-seeme'.
+SETTING SUFFIX '.tsp' to 'application/dsptype'.
+SETTING SUFFIX '.xls' to 'application/excel'.
+SETTING SUFFIX '.hqx' to 'application/mac-binhex40'.
+SETTING SUFFIX '.doc' to 'application/msword'.
+SETTING SUFFIX '.dot' to 'application/msword'.
+SETTING SUFFIX '.bin' to 'application/octet-stream'.
+SETTING SUFFIX '.oda' to 'application/oda'.
+SETTING SUFFIX '.pdf' to 'application/pdf'.
+SETTING SUFFIX '.pgp' to 'application/pgp-signature'.
+SETTING SUFFIX '.ps' to 'application/postscript'.
+SETTING SUFFIX '.ai' to 'application/postscript'.
+SETTING SUFFIX '.eps' to 'application/postscript'.
+SETTING SUFFIX '.ppt' to 'application/powerpoint'.
+SETTING SUFFIX '.rtf' to 'application/rtf'.
+SETTING SUFFIX '.wp5' to 'application/wordperfect5.1'.
+SETTING SUFFIX '.wk' to 'application/x-123'.
+SETTING SUFFIX '.wz' to 'application/x-wingz'.
+SETTING SUFFIX '.bcpio' to 'application/x-bcpio'.
+SETTING SUFFIX '.bz2' to 'application/x-bzip2'.
+SETTING SUFFIX '.z' to 'application/x-compress'.
+SETTING SUFFIX '.z' to 'application/x-compress'.
+SETTING SUFFIX '.cpio' to 'application/x-cpio'.
+SETTING SUFFIX '.csh' to 'application/x-csh'.
+SETTING SUFFIX '.deb' to 'application/x-debian-package'.
+SETTING SUFFIX '.dvi' to 'application/x-dvi'.
+SETTING SUFFIX '.pfa' to 'application/x-font'.
+SETTING SUFFIX '.pfb' to 'application/x-font'.
+SETTING SUFFIX '.gsf' to 'application/x-font'.
+SETTING SUFFIX '.pcf.z' to 'application/x-font'.
+SETTING SUFFIX '.gtar' to 'application/x-gtar'.
+SETTING SUFFIX '.tgz' to 'application/x-gtar'.
+SETTING SUFFIX '.gz' to 'application/x-gzip'.
+SETTING SUFFIX '.hdf' to 'application/x-hdf'.
+SETTING SUFFIX '.phtml' to 'application/x-httpd-php'.
+SETTING SUFFIX '.pht' to 'application/x-httpd-php'.
+SETTING SUFFIX '.php' to 'application/x-httpd-php'.
+SETTING SUFFIX '.php3' to 'application/x-httpd-php3'.
+SETTING SUFFIX '.phps' to 'application/x-httpd-php3-source'.
+SETTING SUFFIX '.php3p' to 'application/x-httpd-php3-preprocessed'.
+SETTING SUFFIX '.class' to 'application/x-java'.
+SETTING SUFFIX '.latex' to 'application/x-latex'.
+SETTING SUFFIX '.frm' to 'application/x-maker'.
+SETTING SUFFIX '.maker' to 'application/x-maker'.
+SETTING SUFFIX '.frame' to 'application/x-maker'.
+SETTING SUFFIX '.fm' to 'application/x-maker'.
+SETTING SUFFIX '.fb' to 'application/x-maker'.
+SETTING SUFFIX '.book' to 'application/x-maker'.
+SETTING SUFFIX '.fbdoc' to 'application/x-maker'.
+SETTING SUFFIX '.mif' to 'application/x-mif'.
+SETTING SUFFIX '.com' to 'application/x-msdos-program'.
+SETTING SUFFIX '.exe' to 'application/x-msdos-program'.
+SETTING SUFFIX '.bat' to 'application/x-msdos-program'.
+SETTING SUFFIX '.nc' to 'application/x-netcdf'.
+SETTING SUFFIX '.cdf' to 'application/x-netcdf'.
+SETTING SUFFIX '.o' to 'application/x-object'.
+SETTING SUFFIX '.pl' to 'application/x-perl'.
+SETTING SUFFIX '.pm' to 'application/x-perl'.
+SETTING SUFFIX '.sh' to 'application/x-sh'.
+SETTING SUFFIX '.shar' to 'application/x-shar'.
+SETTING SUFFIX '.sit' to 'application/x-stuffit'.
+SETTING SUFFIX '.sv4cpio' to 'application/x-sv4cpio'.
+SETTING SUFFIX '.sv4crc' to 'application/x-sv4crc'.
+SETTING SUFFIX '.tar' to 'application/x-tar'.
+SETTING SUFFIX '.tar' to 'application/x-tar'.
+SETTING SUFFIX '.tcl' to 'application/x-tcl'.
+SETTING SUFFIX '.tex' to 'application/x-tex'.
+SETTING SUFFIX '.*gf' to 'application/x-tex-gf'.
+SETTING SUFFIX '.pk' to 'application/x-tex-pk'.
+SETTING SUFFIX '.pk' to 'application/x-tex-pk'.
+SETTING SUFFIX '.texinfo' to 'application/x-texinfo'.
+SETTING SUFFIX '.texi' to 'application/x-texinfo'.
+SETTING SUFFIX '.~' to 'application/x-trash'.
+SETTING SUFFIX '.%' to 'application/x-trash'.
+SETTING SUFFIX '.bak' to 'application/x-trash'.
+SETTING SUFFIX '.old' to 'application/x-trash'.
+SETTING SUFFIX '.sik' to 'application/x-trash'.
+SETTING SUFFIX '.t' to 'application/x-troff'.
+SETTING SUFFIX '.tr' to 'application/x-troff'.
+SETTING SUFFIX '.roff' to 'application/x-troff'.
+SETTING SUFFIX '.man' to 'application/x-troff-man'.
+SETTING SUFFIX '.me' to 'application/x-troff-me'.
+SETTING SUFFIX '.ms' to 'application/x-troff-ms'.
+SETTING SUFFIX '.ustar' to 'application/x-ustar'.
+SETTING SUFFIX '.src' to 'application/x-wais-source'.
+SETTING SUFFIX '.zip' to 'application/zip'.
+SETTING SUFFIX '.au' to 'audio/basic'.
+SETTING SUFFIX '.snd' to 'audio/basic'.
+SETTING SUFFIX '.mid' to 'audio/midi'.
+SETTING SUFFIX '.midi' to 'audio/midi'.
+SETTING SUFFIX '.aif' to 'audio/x-aiff'.
+SETTING SUFFIX '.aiff' to 'audio/x-aiff'.
+SETTING SUFFIX '.aifc' to 'audio/x-aiff'.
+SETTING SUFFIX '.ra' to 'audio/x-pn-realaudio'.
+SETTING SUFFIX '.rm' to 'audio/x-pn-realaudio'.
+SETTING SUFFIX '.ram' to 'audio/x-pn-realaudio'.
+SETTING SUFFIX '.wav' to 'audio/x-wav'.
+SETTING SUFFIX '.gif' to 'image/gif'.
+SETTING SUFFIX '.ief' to 'image/ief'.
+SETTING SUFFIX '.jpeg' to 'image/jpeg'.
+SETTING SUFFIX '.jpg' to 'image/jpeg'.
+SETTING SUFFIX '.jpe' to 'image/jpeg'.
+SETTING SUFFIX '.png' to 'image/png'.
+SETTING SUFFIX '.tiff' to 'image/tiff'.
+SETTING SUFFIX '.tif' to 'image/tiff'.
+SETTING SUFFIX '.ras' to 'image/x-cmu-raster'.
+SETTING SUFFIX '.bmp' to 'image/x-ms-bmp'.
+SETTING SUFFIX '.bmp' to 'image/x-ms-bmp'.
+SETTING SUFFIX '.pnm' to 'image/x-portable-anymap'.
+SETTING SUFFIX '.pbm' to 'image/x-portable-bitmap'.
+SETTING SUFFIX '.pgm' to 'image/x-portable-graymap'.
+SETTING SUFFIX '.ppm' to 'image/x-portable-pixmap'.
+SETTING SUFFIX '.rgb' to 'image/x-rgb'.
+SETTING SUFFIX '.xbm' to 'image/x-xbitmap'.
+SETTING SUFFIX '.xpm' to 'image/x-xpixmap'.
+SETTING SUFFIX '.xwd' to 'image/x-xwindowdump'.
+SETTING SUFFIX '.csv' to 'text/comma-separated-values'.
+SETTING SUFFIX '.html' to 'text/html'.
+SETTING SUFFIX '.htm' to 'text/html'.
+SETTING SUFFIX '.txt' to 'text/plain'.
+SETTING SUFFIX '.rtx' to 'text/richtext'.
+SETTING SUFFIX '.tsv' to 'text/tab-separated-values'.
+SETTING SUFFIX '.hpp' to 'text/x-c++hdr'.
+SETTING SUFFIX '.hxx' to 'text/x-c++hdr'.
+SETTING SUFFIX '.hh' to 'text/x-c++hdr'.
+SETTING SUFFIX '.cpp' to 'text/x-c++src'.
+SETTING SUFFIX '.cxx' to 'text/x-c++src'.
+SETTING SUFFIX '.cc' to 'text/x-c++src'.
+SETTING SUFFIX '.h' to 'text/x-chdr'.
+SETTING SUFFIX '.c' to 'text/x-csrc'.
+SETTING SUFFIX '.java' to 'text/x-java'.
+SETTING SUFFIX '.moc' to 'text/x-moc'.
+SETTING SUFFIX '.p' to 'text/x-pascal'.
+SETTING SUFFIX '.pas' to 'text/x-pascal'.
+SETTING SUFFIX '.etx' to 'text/x-setext'.
+SETTING SUFFIX '.tcl' to 'text/x-tcl'.
+SETTING SUFFIX '.tk' to 'text/x-tcl'.
+SETTING SUFFIX '.tex' to 'text/x-tex'.
+SETTING SUFFIX '.ltx' to 'text/x-tex'.
+SETTING SUFFIX '.sty' to 'text/x-tex'.
+SETTING SUFFIX '.cls' to 'text/x-tex'.
+SETTING SUFFIX '.vcs' to 'text/x-vcalendar'.
+SETTING SUFFIX '.vcf' to 'text/x-vcard'.
+SETTING SUFFIX '.dl' to 'video/dl'.
+SETTING SUFFIX '.fli' to 'video/fli'.
+SETTING SUFFIX '.gl' to 'video/gl'.
+SETTING SUFFIX '.mpeg' to 'video/mpeg'.
+SETTING SUFFIX '.mpg' to 'video/mpeg'.
+SETTING SUFFIX '.mpe' to 'video/mpeg'.
+SETTING SUFFIX '.qt' to 'video/quicktime'.
+SETTING SUFFIX '.mov' to 'video/quicktime'.
+SETTING SUFFIX '.avi' to 'video/x-msvideo'.
+SETTING SUFFIX '.movie' to 'video/x-sgi-movie'.
+SETTING SUFFIX '.vrm' to 'x-world/x-vrml'.
+SETTING SUFFIX '.vrml' to 'x-world/x-vrml'.
+SETTING SUFFIX '.wrl' to 'x-world/x-vrml'.
+HTLoadExtensionsConfigFile: Loading file '/home/chrish/.mime.types'.
+SETTING SUFFIX '.\' to 'type=application'.
+SETTING SUFFIX '.package"' to 'desc="debian'.
+SETTING SUFFIX '.\' to 'desc="debian'.
+HTParse: aName:http://localhost/   relatedName:
+1
+HTParse: result:http://localhost/
+HTParse: aName:http://localhost/   relatedName:
+1
+HTParse: result:http://localhost/
+LYMain.c: User in REMOTE domain
+Entering mainloop, startfile=http://localhost/
+getfile: getting http://localhost/
+
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:localhost
+
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x814f568 has hash 95 and address `http://localhost/'
+HTAccess: loading document http://localhost/
+HTParse: aName:http://localhost/   relatedName:file:
+HTParse: result:http
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:localhost
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:http
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:localhost
+Looking up localhost.
+HTParseInet: NSL_FORK child 6053 exited, status 0x0.
+HTParseInet: Parsed address as port 80, IP address 127.0.0.1
+Making HTTP connection to localhost.
+HTParse: aName:http://localhost/   relatedName:
+1
+HTParse: result:/
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:localhost
+HTParse: aName:http://localhost/   relatedName:
+1
+HTParse: result:/
+HTParse: aName:http://localhost/   relatedName:
+1
+HTParse: result:
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:localhost
+LYCookie: Searching for 'localhost:80', '/'.
+Composing Authorization for localhost:80/
+HTAASetup_lookup: No template matched `' (so probably not protected)
+HTTP: Not sending authorization (yet).
+Writing:
+GET / HTTP/1.0
+Host: localhost
+Accept: text/html, text/plain, video/x-sgi-movie, video/x-msvideo, video/quicktime, video/mpeg, video/fli, video/dl, text/richtext, text/enriched, message/partial, message/external-body, message/external-body, image/yuv, image/x-xwindowdump
+Accept: image/x-xpixmap, image/x-xbitmap, image/x-rgb, image/x-rgb, image/x-portable-pixmap, image/x-portable-pixmap, image/x-portable-graymap, image/x-portable-graymap, image/x-portable-bitmap, image/x-portable-bitmap, image/x-portable-anymap
+Accept: image/x-pixmap, image/x-bitmap, image/viff, image/vid, image/uyvu, image/tiff, image/tiff, image/targa, image/targa, image/sun-raster, image/sgi, image/rle, image/rla, image/rgba, image/rad, image/ps, image/postscript, image/png, image/png
+Accept: image/pm, image/pict, image/pdf, image/pcx, image/pcd, image/mtv, image/mono, image/miff, image/map, image/jpeg, image/jpeg, image/jpeg, image/hdf, image/gray, image/gradation, image/gif, image/gif, image/gif, image/fits, image/fits, image/fax
+Accept: image/eps, image/dcx, image/cmyk, image/cmu-raster, image/bmp, image/bmp, image/bie, image/avs, audio/x-wav, audio/x-wav, audio/x-pn-realaudio, audio/midi, audio/basic, audio/basic, audio/basic, application/x-debian-package
+Accept: application/postscript, application/pdf, application/pdf, application/ghostview, text/sgml, video/mpeg, image/jpeg, image/tiff, image/x-rgb, image/png, image/x-xbitmap, image/x-xbm, image/gif, application/postscript, */*;q=0.01
+Accept-Encoding: gzip, compress
+Accept-Language: fr de en jp
+Negotiate: trans
+User-Agent: Lynx/2.8rel.2 libwww-FM/2.14
+
+----------------------------------
+Sending HTTP request.
+HTTP: WRITE delivered OK
+HTTP request sent; waiting for response.
+HTTP: Trying to read 1023
+HTTP: Read 191
+Read 191 bytes of data.
+HTTP: Rx: HTTP/1.0 200 OK 
+HTTP: Scanned 2 fields from line_buffer
+--- Talking HTTP1.
+HTTP/1.0 200 OK
+HTFormat: Constructing stream stack for www/mime to www/present
+HTFormat: Looking up presentation for www/mime to www/present
+FindPresentation: found exact match: www/mime
+StreamStack: found exact match: www/mime
+HTMIME:  Date: Sun, 31 May 1998 04:30:10 GMT
+Server: Boa/0.93.14.1
+Connection: close
+Content-Length: 1647
+Last-Modified: Mon, 11 May 1998 03:03:26 GMT
+Content-Type: text/html
+
+
+HTMIME: Got 'D' at beginning of line, checking for 'ate:'
+HTMIME: PICKED UP Date: 'Sun, 31 May 1998 04:30:10 GMT'
+HTMIME: Got 'S' at beginning of line, state now S
+HTMIME: Was S, found E, state now SE'
+HTMIME: Was SE, found R, checking for 'ver'
+HTMIME: PICKED UP Server: 'Boa/0.93.14.1'
+HTMIME: Got 'C' at beginning of line, state now C
+HTMIME: Was C, found O, state now CO'
+HTMIME: Was CO, found N, state now CON
+HTMIME: Was CON, found N, checking for 'ection:'
+HTMIME: PICKED UP Connection: 'close'
+HTMIME: Got 'C' at beginning of line, state now C
+HTMIME: Was C, found O, state now CO'
+HTMIME: Was CO, found N, state now CON
+HTMIME: Was CON, found T, checking for 'ent-'
+HTMIME: in case CONTENT_
+HTMIME: Was CONTENT_, found L, state now CONTENT_L
+HTMIME: in case CONTENT_L
+HTMIME: Was CONTENT_L, found E, checking for 'ngth:'
+HTMIME: PICKED UP Content-Length: '1647'
+        Converted to integer: '1647'
+HTMIME: Got 'L' at beginning of line, state now L
+HTMIME: Was L, found A, checking for 'st-modified:'
+HTMIME: PICKED UP Last-Modified: 'Mon, 11 May 1998 03:03:26 GMT'
+HTMIME: Got 'C' at beginning of line, state now C
+HTMIME: Was C, found O, state now CO'
+HTMIME: Was CO, found N, state now CON
+HTMIME: Was CON, found T, checking for 'ent-'
+HTMIME: in case CONTENT_
+HTMIME: Was CONTENT_, found T, state now CONTENT_T
+HTMIME: in case CONTENT_T
+HTMIME: Was CONTENT_T, found Y, checking for 'pe:'
+HTMIME: PICKED UP Content-Type: 'text/html'
+HTMIME: MIME Content-Type is 'text/html', converting to 'www/present'
+HTFormat: Constructing stream stack for text/html to www/present
+HTFormat: Looking up presentation for text/html to www/present
+StreamStack: found weak wildcard match: www/present
+FindPresentation: found exact match: text/html
+StreamStack: found exact match: text/html
+SGML Doctype
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+SGML: Start <HTML>
+GridText: Change to style Normal
+GridText: split_line called
+HTML:begin_element: adding style to stack - Normal
+SGML: Start <HEAD>
+HTML:begin_element: adding style to stack - Normal
+SGML: Start <META>
+LYHandleMETA: HTTP-EQUIV="Content-Type" NAME="NULL" CONTENT="text/html; charset=iso-8859-1"
+LYHandleMETA: New charset: iso-8859-1
+SGML: Start <META>
+LYHandleMETA: HTTP-EQUIV="NULL" NAME="Author" CONTENT="Christian Hudon"
+SGML: Start <TITLE>
+HTML:begin_element: adding style to stack - Normal
+SGML: End </TITLE>
+HTML:end_element: Popped style off stack - Normal
+SGML: End </HEAD>
+HTML:end_element: Popped style off stack - Normal
+SGML: Start <BODY>
+HTML:begin_element: adding style to stack - Normal
+SGML: Start <H1>
+GridText: Change to style HeadingCenter
+HTML:begin_element: adding style to stack - HeadingCenter
+SGML: End </H1>
+HTML:end_element: Popped style off stack - Normal
+GridText: Change to style Normal
+GridText: split_line called
+GridText: split_line called
+SGML: Start <TABLE>
+GridText: Change to style DivLeft
+HTML:begin_element: adding style to stack - DivLeft
+SGML: Start <TR>
+HTML:begin_element: adding style to stack - DivLeft
+SGML: Start <TD>
+HTML:begin_element: adding style to stack - DivLeft
+SGML: Start <H2>
+GridText: Change to style HeadingLeft
+HTML:begin_element: adding style to stack - HeadingLeft
+SGML: End </H2>
+HTML:end_element: Popped style off stack - DivLeft
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: Start <H3>
+GridText: Change to style HeadingLeft
+HTML:begin_element: adding style to stack - HeadingLeft
+SGML: End </H3>
+HTML:end_element: Popped style off stack - DivLeft
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: Start <UL>
+GridText: Change to style List
+HTML:begin_element: adding style to stack - List
+SGML: Start <LI>
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x8153ed8 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:/dwww/   relatedName:http://localhost/
+1
+HTParse: result:http://localhost/dwww/
+HTParse: aName:http://localhost/dwww/   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8153f70 has hash 18 and address `http://localhost/dwww/'
+Linking anchor 0x8153ed8 to anchor 0x8153f70
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:1 link_type:1
+SGML: End </LI> 	<- supplied, start <LI>
+HTML:end_element: Popped style off stack - List
+SGML: Start <LI>
+GridText: split_line called
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x81540a8 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:/cgi-bin/man2html   relatedName:http://localhost/
+1
+HTParse: result:http://localhost/cgi-bin/man2html
+HTParse: aName:http://localhost/cgi-bin/man2html   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8153ae8 has hash 9 and address `http://localhost/cgi-bin/man2html'
+Linking anchor 0x81540a8 to anchor 0x8153ae8
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:2 link_type:1
+SGML: End </LI> 	<- supplied, start <LI>
+HTML:end_element: Popped style off stack - List
+SGML: Start <LI>
+GridText: split_line called
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x8153bf8 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:/cgi-bin/info2www   relatedName:http://localhost/
+1
+HTParse: result:http://localhost/cgi-bin/info2www
+HTParse: aName:http://localhost/cgi-bin/info2www   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8153c90 has hash 22 and address `http://localhost/cgi-bin/info2www'
+Linking anchor 0x8153bf8 to anchor 0x8153c90
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:3 link_type:1
+SGML: End </LI> 	<- supplied, end </UL>
+HTML:end_element: Popped style off stack - List
+SGML: End </UL>
+HTML:end_element: Popped style off stack - DivLeft
+HTML_end_element: Reducing List Nesting Level to -1
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: Start <H2>
+GridText: Change to style HeadingLeft
+HTML:begin_element: adding style to stack - HeadingLeft
+SGML: End </H2>
+HTML:end_element: Popped style off stack - DivLeft
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: Start <UL>
+GridText: Change to style List
+HTML:begin_element: adding style to stack - List
+SGML: Start <LI>
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x8153f00 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:/doc/dpkg/packaging.html/   relatedName:http://localhost/
+1
+HTParse: result:http://localhost/doc/dpkg/packaging.html/
+HTParse: aName:http://localhost/doc/dpkg/packaging.html/   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8154118 has hash 76 and address `http://localhost/doc/dpkg/packaging.html/'
+Linking anchor 0x8153f00 to anchor 0x8154118
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:4 link_type:1
+SGML: End </LI> 	<- supplied, start <LI>
+HTML:end_element: Popped style off stack - List
+SGML: Start <LI>
+GridText: split_line called
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x8153dd8 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:/doc/debian-policy/policy.html   relatedName:http://localhost/
+1
+HTParse: result:http://localhost/doc/debian-policy/policy.html
+HTParse: aName:http://localhost/doc/debian-policy/policy.html   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x81542c8 has hash 78 and address `http://localhost/doc/debian-policy/policy.html'
+Linking anchor 0x8153dd8 to anchor 0x81542c8
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:5 link_type:1
+SGML: End </LI> 	<- supplied, start <LI>
+HTML:end_element: Popped style off stack - List
+SGML: Start <LI>
+GridText: split_line called
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x8154228 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:/doc/debian-policy/fsstnd/fsstnd-1.2.txt   relatedName:http://localhost/
+1
+HTParse: result:http://localhost/doc/debian-policy/fsstnd/fsstnd-1.2.txt
+HTParse: aName:http://localhost/doc/debian-policy/fsstnd/fsstnd-1.2.txt   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x81548c0 has hash 32 and address `http://localhost/doc/debian-policy/fsstnd/fsstnd-1.2.txt'
+Linking anchor 0x8154228 to anchor 0x81548c0
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:6 link_type:1
+SGML: End </LI> 	<- supplied, end </UL>
+HTML:end_element: Popped style off stack - List
+SGML: End </UL>
+HTML:end_element: Popped style off stack - DivLeft
+HTML_end_element: Reducing List Nesting Level to -1
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: End </TD>
+HTML:end_element: Popped style off stack - DivLeft
+SGML: Start <TD>
+HTML:begin_element: adding style to stack - DivLeft
+SGML: Start <H2>
+GridText: Change to style HeadingLeft
+HTML:begin_element: adding style to stack - HeadingLeft
+SGML: End </H2>
+HTML:end_element: Popped style off stack - DivLeft
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: Start <H3>
+GridText: Change to style HeadingLeft
+HTML:begin_element: adding style to stack - HeadingLeft
+SGML: End </H3>
+HTML:end_element: Popped style off stack - DivLeft
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: Start <UL>
+GridText: Change to style List
+HTML:begin_element: adding style to stack - List
+SGML: Start <LI>
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x81549b8 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:http://www.debian.org/Bugs/   relatedName:http://localhost/
+1
+HTParse: result:http://www.debian.org/Bugs/
+HTParse: aName:http://www.debian.org/Bugs/   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8154a48 has hash 1 and address `http://www.debian.org/Bugs/'
+Linking anchor 0x81549b8 to anchor 0x8154a48
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:7 link_type:1
+SGML: End </LI> 	<- supplied, start <LI>
+HTML:end_element: Popped style off stack - List
+SGML: Start <LI>
+GridText: split_line called
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x8154998 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:http://www.debian.org/security/   relatedName:http://localhost/
+1
+HTParse: result:http://www.debian.org/security/
+HTParse: aName:http://www.debian.org/security/   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8154c28 has hash 55 and address `http://www.debian.org/security/'
+Linking anchor 0x8154998 to anchor 0x8154c28
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:8 link_type:1
+SGML: End </LI> 	<- supplied, start <LI>
+HTML:end_element: Popped style off stack - List
+SGML: Start <LI>
+GridText: split_line called
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x8154d98 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:http://www.debian.org/packages.html   relatedName:http://localhost/
+1
+HTParse: result:http://www.debian.org/packages.html
+HTParse: aName:http://www.debian.org/packages.html   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8154e80 has hash 51 and address `http://www.debian.org/packages.html'
+Linking anchor 0x8154d98 to anchor 0x8154e80
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:9 link_type:1
+SGML: End </LI> 	<- supplied, start <LI>
+HTML:end_element: Popped style off stack - List
+SGML: Start <LI>
+GridText: split_line called
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x8153e30 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:http://kuolema.infodrom.north.de/bin/ticket   relatedName:http://localhost/
+1
+HTParse: result:http://kuolema.infodrom.north.de/bin/ticket
+HTParse: aName:http://kuolema.infodrom.north.de/bin/ticket   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x81544a8 has hash 33 and address `http://kuolema.infodrom.north.de/bin/ticket'
+Linking anchor 0x8153e30 to anchor 0x81544a8
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:10 link_type:1
+SGML: End </LI> 	<- supplied, start <LI>
+HTML:end_element: Popped style off stack - List
+SGML: Start <LI>
+GridText: split_line called
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x8154440 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:http://www.geek-girl.com/bugtraq/index.html   relatedName:http://localhost/
+1
+HTParse: result:http://www.geek-girl.com/bugtraq/index.html
+HTParse: aName:http://www.geek-girl.com/bugtraq/index.html   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8154668 has hash 77 and address `http://www.geek-girl.com/bugtraq/index.html'
+Linking anchor 0x8154440 to anchor 0x8154668
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:11 link_type:1
+SGML: End </LI> 	<- supplied, end </UL>
+HTML:end_element: Popped style off stack - List
+SGML: End </UL>
+HTML:end_element: Popped style off stack - DivLeft
+HTML_end_element: Reducing List Nesting Level to -1
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: Start <H3>
+GridText: Change to style HeadingLeft
+HTML:begin_element: adding style to stack - HeadingLeft
+SGML: End </H3>
+HTML:end_element: Popped style off stack - DivLeft
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: Start <UL>
+GridText: Change to style List
+HTML:begin_element: adding style to stack - List
+SGML: Start <LI>
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x81543a0 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:http://www.debian.org/   relatedName:http://localhost/
+1
+HTParse: result:http://www.debian.org/
+HTParse: aName:http://www.debian.org/   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8154f80 has hash 24 and address `http://www.debian.org/'
+Linking anchor 0x81543a0 to anchor 0x8154f80
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:12 link_type:1
+SGML: End </LI> 	<- supplied, start <LI>
+HTML:end_element: Popped style off stack - List
+SGML: Start <LI>
+GridText: split_line called
+HTML:begin_element: adding style to stack - List
+SGML: Start <A>
+new Anchor 0x81543b8 named `' is child of 0x814f568
+Entered HTAnchor_findChildAndLink
+HTParse: aName:http://www.linuxhq.com/   relatedName:http://localhost/
+1
+HTParse: result:http://www.linuxhq.com/
+HTParse: aName:http://www.linuxhq.com/   relatedName:
+HTParse: result:
+Entered HTAnchor_findAddress
+New anchor 0x8155108 has hash 64 and address `http://www.linuxhq.com/'
+Linking anchor 0x81543b8 to anchor 0x8155108
+HTML:begin_element: adding style to stack - List
+SGML: End </A>
+HTML:end_element: Popped style off stack - List
+HText_endAnchor: number:13 link_type:1
+SGML: End </LI> 	<- supplied, end </UL>
+HTML:end_element: Popped style off stack - List
+SGML: End </UL>
+HTML:end_element: Popped style off stack - DivLeft
+HTML_end_element: Reducing List Nesting Level to -1
+GridText: Change to style DivLeft
+GridText: split_line called
+GridText: split_line called
+SGML: End </TD>
+HTML:end_element: Popped style off stack - DivLeft
+SGML: End </TR>
+HTML:end_element: Popped style off stack - DivLeft
+SGML: End </TABLE>
+HTML:end_element: Popped style off stack - Normal
+GridText: Change to style Normal
+SGML: End </BODY>
+HTML:end_element: Popped style off stack - Normal
+SGML: End </HTML>
+HTML:end_element: Popped style off stack - Normal
+Read 1647 of 1647 bytes of data.
+Data transfer complete
+Gridtext: Entering HText_endAppend
+GridText: split_line called
+GridText: Removing bottom blank line: 
+GridText: Removing bottom blank line: 
+GridText: Removing bottom blank line: 
+Gridtext: Anchor found on line:7 col:4
+GridText: adding link on line 7 in HText_endAppend
+Gridtext: Anchor found on line:8 col:4
+GridText: adding link on line 8 in HText_endAppend
+Gridtext: Anchor found on line:9 col:4
+GridText: adding link on line 9 in HText_endAppend
+Gridtext: Anchor found on line:13 col:4
+GridText: adding link on line 13 in HText_endAppend
+Gridtext: Anchor found on line:14 col:4
+GridText: adding link on line 14 in HText_endAppend
+Gridtext: Anchor found on line:15 col:4
+GridText: adding link on line 15 in HText_endAppend
+Gridtext: Anchor found on line:21 col:4
+GridText: adding link on line 21 in HText_endAppend
+Gridtext: Anchor found on line:22 col:4
+GridText: adding link on line 22 in HText_endAppend
+Gridtext: Anchor found on line:23 col:4
+GridText: adding link on line 23 in HText_endAppend
+Gridtext: Anchor found on line:24 col:4
+GridText: adding link on line 24 in HText_endAppend
+Gridtext: Anchor found on line:25 col:4
+GridText: adding link on line 25 in HText_endAppend
+Gridtext: Anchor found on line:29 col:4
+GridText: adding link on line 29 in HText_endAppend
+Gridtext: Anchor found on line:30 col:4
+GridText: adding link on line 30 in HText_endAppend
+HTAccess:  status=29997
+HTAccess: `http://localhost/' has been accessed.
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:localhost
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:http
+HTParse: aName:http://localhost/   relatedName:
+HTParse: result:http://localhost
+HTParse: aName:http://localhost/   relatedName:
+1
+HTParse: result:/
+Starting realm is 'http://localhost/'
+

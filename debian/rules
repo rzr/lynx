@@ -1,0 +1,79 @@
+#! /usr/bin/make -f
+#
+
+build:
+	$(checkdir)
+	if fgrep '#COLOR' lynx.cfg >/dev/null; then echo Did you forget to run debian/debianize-source-tree?; exit 1;fi
+	./configure --prefix=/usr --libexecdir=/usr/lib --sysconfdir=/etc \
+		    --localstatedir=/var --libdir=/etc \
+		    --with-screen=slang --enable-8bit-toupper \
+		    --enable-externs --enable-nsl-fork --with-zlib
+	$(MAKE) CPPFLAGS="-DNSL_FORK"
+	touch build
+
+clean:
+	$(checkdir)
+	-rm -rf build debian/tmp debian/files debian/substvars debian/*~ *~
+	-$(MAKE) distclean
+	-rm -f lynx
+
+binary-indep: checkroot build
+	$(checkdir)
+
+binary-arch: checkroot build
+	$(checkdir)
+	-rm -rf debian/files debian/tmp
+	install -d -o root -g root -m 755 debian/tmp
+# Create the directory hierarchy
+	install -d -o root -g root -m 755 debian/tmp/DEBIAN
+	install -d -o root -g root -m 755 debian/tmp/usr/bin
+	install -d -o root -g root -m 755 debian/tmp/etc
+	install -d -o root -g root -m 755 debian/tmp/usr/man/man1
+	install -d -o root -g root -m 755 debian/tmp/usr/doc/lynx{,/about_lynx}
+	install -d -o root -g root -m 755 debian/tmp/usr/lib/menu
+# Copy lynx files...
+	install -s -o root -g root -m 755 lynx debian/tmp/usr/bin
+	install -o root -g root -m 644 lynx.cfg debian/tmp/etc
+	install -o root -g root -m 644 debian/menu debian/tmp/usr/lib/menu/lynx
+	install -o root -g root -m 644 lynx.man debian/tmp/usr/man/man1/lynx.1
+	cp -R lynx_help debian/tmp/usr/doc/lynx
+	chmod -R u=rwX,go=rX debian/tmp/usr/doc/lynx
+	cat `ls docs/CHANGES* |sort -t . -rn -k 2,2 -k 3,3` \
+		> debian/tmp/usr/doc/lynx/changelog
+	chmod 644 debian/tmp/usr/doc/lynx/changelog
+	install -o root -g root -m 644 docs/CRAWL.announce docs/FM.announce \
+		docs/README.chartrans PROBLEMS README debian/copyright \
+	 	debian/tmp/usr/doc/lynx
+	install -o root -g root -m 644 debian/changelog \
+		debian/tmp/usr/doc/lynx/changelog.Debian
+	install -o root -g root -m 644 debian/README.Debian \
+		debian/tmp/usr/doc/lynx/README.Debian
+# Compress /usr/doc/lynx files and manpages...
+	find debian/tmp/usr/doc/lynx -type f -size +6k -maxdepth 1 -print \
+		| xargs gzip -9
+	test -f debian/tmp/usr/doc/lynx/changelog.Debian.gz || gzip -9 debian/tmp/usr/doc/lynx/changelog.Debian
+	test -f debian/tmp/usr/doc/lynx/changelog.gz || gzip -9 debian/tmp/usr/doc/lynx/changelog
+	find debian/tmp/usr/man -type f -print | xargs gzip -9
+# Make the debian control area.
+	install -o root -g root -m 644 debian/conffiles debian/tmp/DEBIAN
+	install -o root -g root -m 755 debian/post{inst,rm} debian/tmp/DEBIAN
+	install -o root -g root -m 755 debian/prerm debian/tmp/DEBIAN
+	dpkg-shlibdeps debian/tmp/usr/bin/lynx
+	dpkg-gencontrol
+# And finally, build the Debian package!
+	dpkg --build debian/tmp ..
+
+define checkdir
+	test -f src/LYMain.c -a -f debian/rules
+endef
+
+binary:	binary-indep binary-arch
+
+source diff:
+	@echo >&2 'source and diff are obsolete - use dpkg-source -b'; false
+
+checkroot:
+	$(checkdir)
+	test "`whoami`" = root
+
+.PHONY: binary binary-arch binary-indep clean checkroot

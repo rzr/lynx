@@ -1,0 +1,159 @@
+lynx (2.8-2.3) stable; urgency=low
+
+  * Patch from Thomas Roessler to fix problem where a second 'print' request
+    would fail because of a temporary file left around by a first one.
+
+ -- Christian Hudon <chrish@debian.org>  Wed, 13 Jan 1999 22:52:19 -0500
+
+lynx (2.8-2.2) stable; urgency=medium
+
+  * Applied modified version of Thomas Roessler to get '=' key working
+    again (fixes bug #30824).
+
+ -- Christian Hudon <chrish@debian.org>  Thu, 31 Dec 1998 17:57:13 -0500
+
+lynx (2.8-2.1) stable; urgency=medium
+
+  * Make lynx more paranoid in checking URL's to prevent trojans,
+    patch from Artur Grabowski <art@stacken.kth.se>.
+  * Open temporary files safely. (Patch from Wichert Akkerman.)
+
+ -- Christian Hudon <chrish@debian.org>  Sun, 13 Dec 1998 21:23:22 -0500
+
+lynx (2.8-2) frozen unstable; urgency=HIGH
+
+  * Applied patch to fix buffer overflows in LYMail.c (fixes bug #22165, 22154)
+  * Removed doscs/CHANGES2-10 files that had been used for testing
+    of debian/rules.  
+  * Added section and priority to control file (fixes bug# 20420).
+  * Includes FSSTND-compliant compiled-in defaults for mime.types
+    and mailcap. (fixes bug #21441).
+  * Lynx now uses the first entry in the mailcap instead of the last one.
+    (fixes bugs #7595, 10247)
+
+ -- Christian Hudon <chrish@debian.org>  Sun, 31 May 1998 00:55:54 -0400
+
+lynx (2.8-1) unstable; urgency=low
+
+  * Upgraded to latest release (Fixes bug #19526)
+
+ -- Christian Hudon <chrish@debian.org>  Thu, 12 Mar 1998 13:57:49 -0500
+
+lynx (2.7.2-1) unstable; urgency=low
+
+  * SECURITY FIX: postinst now avoids using /tmp (Fixes bug #11771)
+  * Upgraded to new upstream release. (Fixes bug #16444)
+  * Recompiled for libc6. (Fixes bug #11704)
+  * Enabled multi-bookmarks support in userders.h
+  * Corrected tar path. (Fixes bug #12005)
+  * Compiled with -DNSL_FORK, so that users can abort hostname lookups
+    with the 'z' key. (Fixes bug #11586)
+  * Modified postinst so that prompting doesn't occur on abort-upgrade, etc.
+    (Fixes bug #12630)
+  * Postinst now handles URL with spaces better.. (Fixes bug #13137)
+  * Lynx now properly resets idle time (Fixes bug #11582)
+
+ -- Christian Hudon <chrish@debian.org>  Fri, 25 Feb 1998 17:22:22 -0500
+
+lynx (2.7.1-3) stable unstable; urgency=HIGH
+
+  * SECURITY FIX: applied patch from Foteos Macrides to prevent captive lynx
+    users from executing arbitrary commands.
+  * Applied one-line libc6 patch. (Fixes bug 8583)
+  * Applied patch from John E. Davis to correct screen redraw problem. 
+    (Fixes bug 6035 and 9406)
+  * Applied patch from Laura Eaves to fix 'underlined links' problem. 
+    (Fixes bug 7846)
+  * Applied patch from John E. Davis to fix "Control-Z on Unix can cause
+    aberrant behavior" bug.
+  * Applied patches from Foteos Macrides to fix bugs 8063 (lynx saves gzipped
+    files as not gzipped) and 7820 (lynx misinperprets ^G on quit 
+    confirmation).
+  * Added /usr/doc/lynx/README.Debian explaining how to fix 'colorless lynx'
+    problem (closes bug 10482) and how to get white background on black 
+    (closes bug 9320).
+  * Added location of upstream source to copyright file (fixes bug 11101)
+
+ -- Christian Hudon <chrish@debian.org>  Mon, 14 Jul 1997 21:15:42 +0000
+
+lynx (2.7.1-2) stable; urgency=medium
+
+  * Oops! Last version that was uploaded to stable depended on slang library
+    available only from frozen/unstable! Recompiled with slang packages
+    from stable.  (Fixes 9958, 9968)
+
+ -- Christian Hudon <chrish@debian.org>  Sun, 25 May 1997 00:04:55 +0000
+
+lynx (2.7.1-1) stable frozen unstable; urgency=HIGH
+
+  * Set TEMP_SPACE to ~/ as a temporary fix for the lynx /tmp 
+    security problem! (Lynx will happily follow symlinks found in /tmp...)
+  * Upgraded to upstream 2.7.1 bugfix release (Lynx 2.7 + upstream bugfix
+    patch + two more bugs fixed).
+  * Fixed typo in install-mime call of postinst (fixes 9213).
+  * Does not prompt user to enter their email address when sending mail
+    anymore.
+  * Applied patch from John E. Davis that fixes a buglet.
+  * Reenabled dired support, which had been disabled by mistake (fixes 8970).
+  * Applied patch from Fotoes Macrides that fixes two buglets discovered by
+    Rick Mallett during a Purify run.
+  * Made sure that lynxprog, lynxexec and lynxcgi are disabled in default 
+    lynx.cfg.
+
+ -- Christian Hudon <chrish@debian.org>  Fri, 16 May 1997 00:02:23 -0400
+
+lynx (2.7-2) frozen unstable; urgency=low
+
+  * Applied upstream bug fix patches for lynx 2.7 (Fixes bug 8090)
+  * Lynx now properly handles %-encoded characters in mailto URLs. (Fixes 4225)
+  * Lynx registers itself in /etc/mailcap for text/html (Fixes 7769, 7919)
+  * Set lynx.cfg default colors to black background. (Fixes 7866)
+  * Fixed bug 6120 (lynx can't find image/jpeg viewer).
+  * Fixed bug 4005 (lynx thinks *.deb is text/plain in ftp).
+  * Set compile-time XLOADIMAGE_COMMAND to "" since 
+    a) there's no garantee that xli/xv/whatever is installed
+    b) Debian's mailcap is populated automatically, so there's not much 
+       of a need for a default image viewer.
+    Closes bug 4909 and 4918
+  * Moved Lynx help files to /usr/doc but left them uncompressed, otherwise 
+    lynx's help function will break. (Fixes 8003)
+  * Lynx manual is now accessible under dwww.
+  * Removed VMS-related documentation from /usr/doc/lynx
+  * Lynx CHANGES* files are now installed as /usr/doc/lynx/changelog.gz
+
+ -- Christian Hudon <chrish@debian.org>  Sun, 30 Mar 1997 23:48:14 -0500
+
+lynx (2.7-1) unstable; urgency=low
+
+  * New upstream version.
+  * Added support for 'menu' package. Lynx menu entry is installed in Apps/Net.
+  * Compiled with slang instead of ncurses to get color support.
+
+ -- Christian Hudon <chrish@debian.org>  Wed, 26 Feb 1997 23:19:28 -0500
+
+lynx (2.6-2) unstable; urgency=low
+
+  * Added install-fvwm2menu support from Lars Wirzenius's patch.
+    (Until a more general 'install-menu' script comes along.)
+  * /etc/lynx.cfg is now removed when the lynx package is purged.
+  * lynx -dump has no problems with proxies now. (2964)
+  * Lynx postinst now attempts to pick a reasonable default for 
+    the default homepage (3469)
+
+ -- Christian Hudon <chrish@debian.org>  Sat, 19 Oct 1996 21:52:14 -0400
+
+lynx (2.6-1) unstable; urgency=medium
+
+  * Upgraded to latest upstream version. (4434, 2295)
+  * Converted to new source package format.
+  * Compiled in lynxexec/lynxprog/lynxcgi extensions. (2965)
+  * Enabled access to dot files. (3105)
+  * Version number such that dselect will not think 
+    we're downgrading. (3386)
+  * Removed extraneous space in extended description. (3606)
+
+ -- Christian Hudon <chrish@debian.org>  Tue, 24 Sep 1996 17:49:30 -0400
+
+Local variables:     
+mode: debian-changelog                                       
+End:                                             
