@@ -1,0 +1,8 @@
+Template: lynx/defaulturl
+Type: string
+Default: http://www/
+Description: What is lynx's homepage?
+ Please enter the default URL to use if none is given when invoking lynx.
+ .
+ You must enter either a full URL (including the "http://", etc.)
+ or an absolute pathname.

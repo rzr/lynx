@@ -1,12 +1,13 @@
 Source: lynx
 Maintainer: Christian Hudon <chrish@debian.org>
-Standards-Version: 2.4.0.0
+Standards-Version: 3.1.1.1
 Section: web
 Priority: standard
+Build-Depends: libncurses5-dev, slang1-dev, zlib1g-dev, gettext
 
 Package: lynx
 Architecture: any
-Depends: ${shlibs:Depends}
+Depends: ${shlibs:Depends}, debconf
 Recommends: mime-support
 Provides: www-browser, news-reader
 Description: Text-mode WWW Browser

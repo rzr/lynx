@@ -1,7 +1,9 @@
 #!/bin/sh
 
-set -e
-
-if [ -x /usr/sbin/install-mime ]; then
-    install-mime --remove --package=lynx
+if [ \( "$1" = "upgrade" -o "$1" = "remove" \) -a -L /usr/doc/lynx ]; then
+    rm -f /usr/doc/lynx
 fi
+
+#if [ -f /usr/sbin/dhelp_parse ]; then
+#    dhelp_parse -d /usr/share/doc/lynx
+#fi

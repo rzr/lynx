@@ -1,24 +1,142 @@
-lynx (2.8-2.3) stable; urgency=low
+lynx (2.8.3-1) frozen unstable; urgency=medium
 
-  * Patch from Thomas Roessler to fix problem where a second 'print' request
-    would fail because of a temporary file left around by a first one.
+  * Upgraded to new upstream release. Buffer overflows fixed. (Closes: #59191)
+  * Disabled PREPEND_BASE_TO_SOURCE in default lynx.cfg. (Closes: #63000)
+  * Probably also fixes a bunch of other bugs, but I'll go through 
+    the bug list in -2.
 
- -- Christian Hudon <chrish@debian.org>  Wed, 13 Jan 1999 22:52:19 -0500
+ -- Christian Hudon <chrish@debian.org>  Mon,  1 May 2000 21:54:42 -0400
 
-lynx (2.8-2.2) stable; urgency=medium
+lynx (2.8.2-6) frozen unstable; urgency=low
 
-  * Applied modified version of Thomas Roessler to get '=' key working
-    again (fixes bug #30824).
+  * Disabled dhelp. (Closes: #55926, #56360)
 
- -- Christian Hudon <chrish@debian.org>  Thu, 31 Dec 1998 17:57:13 -0500
+ -- Christian Hudon <chrish@debian.org>  Thu,  3 Feb 2000 22:03:23 -0500
 
-lynx (2.8-2.1) stable; urgency=medium
+lynx (2.8.2-5) unstable; urgency=low
 
-  * Make lynx more paranoid in checking URL's to prevent trojans,
-    patch from Artur Grabowski <art@stacken.kth.se>.
-  * Open temporary files safely. (Patch from Wichert Akkerman.)
+  * Updated Source-Depends line. (Closes: #54256)
+  * Applied patch from Joey Hess to work around unknown debconf error.
+    (Closes: #53999, #54257, #54790)
 
- -- Christian Hudon <chrish@debian.org>  Sun, 13 Dec 1998 21:23:22 -0500
+ -- Christian Hudon <chrish@debian.org>  Wed, 12 Jan 2000 20:43:55 -0500
+
+lynx (2.8.2-4) unstable; urgency=low
+
+  * Updated to standards version 3.1.1.1
+  * Added debconf support.
+
+ -- Christian Hudon <chrish@debian.org>  Fri, 31 Dec 1999 14:50:27 -0500
+
+lynx (2.8.2-3) unstable; urgency=medium
+
+  * Removed mailcap processing order patch, since it clashed with
+    upstream patch. (closes: #41199)
+  * Added ja.po Japanese translation of lynx and enabled a few more
+    switches (--enable-nls, --enable-source-cache and --enable-prettysrc).
+    (closes: #40958)
+  * Install more files from samples directory. (closes: #41153)
+  * Applied upstream patch to close telnet: security hole. (closes: #44001)
+  * Removed 'NO_STRING_INLINES' kludge in debian/rules.
+
+ -- Christian Hudon <chrish@debian.org>  Mon,  6 Sep 1999 22:39:47 -0400
+
+lynx (2.8.2-2) unstable; urgency=medium
+
+  * Recompiled with new slang1 to fix dependency bug.
+
+ -- Christian Hudon <chrish@debian.org>  Thu, 26 Aug 1999 00:01:42 -0400
+
+lynx (2.8.2-1) unstable; urgency=low
+
+  * New upstream version. Will fix Debian bugs in next release.
+
+ -- Christian Hudon <chrish@debian.org>  Sun, 13 Jun 1999 22:15:03 -0400
+
+lynx (2.8.1-7) unstable; urgency=low
+
+  * Fixed problem in postinst that caused spurious error message
+    to be printed when /etc/news/server did not exist. 
+    (closes: #37720, 37773)
+
+ -- Christian Hudon <chrish@debian.org>  Sun, 16 May 1999 22:54:48 -0400
+
+lynx (2.8.1-6) unstable; urgency=low
+
+  * Set default editor in lynx.cfg to /usr/bin/sensible-editor. 
+    (closes: #37509, #14728)
+  * Applied patch from Peter Samuelson to fix problems with postinst.
+    (closes: #31638)
+
+ -- Christian Hudon <chrish@debian.org>  Tue, 11 May 1999 21:05:51 -0400
+
+lynx (2.8.1-5) unstable; urgency=low
+
+  * Remove prcs files before packaging lynx for upload. (closes: #36962)
+  * Applied upstream patch to fix multiline <i> bug, etc. (closes #33158)
+
+ -- Christian Hudon <chrish@debian.org>  Mon, 10 May 1999 20:55:30 -0400
+
+lynx (2.8.1-4) unstable; urgency=low
+
+  * Filter out lines that start with a '#' in /etc/news/server
+    (closes: #31638).
+  * Fixed dhelp support (closes: #34479).
+  * Recompiled with glibc 2.1.1
+
+ -- Christian Hudon <chrish@debian.org>  Sun,  4 Apr 1999 22:27:49 -0400
+
+lynx (2.8.1-3) frozen unstable; urgency=medium
+
+  * Applied patch from OpenBSD to prevent lynx captive users from 
+    spawning a shell using rlogin/telnet URLs.
+  * Postinst now checks that the url given is absolute. (Closes bug #29177)
+  * Updated README.Debian file. (Closes bug #30488)
+  * Added dhelp support. (Closes bug #31159)
+  * Included some more files from the lynx source in /usr/doc/lynx
+    (Closes bug #30489)
+  * Applied upstream bugfix patches. (Closes bug #30487)
+  * Version 2.8.1 includes many small security fixes over 2.8 
+    (Closes bug #31985)
+
+ -- Christian Hudon <chrish@debian.org>  Sun, 17 Jan 1999 21:27:04 -0500
+
+lynx (2.8.1-2) unstable; urgency=low
+
+  * Build LYMainLoop.c with -D__NO_STRING_INLINES on powerpc to work around
+    egcs bug. (closes bug #29750)
+  * Modified postint so that lynx can be installed non-interactively.
+    (closes bug #28893).
+  * Removed unnecessary references to VMS in lynx.cfg
+  * Enabled use_mouse option by default.
+  * Lynx now obeys TMPDIR. (closes bug #21878)
+  * Documented how to set colors on a per-user basis in README.Debian
+    (partially solves bug #29469).
+  * Also closed a bunch of other bug reports that were fixed
+    in the 2.8 series.
+  * Added "lynx -dump" entry with copiousoutput in mailcap for mutt autoview.
+
+ -- Christian Hudon <chrish@debian.org>  Sat, 21 Nov 1998 22:00:32 -0500
+
+lynx (2.8.1-1) unstable; urgency=low
+
+  * New upstream version (fixes bug #28964)
+  * Enabled persistent cookies.
+  * Other bugfixes will go into next Debian release.
+
+ -- Christian Hudon <chrish@debian.org>  Wed, 11 Nov 1998 22:16:31 -0500
+
+lynx (2.8-4) frozen unstable; urgency=low
+
+  * Recompiled with slang1.
+
+ -- Christian Hudon <chrish@debian.org>  Sun, 18 Oct 1998 19:37:40 -0400
+
+lynx (2.8-3) unstable; urgency=low
+
+  * Upgraded to latest mime-support (fixes bug #12663, 23740, 24806)
+
+ -- Christian Hudon <chrish@debian.org>  Wed, 14 Oct 1998 20:52:06 -0400
 
 lynx (2.8-2) frozen unstable; urgency=HIGH
 

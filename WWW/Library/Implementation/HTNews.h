@@ -10,8 +10,11 @@
 #ifndef HTNEWS_H
 #define HTNEWS_H
 
-#include "HTAccess.h"
-#include "HTAnchor.h"
+#include <HTAccess.h>
+#include <HTAnchor.h>
+
+extern int HTNewsChunkSize;
+extern int HTNewsMaxChunk;
 
 #ifdef GLOBALREF_IS_MACRO
 extern GLOBALREF(HTProtocol, HTNews);
