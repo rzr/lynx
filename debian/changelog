@@ -1,3 +1,179 @@
+lynx (2.8.4.1b-3.4) oldstable-security; urgency=high
+
+  * Non-maintainer upload by the Security Team
+  * Applied OpenBSD patch to fix infinete loop rendering broken HTML
+    [userdefs.h, src/GridText.c, src/HTForms.h, src/HTML.c, src/HTML.h,
+    src/LYCurses.h, CVE-2004-1617]
+
+ -- Martin Schulze <joey@infodrom.org>  Sat, 13 May 2006 08:27:10 +0200
+
+lynx (2.8.4.1b-3.3) oldstable-security; urgency=high
+
+  * Non-maintainer upload by the Security Team
+  * Applied patch by Ulf Härnhammar to fix buffer overflow that can lead
+    to arbitrary code execution [WWW/Library/Implementation/HTMIME.c,
+    CAN-2005-3120]
+
+ -- Martin Schulze <joey@infodrom.org>  Sat,  8 Oct 2005 09:22:19 +0200
+
+lynx (2.8.4.1b-3.2) stable-security; urgency=high
+
+  * Non-maintainer upload by security team
+  * Really apply the patch instead of only documenting it. doh.
+
+ -- Wichert Akkerman <wakkerma@debian.org>  Wed, 11 Dec 2002 12:31:55 +0100
+
+lynx (2.8.4.1b-3.1) stable-security; urgency=high
+
+  * Non-maintainer upload by security team
+  * Merge patch from SCO advisory CSSA-2002-049.0 (but without the bits
+    that create backup files). This fixes handling of CRLF in external
+    URLs.
+
+ -- Wichert Akkerman <wakkerma@debian.org>  Fri, 22 Nov 2002 21:49:57 +0100
+
+lynx (2.8.4.1b-3) unstable; urgency=low
+
+  * Adopted the package, closes: #130830.
+  * debian/control (Standards-Version): bump to 3.5.6.0.
+  * debian/copyright: updated.
+  * debian/README.Debian: likewise.
+  * debian/postinst: remove commented and unused code.
+  * debian/prerm: likewise.
+  * debian/postrm: homogenize the code.
+  * debian/test.html: unused; removed.
+  * debian/dhelp: remove.
+  * debian/rules: rewritten so I can work with it.
+  * src/LYStrings.c, src/HTAlert.c: Apply patch from Hataguchi Takeshi to
+    fix blinking problems for euc-jp charset users, thanks to Atsuhito
+    Kohda.  Closes: #119510.
+
+ -- James Troup <james@nocrew.org>  Sat, 26 Jan 2002 00:12:32 +0000
+
+lynx (2.8.4.1b-2) unstable; urgency=low
+
+  * Orphaned this package.
+
+ -- Adrian Bunk <bunk@fs.tum.de>  Fri, 25 Jan 2002 13:01:16 +0100
+
+lynx (2.8.4.1b-1) unstable; urgency=high
+
+  * New upstream release.
+    - This release fixes some crashes in UTF-8 mode.
+      (closes: #112727)
+    - The CPU loop bug was fixed. (closes: #113298)
+  * Compiled without "--enable-file-upload" (there's a big
+    security hole in the file uploading code).
+  * Changed the default key bindings in src/LYEditmap.c to
+    "Bash-like Bindings". (closes: #43223)
+  * Compiled without "--enable-nsl-fork". (closes: #112081)
+  * Compiled without "--enable-justify-elts".
+    (closes: #109737, #111150, #115825)
+  * s/Web browser/Web browsers/ in debian/menu. (closes: #80048)
+
+ -- Adrian Bunk <bunk@fs.tum.de>  Sun, 21 Oct 2001 22:15:58 +0200
+
+lynx (2.8.4-2) unstable; urgency=low
+
+  * There wre two (commented out) definitions for COLOR:6 in the
+    default lynx.cfg. (closes: #109382)
+
+ -- Adrian Bunk <bunk@fs.tum.de>  Mon, 20 Aug 2001 21:45:53 +0200
+
+lynx (2.8.4-1) unstable; urgency=high
+
+  * New maintainer.
+  * New upstream release. (closes: #80496)
+    This release fixes the following bugs:
+    - %s, %t, %{charset} and %{encoding} substitutions for
+      mailcap commands are now implemented. (closes: #21096)
+    - The "<> in javascript causes premature </script>" problem
+      is fixed. (closes: #65151)
+    - A problem with the length of form fields is fixed.
+      (closes: #68542)
+    - The Japanese message catalog is now included.
+      (closes: #63641)
+    - The CPU-loop seems to be fixed. (closes: #25968)
+  * /etc/lynx.cfg is now a conffile. (closes: #40482)
+  * The default startfile is now the local helpfile (and there's
+    no longer a question in the postinst).
+    (closes: #105559, #83249, #83784)
+  * Disable USE_MOUSE in the default configuration.
+    (closes: #42859)
+  * Set GLOBAL_EXTENSION_MAP and PERSONAL_EXTENSION_MAP in the
+    default lynx.cfg. (closes: #94604)
+  * Compiled with ncurses instead of slang.
+  * Compiled with "--enable-warnings".
+  * Compiled with "--enable-color-style".
+  * Compiled with "--enable-default-colors". (closes: #45803)
+  * Compiled with "--enable-file-upload". (closes: #56639)
+  * Compiled with "--enable-ipv6".
+  * Compiled with "--enable-justify-elts".
+  * Compiled with "--enable-nested-tables".
+  * Compiled with "--enable-read-eta".
+  * Updated debian/copyright. (closes: #63638)
+
+ -- Adrian Bunk <bunk@fs.tum.de>  Sat, 18 Aug 2001 16:22:26 +0200
+
+lynx (2.8.3-1.5) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Update config.{guess,sub} to allow building on SH and others. (Closes: #95763)
+  * Set DEFAULT_EDITOR in lynx.cfg to /usr/bin/sensible-editor. (Closes: #94605)
+
+ -- André Dahlqvist <andre@debian.org>  Wed, 13 Jun 2001 05:45:56 +0200
+
+lynx (2.8.3-1.4) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Recompiled against sid's version of slang1.
+
+ -- Matthew Danish <mdanish@andrew.cmu.edu>  Mon, 23 Apr 2001 00:14:58 -0400
+
+lynx (2.8.3-1.3) unstable; urgency=low
+
+  * NMU
+  * Removed check for already done configuration in debian/config
+    so that dpkg-recofigure will be able to do its work. (Closes: #54237)
+
+ -- Gustavo Noronha Silva <kov@debian.org>  Sat, 21 Apr 2001 17:42:02 -0300
+
+lynx (2.8.3-1.2) unstable; urgency=low
+
+  * NMU
+  * Removed /etc/lynx.cfg from conffiles as it is handled by postinst
+    /etc/lynx-ssl.cfg is not there so: (Closes: #40482, #67836)
+  * Added german and pt_BR translations for the debconf template,
+    thanks to <Joerg.Rieger@informatik.med.uni-giessen.de> and
+    Gustavo Noronha Silva (KoV)" <kov@debian.org> there're 2 other
+    pt_BR and de templates wich I'll discard and close the bug 
+    (Closes: #83925, #83926, #92841, #93227) 
+  * closes french template translation bug as it was already added
+    in a earlier upload (Closes: #64785)
+  * Added hint to lynx in debian/menu (Closes: #80048)
+  * Removed about_wml directory from docdir as it was empty
+    (Closes: #64785)
+  * Updated debian/rules to use debian/lynx instead of debian/tmp
+  * Applied patches to upgrade to version lynx2.8.3rel.1c
+
+ -- Gustavo Noronha Silva <kov@debian.org>  Sat, 21 Apr 2001 15:57:30 -0300
+
+lynx (2.8.3-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Fixed bug preventing -dump when TERM=dumb. (Closes: #64632)
+  * Lynx will no longer try to write file on full disk. (Closes: #63391)
+  * Changed deprecated 'isdefault' to 'seen' in debconf config.
+  * Fixed bug in intl/makefile.in, it did not remove libintl.h. (Closes: #63999)
+  * Fixed color scheme. (Closes: #32959)
+  * Added Swedish translation to templates. (Closes: #83482)
+  * Added French translation to templates. (Closes: #83767)
+  * Added Spanish translation to templates. (Closes: #92373)
+  * Fixed original source URL in copyright file. (Closes: #74551)
+  * Upload sponsored by Lenart Janos <ocsi@debian.org>.
+
+ -- Matthew Danish <mdanish@andrew.cmu.edu>  Sat, 14 Apr 2001 14:12:43 -0400
+
 lynx (2.8.3-1) frozen unstable; urgency=medium
 
   * Upgraded to new upstream release. Buffer overflows fixed. (Closes: #59191)
@@ -271,7 +447,3 @@ lynx (2.6-1) unstable; urgency=medium
   * Removed extraneous space in extended description. (3606)
 
  -- Christian Hudon <chrish@debian.org>  Tue, 24 Sep 1996 17:49:30 -0400
-
-Local variables:     
-mode: debian-changelog                                       
-End:                                             

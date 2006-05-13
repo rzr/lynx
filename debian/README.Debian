@@ -1,11 +1,11 @@
-* How come Lynx does not display colors?
+* Why does Lynx not display things in colour?
 
- If you find that lynx does display colors, you may be using the wrong
- terminal type. The terminal type vt100 does not support color, but "linux"
- "xterm-color" and "xterm-debian" do.
+ If you find that lynx does display things in colour, you may be using
+ the wrong terminal type. The terminal type "vt100" does not support
+ colour, but "linux" "xterm-color" and "xterm-debian" do.
 
  Alternatively, you can invoke lynx as 'lynx -color' or set 
- the COLORTERM environment variable to force the colors on.
+ the COLORTERM environment variable to force the use of colours.
 
 * How do I get a white background on black text?
 
@@ -21,7 +21,7 @@
  COLOR:7:magenta:cyan
 
 * Very nice, but I run a multi-user system and I want to be able to configure
-  colors on a per-used basis.
+  colours on a per-user basis.
 
  Quoting from the /etc/lynx.cfg file:
 

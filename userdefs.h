@@ -341,6 +341,12 @@
 #define TEMP_SPACE "/tmp/"
 
 /********************************
+ * Comment this line out to disable code that implements command logging
+ * and scripting.
+ */
+#define EXP_CMD_LOGGING 1
+
+/********************************
  * Comment this line out to disable code that randomizes the names given to
  * temporary files.
  */
@@ -733,27 +739,27 @@
 #define PREFERRED_CHARSET ""
 
 /*****************************
-* If MULTI_BOOKMARK_SUPPORT is set TRUE, and BLOCK_MULTI_BOOKMARKS (see
-* below) is FALSE, and sub-bookmarks exist, all bookmark operations will
-* first prompt the user to select an active sub-bookmark file or the
-* default bookmark file.  FALSE is the default so that one (the default)
-* bookmark file will be available initially.  The default set here can
-* be overridden in lynx.cfg.  The user can turn on multiple bookmark
-* support via the 'o'ptions menu, and can save that choice as the startup
-* default via the .lynxrc file.  When on, the setting can be STANDARD or
-* ADVANCED.  If support is set to the latter, and the user mode also is
-* ADVANCED, the VIEW_BOOKMARK command will invoke a status line prompt at
-* which the user can enter the letter token (A - Z) of the desired bookmark,
+* If MULTI_BOOKMARK_SUPPORT is set to MBM_STANDARD or MBM_ADVANCED, and
+* BLOCK_MULTI_BOOKMARKS (see below) is FALSE, and sub-bookmarks exist, all
+* bookmark operations will first prompt the user to select an active
+* sub-bookmark file or the default bookmark file.  MBM_OFF is the default so
+* that one (the default) bookmark file will be available initially.  The
+* default set here can be overridden in lynx.cfg.  The user can turn on
+* multiple bookmark support via the 'o'ptions menu, and can save that choice as
+* the startup default via the .lynxrc file.  When on, the setting can be
+* STANDARD or ADVANCED.  If support is set to the latter, and the user mode
+* also is ADVANCED, the VIEW_BOOKMARK command will invoke a status line prompt
+* at which the user can enter the letter token (A - Z) of the desired bookmark,
 * or '=' to get a menu of available bookmark files.  The menu always is
 * presented in NOVICE or INTERMEDIATE mode, or if the support is set to
 * STANDARD.  No prompting or menu display occurs if only one (the startup
 * default) bookmark file has been defined (define additional ones via the
-* 'o'ptions menu).  The startup default, however set, can be overridden on
-* the command line via the -restrictions=multibook or the -anonymous or
-* -validate switches.
+* 'o'ptions menu).  The startup default, however set, can be overridden on the
+* command line via the -restrictions=multibook or the -anonymous or -validate
+* switches.
 */
 #ifndef MULTI_BOOKMARK_SUPPORT
-#define MULTI_BOOKMARK_SUPPORT FALSE
+#define MULTI_BOOKMARK_SUPPORT MBM_OFF
 #endif /* MULTI_BOOKMARK_SUPPORT */
 
 /*****************************
@@ -830,6 +836,12 @@
  * (e.g., ./lynx/.lynxsig).  The definition here can be changed in lynx.cfg.
  */
 #define LYNX_SIG_FILE ".lynxsig"
+
+/********************************
+ * BIBP_GLOBAL_SERVER is the default global server for bibp: links, used
+ * when a local bibhost or document-specified citehost is unavailable.
+ */
+#define BIBP_GLOBAL_SERVER "http://usin.org/"
 
 /********************************
  * If USE_SELECT_POPUPS is set FALSE, Lynx will present a vertical list
@@ -1339,11 +1351,11 @@
  * the version definition with the Project Version on checkout.  Just
  * ignore it. - kw */
 /* $Format: "#define LYNX_VERSION \"$ProjectVersion$\""$ */
-#define LYNX_VERSION "2.8.3rel.1"
+#define LYNX_VERSION "2.8.4rel.1"
 #define LYNX_WWW_HOME "http://lynx.browser.org/"
 #define LYNX_WWW_DIST "http://lynx.isc.org/current/"
 /* $Format: "#define LYNX_DATE \"$ProjectDate$\""$ */
-#define LYNX_DATE "Sun, 23 Apr 2000 18:44:03 -0700"
+#define LYNX_DATE "Tue, 17 Jul 2001 14:04:37 -0700"
 #define LYNX_DATE_OFF 5		/* truncate the automatically-generated date */
 #define LYNX_DATE_LEN 11	/* truncate the automatically-generated date */
 
@@ -1358,6 +1370,8 @@
 #define MAXCHARSETS 60		/* max character sets supported */
 #define TRST_MAXROWSPAN 10000	/* max rowspan accepted by TRST code */
 #define TRST_MAXCOLSPAN 1000	/* max colspan and COL/COLGROUP span accepted */
+#define MAX_TABLE_ROWS  200	/* max rows for tables */
+#define MAX_TABLE_COLS  200	/* max cols for tables */
 #define SAVE_TIME_NOT_SPACE	/* minimize number of some malloc calls */
 
 /* Win32 may support more, but old win16 helper apps may not. */
@@ -1458,6 +1472,20 @@
  * required so much and I don't have an environment to test it. - TH
  */
 #define SUPPORT_MULTIBYTE_EDIT
+
+/***************************** 
+ * SUPPORT_CHDIR provides CD command (bound to 'C' by default).  It allows
+ * changing directory to arbitrary location (if OS allows them).  If dired is
+ * enabled, user will be able to visit any directory and view any file allowed
+ * according to file permissions or ACLs.
+ */
+#define SUPPORT_CHDIR
+
+/***************************** 
+ * MARK_HIDDEN_LINKS controls whether hidden links are shown with the title
+ * set by the HIDDEN_LINK_MARKER string in lynx.cfg
+ */
+#define MARK_HIDDEN_LINKS
 
 /*****************************
  * USE_TH_JP_AUTO_DETECT, CONV_JISX0201KANA_JISX0208KANA,  
@@ -1561,6 +1589,7 @@
  * set to FALSE if you don't want users of your anonymous
  * account to be able to goto particular URLs.
  */
+#define CAN_ANONYMOUS_GOTO_BIBP		TRUE    /* BIBP maps to HTTP */
 #define CAN_ANONYMOUS_GOTO_CSO		FALSE
 #define CAN_ANONYMOUS_GOTO_FILE		FALSE
 #define CAN_ANONYMOUS_GOTO_FINGER	TRUE
