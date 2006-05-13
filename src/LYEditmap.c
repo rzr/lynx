@@ -929,11 +929,10 @@ PRIVATE short *Mod3Binding = Mod1Binding;
  */
 
 PUBLIC LYEditCode * LYLineEditors[]={
-        BashlikeEditBinding,      /* and one more... - kw 1999-02-15 */
-	DefaultEditBinding,     /* You can't please everyone, so you ... DW */
-        BetterEditBinding,      /* No, you certainly can't ... /ked 10/27/98*/
-#ifndef EXP_ALT_BINDINGS
-#error Debian specific: EXP_ALT_BINDINGS must be set
+        DefaultEditBinding,     /* You can't please everyone, so you ... DW */
+#ifdef EXP_ALT_BINDINGS
+	BetterEditBinding,      /* No, you certainly can't ... /ked 10/27/98*/
+	BashlikeEditBinding,      /* and one more... - kw 1999-02-15 */
 #endif
 };
 
@@ -942,11 +941,10 @@ PUBLIC LYEditCode * LYLineEditors[]={
  * The order of LYLineEditors and LYLineditNames MUST be the same.
  */
 PUBLIC char * LYLineeditNames[]={
-        "Bash-like Bindings",
 	"Default Binding",
-        "Alternate Bindings",
-#ifndef EXP_ALT_BINDINGS
-#error Debian specific: EXP_ALT_BINDINGS must be set
+#ifdef EXP_ALT_BINDINGS
+	"Alternate Bindings",
+	"Bash-like Bindings",
 #endif
 	(char *) 0
 };

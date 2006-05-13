@@ -3,10 +3,11 @@
   section=Apps/Net\
   title="Lynx"\
   hints="Web Browsers" \
+  kderemove=1 \
   command="/usr/bin/lynx"
 ?package(lynx):\
   needs=dwww\
   section=Apps/Net\
   title="Lynx Manual"\
   hints="Web Browser Manual" \
-  command="/usr/doc/lynx/lynx_help/lynx_help_main.html"
+  command="/usr/share/doc/lynx/lynx_help/lynx_help_main.html"

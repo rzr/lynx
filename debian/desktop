@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Exec=/usr/bin/lynx %u
+Name=Lynx
+Terminal=1
+Comment=Lynx
+Icon=html
+MimeType=text/html
+XClassHintResName=Lynx

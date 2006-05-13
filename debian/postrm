@@ -10,6 +10,6 @@ if [ -x /usr/sbin/update-mime ]; then
     update-mime
 fi
 
-if [ "$1" = "purge" ]; then
-    rm -f /etc/lynx.cfg
+if [ "$1" != "upgrade" ]; then
+  update-alternatives --remove lynx /usr/bin/lynx.stable
 fi

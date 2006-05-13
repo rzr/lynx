@@ -1,36 +1,138 @@
-lynx (2.8.4.1b-3.4) oldstable-security; urgency=high
+lynx (2.8.5-2sarge2) stable-security; urgency=high
 
   * Non-maintainer upload by the Security Team
-  * Applied OpenBSD patch to fix infinete loop rendering broken HTML
-    [userdefs.h, src/GridText.c, src/HTForms.h, src/HTML.c, src/HTML.h,
-    src/LYCurses.h, CVE-2004-1617]
+  * Added OpenBSD patch to fix infinete loop rendering broken HTML
+    [debian/patches/04_CVE-2004-1617.dpatch]
 
- -- Martin Schulze <joey@infodrom.org>  Sat, 13 May 2006 08:27:10 +0200
+ -- Martin Schulze <joey@infodrom.org>  Sat, 13 May 2006 07:47:40 +0200
 
-lynx (2.8.4.1b-3.3) oldstable-security; urgency=high
+lynx (2.8.5-2sarge1) stable-security; urgency=high
 
   * Non-maintainer upload by the Security Team
   * Applied patch by Ulf Härnhammar to fix buffer overflow that can lead
     to arbitrary code execution [WWW/Library/Implementation/HTMIME.c,
     CAN-2005-3120]
 
- -- Martin Schulze <joey@infodrom.org>  Sat,  8 Oct 2005 09:22:19 +0200
+ -- Martin Schulze <joey@infodrom.org>  Sat,  8 Oct 2005 09:23:11 +0200
 
-lynx (2.8.4.1b-3.2) stable-security; urgency=high
+lynx (2.8.5-2) unstable; urgency=low
 
-  * Non-maintainer upload by security team
-  * Really apply the patch instead of only documenting it. doh.
+  * 03_newer_gnutls.dpatch: new patch from Torbjörn Wassberg to add
+    '-lgnutls-openssl' to LIBS to allow compilation with gnutls11.
+  * debian/control (Build-Depends): s/gnutls7/gnutls11/.  Closes: #264754
 
- -- Wichert Akkerman <wakkerma@debian.org>  Wed, 11 Dec 2002 12:31:55 +0100
+ -- James Troup <james@nocrew.org>  Sun, 26 Sep 2004 13:36:41 +0100
 
-lynx (2.8.4.1b-3.1) stable-security; urgency=high
+lynx (2.8.5-1) unstable; urgency=low
 
-  * Non-maintainer upload by security team
-  * Merge patch from SCO advisory CSSA-2002-049.0 (but without the bits
-    that create backup files). This fixes handling of CRLF in external
-    URLs.
+  * New upstream release. Closes: #210948
+   * Should now build on the Hurd. Closes: #140682 
+   * -auth=id:pw no longer ignored when using -source or -dump. Closes: #156498 
+   * Default cookie Path is not correct. Closes: #181614 
+   * Can now switch to bookmarks under 'z'. Closes: #111463 
+   * Fixes only highlighting the first two lines of a hyperlink.  Closes: #114062, #124361
+   * Fixed missing space in german localisation. Closes: #116495 
+   * Fixed problems with wiki-login. Closes: #124025 
+   * No longer ignores Refresh: in HTTP headers. Closes: #126723
+   * Forms now sent using proper encoding. Closes: #156680 
+   * Fixes confusion of whereis query inside of long <select>. Closes: #159215 
+   * Fixes inconsistent rendering of superscript tag. Closes: #191798 
+   * -dump mode now has an option to put "footnote" marks after the hyperlink. Closes: #39905
+   * References can optionally follow text in ASCII output. Closes: #40952 
+   * Changed footnotes to display after links. Closes: #135442 
+   * File uploads are properly supported. Closes: #139948 
+   * config.{guess,sub} have been updated. Closes: #217994
 
- -- Wichert Akkerman <wakkerma@debian.org>  Fri, 22 Nov 2002 21:49:57 +0100
+   * 03_euc-jp-blink.dpatch, 04_crlf-security.dpatch,
+     05_config-guess-sub.dpatch, 06_gnutls-support.dpatch: removed, merged
+     upstream.
+   * 01_default-config.dpatch: resynced with new config file.
+  
+  * debian/control (Priority): drop to optional.
+
+  * debian/rules (build): ask configure to use ncursesw instead of
+    ncurses for better UTF-8 support.
+  * debian/control (Build-Depends): likewise, switch to libncursesw5-dev.
+  
+  * debian/rules (build): pass --with-bzlib to enable bzip2 decompression.
+  * debian/control (Build-Depends): add libbz2-dev.
+
+  * debian/preinst: new file.  Undo diversions from old (potato-era)
+    lynx-ssl package.  Closes: #218180, #199755
+  * debian/rules (binary-arch): install it.
+
+  * debian/rules (binary-arch): install lynx as 'lynx.stable'.
+  * debian/postinst, prerm, postrm: use update-alternatives for lynx.
+    Closes: #117347
+
+ -- James Troup <james@nocrew.org>  Thu,  5 Feb 2004 21:27:00 +0000
+
+lynx (2.8.4.1b-6) unstable; urgency=low
+
+  * debian/postrm: don't remove lynx.cfg on purge; noticed by Christoph
+    Martin <martin@verwaltung.uni-mainz.de>.  Closes: #38230, #120775
+
+  * debian/control (Build-Depends): s/libgnutls5-dev/libgnutls7-dev/.
+    Closes: #202577
+
+  * debian/control (Standards-Version): bump to 3.6.0.
+
+  * 01_default-config.dpatch: set NNTPSERVER to 'news' rather than
+    'fania'.  Noticed by Jean Charles Delepine <delepine@u-picardie.fr>.
+    Closes: #162819
+
+  * debian/desktop: new file, provided by Ivan E. Moore II
+    <rkrusty@tdyc.com>.
+  * debian/rules (binary-arch): install debian/desktop.
+  * debian/menu: add 'kderemove=1'.  Closes: #96493
+
+ -- James Troup <james@nocrew.org>  Fri, 25 Jul 2003 15:51:36 -0400
+
+lynx (2.8.4.1b-5) unstable; urgency=low
+
+  * 06_gnutls-support.dpatch: new patch from Thomas Dickey
+    <dickey@invisible-island.net> to add support for GnuTLS's SSL-compat
+    layer.
+  * debian/rules (build): pass "--with-gnutls=/usr" to configure.
+  * debian/control (Build-Depends): add libgnutls5-dev.
+  * debian/control: add Conflicts, Replaces and Provides on lynx-ssl.
+
+  * debian/control (Standards-Version): bump to 3.5.9.0.
+  * debian/control: rewrap extended description at normal length.
+  * debian/build: depend on patch-stamp rather than patch.
+
+ -- James Troup <james@nocrew.org>  Sat,  3 May 2003 01:02:57 +0100
+
+lynx (2.8.4.1b-4) unstable; urgency=low
+
+  * Move to dpatch; existing non-debian/ changes split into
+    01_default-config.dpatch, 02_default-key-bindings.dpatch and
+    03_euc-jp-blink.dpatch.
+  * debian/rules (build): depend on patch.
+  * debian/rules (clean): depend on unpatch.  Remove debian/patched and
+    config.log.
+  * debian/rules (.PHONY): add 'patch' and 'unpatch'.
+
+  * debian/control (Build-Depends): add dpatch.
+  * debian/control (Standards-Version): bump to 3.5.8.0.
+  * debian/postinst, debian/prerm: no longer do /usr/doc symlinks.
+  * debian/copyright: fix 19995 (sic) typo.
+
+  * Patch from Joey Hess <joeyh@debian.org> for www-browser alternative,
+    closes: #169963, #161758.
+  * debian/postinst: provide www-browser alternative at priority 50.
+  * debian/prerm: de-provide www-browser alternative.
+
+  * debian/menu: patch from Ian Maclaine-cross <ian@ilm.mech.unsw.edu.au>
+    to fix path to documentation, closes: #132551.
+
+  * 04_crlf-security.dpatch: new; incorporates Ulf Harnhammar's fix for
+    the CRLF URL injection issue as described in DSA-210.  Closes: #173757
+
+  * 05_config-guess-sub.dpatch: Update config.guess and config.sub (both
+    to 2003-02-22).
+
+ -- James Troup <james@nocrew.org>  Thu, 27 Feb 2003 18:34:29 +0000
 
 lynx (2.8.4.1b-3) unstable; urgency=low
 

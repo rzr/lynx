@@ -1,8 +1,8 @@
 #! /usr/bin/make -f
-# debian/rules file - for lynx (2.8.4b)
+# debian/rules file - for lynx (2.8.5)
 # Based on sample debian/rules file - for GNU Hello (1.3).
-# Copyright 1994,1995 by Ian Jackson.
-# Copyright 2002 James Troup
+# Copyright 1994, 1995 by Ian Jackson.
+# Copyright 2002, 2003, 2004 James Troup
 # I hereby give you perpetual unlimited permission to copy,
 # modify and relicense this file, provided that you do not remove
 # my name from the file itself.  (I assert my moral right of
@@ -14,13 +14,15 @@ install_file=install -m 644
 install_script=install -m 755
 install_binary=install -m 755 -s
 
-build:
+include /usr/share/dpatch/dpatch.make
+
+build: patch-stamp
 	$(checkdir)
 	./configure --prefix=/usr \
 		    --libexecdir=/usr/lib --sysconfdir=/etc \
 		    --localstatedir=/var --libdir=/etc \
 		    --enable-warnings \
-		    --with-screen=ncurses --enable-8bit-toupper \
+		    --with-screen=ncursesw --enable-8bit-toupper \
 		    --enable-externs \
 		    --enable-cgi-links --enable-exec-links \
 		    --enable-exec-scripts \
@@ -30,16 +32,18 @@ build:
 		    --enable-default-colors \
 		    --enable-ipv6 \
 		    --enable-nested-tables --enable-read-eta \
-		    --with-zlib
+		    --with-gnutls=/usr \
+		    --with-zlib \
+		    --with-bzlib
 	$(MAKE)
 	touch build
 
-clean:
+clean: unpatch
 	$(checkdir)
-	-rm -rf build debian/tmp debian/files debian/substvars
+	-rm -rf build debian/tmp debian/files debian/substvars debian/patched
 	-(find . -type f -name \*~ | xargs rm)
 	-$(MAKE) distclean
-	-rm -f config.cache lynx
+	-rm -f config.cache config.log lynx 
 
 binary-indep:
 
@@ -47,11 +51,11 @@ binary-arch: checkroot build
 	$(checkdir)
 	-rm -rf debian/tmp/
 	$(install_dir) debian/tmp/DEBIAN/
-	$(install_script) debian/postinst debian/prerm debian/postrm debian/tmp/DEBIAN/
+	$(install_script) debian/preinst debian/postinst debian/prerm debian/postrm debian/tmp/DEBIAN/
 	$(install_file) debian/conffiles debian/tmp/DEBIAN/
 
 	$(install_dir) debian/tmp/usr/bin/
-	$(install_binary) lynx debian/tmp/usr/bin/
+	$(install_binary) lynx debian/tmp/usr/bin/lynx.stable
 
 	$(install_dir) debian/tmp/etc/
 	$(install_file) lynx.cfg debian/tmp/etc/
@@ -86,10 +90,13 @@ binary-arch: checkroot build
 	$(install_dir) debian/tmp/usr/lib/menu/
 	$(install_file) debian/menu debian/tmp/usr/lib/menu/lynx
 
+	$(install_dir) debian/tmp/usr/share/applnk/Internet
+	$(install_file) debian/desktop debian/tmp/usr/share/applnk/Internet/lynx.desktop
+
 	$(install_dir) debian/tmp/usr/lib/mime/packages/
 	$(install_file) debian/mime debian/tmp/usr/lib/mime/packages/lynx
 
-	dpkg-shlibdeps debian/tmp/usr/bin/lynx
+	dpkg-shlibdeps debian/tmp/usr/bin/lynx.stable
 	dpkg-gencontrol -isp
 	chown -R root.root debian/tmp/
 	chmod -R go=rX debian/tmp/
@@ -107,4 +114,4 @@ checkroot:
 	$(checkdir)
 	test root = "`whoami`"
 
-.PHONY: binary binary-arch binary-indep clean checkroot
+.PHONY: binary binary-arch binary-indep clean checkroot patch unpatch

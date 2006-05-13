@@ -1,0 +1,53 @@
+#! /bin/sh -e
+## 02-default_key_bindings.dpatch (originally) by Adrian Bunk <bunk@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix the default key bindings to be "Bash-like" for Debian.
+## DP: This fixes the behaviour of the delete key (cf. #43223).
+
+if [ $# -ne 1 ]; then
+    echo >&2 "`basename $0`: script expects -patch|-unpatch as argument"
+    exit 1
+fi
+case "$1" in
+    -patch) patch -f --no-backup-if-mismatch -p0 < $0;;
+    -unpatch) patch -f --no-backup-if-mismatch -R -p0 < $0;;
+    *)
+	echo >&2 "`basename $0`: script expects -patch|-unpatch as argument"
+	exit 1;;
+esac
+
+exit 0
+--- src/LYEditmap.c~
++++ src/LYEditmap.c
+@@ -929,10 +929,11 @@
+  */
+ 
+ PUBLIC LYEditCode * LYLineEditors[]={
+-        DefaultEditBinding,     /* You can't please everyone, so you ... DW */
+-#ifdef EXP_ALT_BINDINGS
+-	BetterEditBinding,      /* No, you certainly can't ... /ked 10/27/98*/
+-	BashlikeEditBinding,      /* and one more... - kw 1999-02-15 */
++        BashlikeEditBinding,      /* and one more... - kw 1999-02-15 */
++	DefaultEditBinding,     /* You can't please everyone, so you ... DW */
++        BetterEditBinding,      /* No, you certainly can't ... /ked 10/27/98*/
++#ifndef EXP_ALT_BINDINGS
++#error Debian specific: EXP_ALT_BINDINGS must be set
+ #endif
+ };
+ 
+@@ -941,10 +942,11 @@
+  * The order of LYLineEditors and LYLineditNames MUST be the same.
+  */
+ PUBLIC char * LYLineeditNames[]={
++        "Bash-like Bindings",
+ 	"Default Binding",
+-#ifdef EXP_ALT_BINDINGS
+-	"Alternate Bindings",
+-	"Bash-like Bindings",
++        "Alternate Bindings",
++#ifndef EXP_ALT_BINDINGS
++#error Debian specific: EXP_ALT_BINDINGS must be set
+ #endif
+ 	(char *) 0
+ };

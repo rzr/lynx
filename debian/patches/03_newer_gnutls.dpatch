@@ -1,0 +1,46 @@
+#! /bin/sh -e
+## 03_newer_gnutls.dpatch by Torbjörn Wassberg
+##
+## DP: Update configure for libgnutls11.
+## DP: [FIXME: we shouldn't be editing configure directly]
+
+if [ $# -lt 1 ]; then
+    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+    exit 1
+fi
+
+[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
+patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
+
+case "$1" in
+    -patch) patch -p1 ${patch_opts} < $0;;
+    -unpatch) patch -R -p1 ${patch_opts} < $0;;
+    *)
+        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+        exit 1;;
+esac
+
+exit 0
+
+@DPATCH@
+diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/configure lynx-2.8.5/configure
+--- /home/james/debian/packages/lynx/lynx-2.8.5/configure	2004-02-04 12:07:09.000000000 +0000
++++ lynx-2.8.5/configure	2004-09-26 13:32:42.614238703 +0100
+@@ -5944,7 +5944,7 @@
+ 
+ elif test "x$cf_cv_use_libgnutls" != xno ; then
+ 	
+-cf_ssl_library="-lgnutls-extra -lgnutls -lcrypt"
++cf_ssl_library="-lgnutls-extra -lgnutls-openssl -lgnutls -lcrypt"
+ case "$cf_cv_use_libgnutls" in #(vi
+ no) #(vi
+   ;;
+@@ -5956,7 +5956,7 @@
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+   ac_save_LIBS="$LIBS"
+-LIBS="-lgnutls -lgnutls-extra -lgnutls -lcrypt $LIBS"
++LIBS="-lgnutls -lgnutls-extra -lgnutls-openssl -lgnutls -lcrypt $LIBS"
+ cat > conftest.$ac_ext <<EOF
+ #line 5962 "configure"
+ #include "confdefs.h"

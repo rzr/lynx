@@ -1,0 +1,214 @@
+#!/bin/sh -e
+## 01_default-config.dpatch (originally) by Adrian Bunk <bunk@fs.tum.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix the default config for Debian. 
+
+if [ $# -lt 1 ]; then
+    echo >&2 "`basename $0`: script expects -patch|-unpatch as argument"
+    exit 1
+fi
+
+[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
+patch_opts="${patch_opts:--f --no-backup-if-mismatch}"
+
+case "$1" in
+       -patch) patch $patch_opts -p1 < $0;;
+       -unpatch) patch $patch_opts -p1 -R < $0;;
+        *)
+                echo >&2 "`basename $0`: script expects -patch|-unpatch as argument"
+                exit 1;;
+esac
+
+exit 0
+
+@DPATCH@
+diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx.cfg
+--- /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg	2004-01-28 19:30:38.000000000 +0000
++++ lynx-2.8.5/lynx.cfg	2004-02-05 16:38:31.000000000 +0000
+@@ -92,7 +92,7 @@
+ #
+ # Normally we expect you will connect to a remote site, e.g., the Lynx starting
+ # site:
+-STARTFILE:http://lynx.isc.org/
++STARTFILE:file://localhost/usr/share/doc/lynx/lynx_help/lynx_help_main.html
+ #
+ # As an alternative, you may want to use a local URL.  A good choice for this is
+ # the user's home directory:
+@@ -115,7 +115,7 @@
+ # http://www.subir.com/lynx/lynx_help/lynx_help_main.html
+ #   This should be changed to the local path.
+ #
+-HELPFILE:http://www.subir.com/lynx/lynx_help/lynx_help_main.html
++HELPFILE:file://localhost/usr/share/doc/lynx/lynx_help/lynx_help_main.html
+ .ex
+ #HELPFILE:file://localhost/PATH_TO/lynx_help/lynx_help_main.html
+ 
+@@ -489,7 +489,7 @@
+ # compatibility problems with other browsers, see also PREPEND_BASE_TO_SOURCE.
+ # Note that the prepending is not done for -source dumps.
+ #
+-#PREPEND_CHARSET_TO_SOURCE:TRUE
++PREPEND_CHARSET_TO_SOURCE:FALSE
+ 
+ 
+ .h2 NCR_IN_BOOKMARKS
+@@ -932,8 +932,8 @@
+ # executed.  This is much less dangerous than enabling all execution
+ # links, but can still be dangerous.
+ #
+-#LOCAL_EXECUTION_LINKS_ALWAYS_ON:FALSE
+-#LOCAL_EXECUTION_LINKS_ON_BUT_NOT_REMOTE:FALSE
++LOCAL_EXECUTION_LINKS_ALWAYS_ON:FALSE
++LOCAL_EXECUTION_LINKS_ON_BUT_NOT_REMOTE:FALSE
+ 
+ 
+ .h2 TRUSTED_EXEC
+@@ -981,7 +981,7 @@
+ # as well (i.e., they will only be able to access lynxexec or lynxprog
+ # URLs which meet any ALWAYS_TRUSTED_EXEC rules).
+ #
+-#TRUSTED_EXEC:none
++TRUSTED_EXEC:none
+ 
+ 
+ .h2 ALWAYS_TRUSTED_EXEC
+@@ -1003,7 +1003,7 @@
+ #
+ # The default ALWAYS_TRUSTED_EXEC rule is "none".
+ #
+-#ALWAYS_TRUSTED_EXEC:none
++ALWAYS_TRUSTED_EXEC:none
+ 
+ 
+ .h2 TRUSTED_LYNXCGI
+@@ -1023,7 +1023,7 @@
+ # ====
+ # Do not define this.
+ #
+-#TRUSTED_LYNXCGI:none
++TRUSTED_LYNXCGI:none
+ 
+ 
+ .h2 LYNXCGI_ENVIRONMENT
+@@ -1120,7 +1120,7 @@
+ # The news reading facility in Lynx is quite limited.  Lynx does not provide a
+ # full featured news reader with elaborate error checking and safety features.
+ #
+-#NNTPSERVER:news.server.dom
++NNTPSERVER:news
+ 
+ 
+ .h2 LIST_NEWS_NUMBERS
+@@ -1581,7 +1581,7 @@
+ # unless you know EVERY user will know how to use it;
+ # users can easily define their own editor in the Options Menu.
+ #
+-#DEFAULT_EDITOR:
++DEFAULT_EDITOR: /usr/bin/sensible-editor
+ 
+ 
+ .h2 SYSTEM_EDITOR
+@@ -1772,7 +1772,7 @@
+ # and not forced TRUE, the user can regulate it via the 'o'ptions menu (and
+ # may save the preference in the RC file).
+ #
+-#NO_DOT_FILES:TRUE
++NO_DOT_FILES:TRUE
+ 
+ 
+ .h1 Internal Behavior
+@@ -2019,7 +2019,7 @@
+ # the command line, and the latter switch overrides the setting of the
+ # PREPEND_BASE_TO_SOURCE configuration variable.
+ #
+-#PREPEND_BASE_TO_SOURCE:TRUE
++PREPEND_BASE_TO_SOURCE:FALSE
+ 
+ 
+ # MIME types and viewers!
+@@ -2055,13 +2055,13 @@
+ #
+ # Unix:
+ # ====
+-#GLOBAL_EXTENSION_MAP:/usr/local/lib/mosaic/mime.types
++GLOBAL_EXTENSION_MAP:/etc/mime.types
+ # VMS:
+ # ===
+ #GLOBAL_EXTENSION_MAP:Lynx_Dir:mime.types
+ #
+ #	Unix (sought in user's home directory):
+-#PERSONAL_EXTENSION_MAP:.mime.types
++PERSONAL_EXTENSION_MAP:.mime.types
+ #	VMS (sought in user's sys$login directory):
+ #PERSONAL_EXTENSION_MAP:mime.types
+ 
+@@ -2237,7 +2237,7 @@
+ # XLOADIMAGE_COMMAND definition.
+ # If you use xli, you may want to add the -quiet flag.
+ #
+-#XLOADIMAGE_COMMAND:xli %s &
++XLOADIMAGE_COMMAND:
+ 
+ .h2 VIEWER
+ # MIME types may be assigned to external viewers using
+@@ -2301,7 +2301,7 @@
+ #
+ # Unix:
+ # ====
+-#GLOBAL_MAILCAP:/usr/local/lib/mosaic/mailcap
++GLOBAL_MAILCAP:/etc/mailcap
+ # VMS:
+ # ===
+ #GLOBAL_MAILCAP:Lynx_Dir:mailcap
+@@ -2879,9 +2879,8 @@
+ #   blue          magenta        cyan          lightgray
+ #   gray          brightred      brightgreen   yellow
+ #   brightblue    brightmagenta  brightcyan    white
++#   default
+ .fi
+-# or (if you have configured using --enable-default-colors with ncurses or
+-# slang), "default" may be used for foreground and background.
+ #
+ # Note that in most cases a white background is really "lightgray", since
+ # terminals generally do not implement bright backgrounds.
+@@ -2894,8 +2893,7 @@
+ #COLOR:3:green:white
+ #COLOR:4:magenta:white
+ #COLOR:5:blue:white
+-#COLOR:6:red:white
+-COLOR:6:brightred:black
++#COLOR:6:brightred:black
+ #COLOR:7:magenta:cyan
+ 
+ 
+diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/userdefs.h lynx-2.8.5/userdefs.h
+--- /home/james/debian/packages/lynx/lynx-2.8.5/userdefs.h	2004-02-02 20:02:28.000000000 +0000
++++ lynx-2.8.5/userdefs.h	2004-02-05 16:38:16.000000000 +0000
+@@ -296,7 +296,7 @@
+  * Mappings in these global and personal files override any SUFFIX
+  * definitions in lynx.cfg and built-in defaults from src/HTInit.c.
+  */
+-#define GLOBAL_EXTENSION_MAP "/usr/local/lib/mosaic/mime.types"
++#define GLOBAL_EXTENSION_MAP "/etc/mime.types"
+ #define PERSONAL_EXTENSION_MAP ".mime.types"
+ 
+ /**************************
+@@ -306,7 +306,7 @@
+  * Mappings in these global and personal files override any VIEWER
+  * definitions in lynx.cfg and built-in defaults from src/HTInit.c.
+  */
+-#define GLOBAL_MAILCAP "/usr/local/lib/mosaic/mailcap"
++#define GLOBAL_MAILCAP "/etc/mailcap"
+ #define PERSONAL_MAILCAP ".mailcap"
+ 
+ /**************************
+@@ -324,7 +324,7 @@
+  * use any default viewers for image types.  Note that open is used as
+  * the default for NeXT, instead of the XLOADIMAGE_COMMAND definition.
+  */
+-#define XLOADIMAGE_COMMAND "xli %s &"
++#define XLOADIMAGE_COMMAND NULL
+ 
+ /**************************
+  * For UNIX systems, SYSTEM_MAIL and SYSTEM_MAIL_FLAGS are set by the
