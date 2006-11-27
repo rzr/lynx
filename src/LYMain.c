@@ -1123,9 +1123,17 @@ PUBLIC int main ARGS2(
     LYEscapeStartfile(&startfile);
     StrAllocCopy(indexfile, DEFAULT_INDEX_FILE);
     StrAllocCopy(global_type_map, GLOBAL_MAILCAP);
-    StrAllocCopy(personal_type_map, PERSONAL_MAILCAP);
+
+	StrAllocCopy(personal_type_map, Home_Dir());
+	StrAllocCat(personal_type_map, "/");
+    StrAllocCat(personal_type_map, PERSONAL_MAILCAP);
+
     StrAllocCopy(global_extension_map, GLOBAL_EXTENSION_MAP);
-    StrAllocCopy(personal_extension_map, PERSONAL_EXTENSION_MAP);
+    
+	StrAllocCopy(personal_extension_map, Home_Dir());
+	StrAllocCat(personal_extension_map, "/");
+    StrAllocCat(personal_extension_map, PERSONAL_EXTENSION_MAP);
+
     StrAllocCopy(language, PREFERRED_LANGUAGE);
     StrAllocCopy(pref_charset, PREFERRED_CHARSET);
     StrAllocCopy(system_mail, SYSTEM_MAIL);

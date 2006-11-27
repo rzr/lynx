@@ -1,4 +1,5 @@
 01_default-config
 02_default-key-bindings
 03_newer_gnutls
-04_CVE-2004-1617
+04_CVE-2004-1617.dpatch
+05_FTBFS_on_GNUHurd_and_GNUkBSD

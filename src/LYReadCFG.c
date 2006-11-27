@@ -450,6 +450,16 @@ typedef struct
 }
 Config_Type;
 
+PRIVATE int set_personal_extension_map ARGS1(
+	char *,		value)
+{
+	StrAllocCopy(personal_extension_map, Home_Dir());
+	StrAllocCat(personal_extension_map, "/");
+    StrAllocCat(personal_extension_map, value);
+	return 0;
+}
+
+
 PRIVATE int assume_charset_fun ARGS1(
 	char *,		value)
 {
@@ -1431,7 +1441,7 @@ PRIVATE Config_Type Config_Table [] =
 #ifdef USE_PERSISTENT_COOKIES
      PARSE_SET(RC_PERSISTENT_COOKIES,   persistent_cookies),
 #endif /* USE_PERSISTENT_COOKIES */
-     PARSE_STR(RC_PERSONAL_EXTENSION_MAP, personal_extension_map),
+     PARSE_FUN(RC_PERSONAL_EXTENSION_MAP, set_personal_extension_map),
      PARSE_STR(RC_PERSONAL_MAILCAP,     personal_type_map),
      PARSE_STR(RC_PREFERRED_CHARSET,    pref_charset),
      PARSE_STR(RC_PREFERRED_LANGUAGE,   language),

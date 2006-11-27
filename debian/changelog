@@ -1,15 +1,47 @@
-lynx (2.8.5-2sarge2) stable-security; urgency=high
+lynx (2.8.5-2sarge2.2) unstable; urgency=low
 
-  * Non-maintainer upload by the Security Team
-  * Added OpenBSD patch to fix infinete loop rendering broken HTML
+  * Non-maintainer upload.
+  * Read user configuration from home directory, not current
+    working directory. Closes: #396964
+    Thanks to Tom Parker for the patch.
+
+ -- Andreas Barth <aba@not.so.argh.org>  Mon, 27 Nov 2006 07:43:17 +0100
+
+lynx (2.8.5-2sarge2.1) unstable; urgency=low
+
+  * NMU.
+  * Fixed changelog entry that closes #384725.
+  * Used a debian version greater than the one in stable-security.
+
+ -- Anibal Monsalve Salazar <anibal@debian.org>  Thu, 14 Sep 2006 09:15:56 +1000
+
+lynx (2.8.5-2sarge1.2) unstable; urgency=high
+
+  * NMU.
+  * Fixed CVE-2004-1617 (see DSA-1076-1).
     [debian/patches/04_CVE-2004-1617.dpatch]
+    Patch by Thomas E. Dickey <dickey@radix.net>.
+    Closes: #384725.
+  * Fixed "FTBFS on GNU/Hurd (and GNU/k*BSD)".
+    [debian/patches/05_FTBFS_on_GNUHurd_and_GNUkBSD]
+    Patch by Robert Millan <rmh@debian.org>.
+    Closes: #238057.
 
- -- Martin Schulze <joey@infodrom.org>  Sat, 13 May 2006 07:47:40 +0200
+ -- Anibal Monsalve Salazar <anibal@debian.org>  Wed, 13 Sep 2006 18:41:49 +1000
+
+lynx (2.8.5-2sarge1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Now build-depending on libgnutls-dev so libgnutls11 can be
+    removed (Closes: #335765).
+
+ -- David Moreno Garza <damog@debian.org>  Sun, 13 Aug 2006 18:09:34 -0500
+
 
 lynx (2.8.5-2sarge1) stable-security; urgency=high
 
   * Non-maintainer upload by the Security Team
-  * Applied patch by Ulf Härnhammar to fix buffer overflow that can lead
+  * Applied patch by Ulf H?rnhammar to fix buffer overflow that can lead
     to arbitrary code execution [WWW/Library/Implementation/HTMIME.c,
     CAN-2005-3120]
 
@@ -17,7 +49,7 @@ lynx (2.8.5-2sarge1) stable-security; urgency=high
 
 lynx (2.8.5-2) unstable; urgency=low
 
-  * 03_newer_gnutls.dpatch: new patch from Torbjörn Wassberg to add
+  * 03_newer_gnutls.dpatch: new patch from Torbj?rn Wassberg to add
     '-lgnutls-openssl' to LIBS to allow compilation with gnutls11.
   * debian/control (Build-Depends): s/gnutls7/gnutls11/.  Closes: #264754
 
@@ -223,7 +255,7 @@ lynx (2.8.3-1.5) unstable; urgency=low
   * Update config.{guess,sub} to allow building on SH and others. (Closes: #95763)
   * Set DEFAULT_EDITOR in lynx.cfg to /usr/bin/sensible-editor. (Closes: #94605)
 
- -- André Dahlqvist <andre@debian.org>  Wed, 13 Jun 2001 05:45:56 +0200
+ -- Andr? Dahlqvist <andre@debian.org>  Wed, 13 Jun 2001 05:45:56 +0200
 
 lynx (2.8.3-1.4) unstable; urgency=low
 

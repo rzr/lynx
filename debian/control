@@ -3,7 +3,7 @@ Maintainer: James Troup <james@nocrew.org>
 Standards-Version: 3.6.0
 Section: web
 Priority: optional
-Build-Depends: libncursesw5-dev, zlib1g-dev, libbz2-dev, libgnutls11-dev, gettext, dpatch
+Build-Depends: libncursesw5-dev, zlib1g-dev, libbz2-dev, libgnutls-dev, gettext, dpatch
 
 Package: lynx
 Architecture: any
