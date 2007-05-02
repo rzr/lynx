@@ -22,16 +22,16 @@ build: patch-stamp
 		    --libexecdir=/usr/lib --sysconfdir=/etc \
 		    --localstatedir=/var --libdir=/etc \
 		    --enable-warnings \
-		    --with-screen=ncursesw --enable-8bit-toupper \
+		    --with-screen=ncursesw \
 		    --enable-externs \
 		    --enable-cgi-links --enable-exec-links \
 		    --enable-exec-scripts \
-		    --enable-persistent-cookies --enable-nls \
-		    --enable-prettysrc --enable-source-cache \
+		    --enable-nls \
 		    --enable-charset-choice \
 		    --enable-default-colors \
 		    --enable-ipv6 \
 		    --enable-nested-tables --enable-read-eta \
+		    --enable-nsl-fork --enable-justify-elts --enable-color-style \
 		    --with-gnutls=/usr \
 		    --with-zlib \
 		    --with-bzlib
@@ -59,6 +59,7 @@ binary-arch: checkroot build
 
 	$(install_dir) debian/tmp/etc/
 	$(install_file) lynx.cfg debian/tmp/etc/
+	$(install_file) samples/lynx.lss debian/tmp/etc/
 
 	$(install_dir) debian/tmp/usr/share/man/man1/
 	$(install_file) lynx.man debian/tmp/usr/share/man/man1/lynx.1
@@ -90,8 +91,8 @@ binary-arch: checkroot build
 	$(install_dir) debian/tmp/usr/lib/menu/
 	$(install_file) debian/menu debian/tmp/usr/lib/menu/lynx
 
-	$(install_dir) debian/tmp/usr/share/applnk/Internet
-	$(install_file) debian/desktop debian/tmp/usr/share/applnk/Internet/lynx.desktop
+	$(install_dir) debian/tmp/usr/share/applications
+	$(install_file) debian/lynx.desktop debian/tmp/usr/share/applications/lynx.desktop
 
 	$(install_dir) debian/tmp/usr/lib/mime/packages/
 	$(install_file) debian/mime debian/tmp/usr/lib/mime/packages/lynx

@@ -1,3 +1,47 @@
+lynx (2.8.6-2) unstable; urgency=high
+
+  * The 'Oh Crap, how did I miss _that_' release.
+  * Include the 2.8.5-2-sarge2.2 NMU patch and changelog entry.
+    (Missed in the last release, since I goofed, this is priority high to get
+    the security fix back out there.)
+  * Update and include the 2.8.5-2-sarge2.2 NMU patch as
+    03_mailcap_mime_security.dpatch.
+  * Ack the NMUs.
+    Closes: #396964, #387279, #387383.
+
+ -- Zephaniah E. Hull <warp@debian.org>  Wed, 02 May 2007 03:52:18 -0400
+
+lynx (2.8.6-1) unstable; urgency=low
+
+  * Hijack the package.  I might not be great at it, but I do use it daily.
+  * New upstream release.
+    Closes: #254515, #137480, #67184, #99400, #132674, #141158, #40435,
+    #120451, #157088, #204994, #244871, #248092, #268264, #271048, #318034,
+    #343049, #390918, #240237, #313789, #171312, #193205, #252915, #265031,
+    #121520, #152810, #188415, #344275, #374388, #184482, #315853
+  * Uses the new upstream defaults. Closes: #325478, #147287.
+  * Update 01_default-config.dpatch. (Offset changes only.)
+  * Update 02_default-key-bindings.dpatch. (Upstream formatting changes.)
+  * Kill 03_newer_gnutls.dpatch entirely.
+    This was fixed upstream.  But this is also a GPL violation as we only ship
+    the patch to configure, and not to configure.in, the source file.
+  * Kill 04_CVE-2004-1617.dpatch. (Merged into upstream.)
+  * Disable 05_FTBFS_on_GNUHurd_and_GNUkBSD (Upstream changes, file new bug if
+    we FTBFS again.)
+  * Removed configure arguments:
+    --enable-8bit-toupper - Removed, no longer exists.
+    --enable-persistent-cookies - Enabled by default.
+    --enable-prettysrc - Enabled by default.
+    --enable-source-cache - Enabled by default.
+    --enable-read-eta - Enabled by default.
+  * Added configure arguments:
+    --enable-nsl-fork - fork NSL requests, allowing them to be aborted
+    --enable-justify-elts - use element-justification logic
+  * Update the contents and location of lynx.desktop. Closes: 304989.
+  * Other things will be handled by later uploads, patches welcome.
+
+ -- Zephaniah E. Hull <warp@debian.org>  Tue, 01 May 2007 01:43:17 -0400
+
 lynx (2.8.5-2sarge2.2) unstable; urgency=low
 
   * Non-maintainer upload.

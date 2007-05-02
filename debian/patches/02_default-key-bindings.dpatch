@@ -21,33 +21,33 @@ exit 0
 --- src/LYEditmap.c~
 +++ src/LYEditmap.c
 @@ -929,10 +929,11 @@
-  */
  
- PUBLIC LYEditCode * LYLineEditors[]={
--        DefaultEditBinding,     /* You can't please everyone, so you ... DW */
+ LYEditCode *LYLineEditors[] =
+ {
+-    DefaultEditBinding,		/* You can't please everyone, so you ... DW */
 -#ifdef EXP_ALT_BINDINGS
--	BetterEditBinding,      /* No, you certainly can't ... /ked 10/27/98*/
--	BashlikeEditBinding,      /* and one more... - kw 1999-02-15 */
-+        BashlikeEditBinding,      /* and one more... - kw 1999-02-15 */
-+	DefaultEditBinding,     /* You can't please everyone, so you ... DW */
-+        BetterEditBinding,      /* No, you certainly can't ... /ked 10/27/98*/
+-    BetterEditBinding,		/* No, you certainly can't ... /ked 10/27/98 */
+-    BashlikeEditBinding,	/* and one more... - kw 1999-02-15 */
++    BashlikeEditBinding,	/* and one more... - kw 1999-02-15 */
++    DefaultEditBinding,	/* You can't please everyone, so you ... DW */
++    BetterEditBinding,		/* No, you certainly can't ... /ked 10/27/98*/
 +#ifndef EXP_ALT_BINDINGS
 +#error Debian specific: EXP_ALT_BINDINGS must be set
  #endif
  };
  
-@@ -941,10 +942,11 @@
-  * The order of LYLineEditors and LYLineditNames MUST be the same.
+@@ -942,10 +943,11 @@
   */
- PUBLIC char * LYLineeditNames[]={
-+        "Bash-like Bindings",
- 	"Default Binding",
+ const char *LYLineeditNames[] =
+ {
++    "Bash-like Bindings",
+     "Default Binding",
 -#ifdef EXP_ALT_BINDINGS
--	"Alternate Bindings",
--	"Bash-like Bindings",
-+        "Alternate Bindings",
+-    "Alternate Bindings",
+-    "Bash-like Bindings",
++    "Alternate Bindings",
 +#ifndef EXP_ALT_BINDINGS
 +#error Debian specific: EXP_ALT_BINDINGS must be set
  #endif
- 	(char *) 0
+     (char *) 0
  };

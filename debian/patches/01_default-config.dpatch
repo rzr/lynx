@@ -44,7 +44,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  .ex
  #HELPFILE:file://localhost/PATH_TO/lynx_help/lynx_help_main.html
  
-@@ -489,7 +489,7 @@
+@@ -492,7 +492,7 @@
  # compatibility problems with other browsers, see also PREPEND_BASE_TO_SOURCE.
  # Note that the prepending is not done for -source dumps.
  #
@@ -53,7 +53,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  
  .h2 NCR_IN_BOOKMARKS
-@@ -932,8 +932,8 @@
+@@ -935,8 +935,8 @@
  # executed.  This is much less dangerous than enabling all execution
  # links, but can still be dangerous.
  #
@@ -64,7 +64,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  
  .h2 TRUSTED_EXEC
-@@ -981,7 +981,7 @@
+@@ -984,7 +984,7 @@
  # as well (i.e., they will only be able to access lynxexec or lynxprog
  # URLs which meet any ALWAYS_TRUSTED_EXEC rules).
  #
@@ -73,7 +73,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  
  .h2 ALWAYS_TRUSTED_EXEC
-@@ -1003,7 +1003,7 @@
+@@ -1006,7 +1006,7 @@
  #
  # The default ALWAYS_TRUSTED_EXEC rule is "none".
  #
@@ -82,7 +82,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  
  .h2 TRUSTED_LYNXCGI
-@@ -1023,7 +1023,7 @@
+@@ -1026,7 +1026,7 @@
  # ====
  # Do not define this.
  #
@@ -91,7 +91,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  
  .h2 LYNXCGI_ENVIRONMENT
-@@ -1120,7 +1120,7 @@
+@@ -1123,7 +1123,7 @@
  # The news reading facility in Lynx is quite limited.  Lynx does not provide a
  # full featured news reader with elaborate error checking and safety features.
  #
@@ -100,7 +100,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  
  .h2 LIST_NEWS_NUMBERS
-@@ -1581,7 +1581,7 @@
+@@ -1597,7 +1597,7 @@
  # unless you know EVERY user will know how to use it;
  # users can easily define their own editor in the Options Menu.
  #
@@ -109,7 +109,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  
  .h2 SYSTEM_EDITOR
-@@ -1772,7 +1772,7 @@
+@@ -1788,7 +1788,7 @@
  # and not forced TRUE, the user can regulate it via the 'o'ptions menu (and
  # may save the preference in the RC file).
  #
@@ -118,7 +118,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  
  .h1 Internal Behavior
-@@ -2019,7 +2019,7 @@
+@@ -2035,7 +2035,7 @@
  # the command line, and the latter switch overrides the setting of the
  # PREPEND_BASE_TO_SOURCE configuration variable.
  #
@@ -127,7 +127,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  
  # MIME types and viewers!
-@@ -2055,13 +2055,13 @@
+@@ -2071,13 +2071,13 @@
  #
  # Unix:
  # ====
@@ -143,7 +143,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  #	VMS (sought in user's sys$login directory):
  #PERSONAL_EXTENSION_MAP:mime.types
  
-@@ -2237,7 +2237,7 @@
+@@ -2253,7 +2253,7 @@
  # XLOADIMAGE_COMMAND definition.
  # If you use xli, you may want to add the -quiet flag.
  #
@@ -152,7 +152,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  
  .h2 VIEWER
  # MIME types may be assigned to external viewers using
-@@ -2301,7 +2301,7 @@
+@@ -2317,7 +2317,7 @@
  #
  # Unix:
  # ====
@@ -161,7 +161,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  # VMS:
  # ===
  #GLOBAL_MAILCAP:Lynx_Dir:mailcap
-@@ -2879,9 +2879,8 @@
+@@ -2926,9 +2926,8 @@
  #   blue          magenta        cyan          lightgray
  #   gray          brightred      brightgreen   yellow
  #   brightblue    brightmagenta  brightcyan    white
@@ -172,7 +172,7 @@ diff -urNad /home/james/debian/packages/lynx/lynx-2.8.5/lynx.cfg lynx-2.8.5/lynx
  #
  # Note that in most cases a white background is really "lightgray", since
  # terminals generally do not implement bright backgrounds.
-@@ -2894,8 +2893,7 @@
+@@ -2941,8 +2940,7 @@
  #COLOR:3:green:white
  #COLOR:4:magenta:white
  #COLOR:5:blue:white
