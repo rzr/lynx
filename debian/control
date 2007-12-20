@@ -1,9 +1,10 @@
 Source: lynx
-Maintainer: Zephaniah E. Hull <warp@debian.org>
-Standards-Version: 3.6.0
+Maintainer: Ubuntu MOTU Developers <ubuntu-motu@lists.ubuntu.com>
+XSBC-Original-Maintainer: Zephaniah E. Hull <warp@debian.org>
+Standards-Version: 3.7.3
 Section: web
 Priority: optional
-Build-Depends: libncursesw5-dev, zlib1g-dev, libbz2-dev, libgnutls-dev, gettext, dpatch
+Build-Depends: libncursesw5-dev, zlib1g-dev, libbz2-dev, libgnutls-dev, gettext, dpatch, sharutils
 
 Package: lynx
 Architecture: any

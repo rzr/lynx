@@ -4,6 +4,6 @@ Exec=/usr/bin/lynx %u
 Name=Lynx
 Terminal=1
 Comment=Lynx
-Icon=html
+Icon=web-browser
 MimeType=text/html
 XClassHintResName=Lynx

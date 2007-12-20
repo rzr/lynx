@@ -44,6 +44,7 @@ clean: unpatch
 	-(find . -type f -name \*~ | xargs rm)
 	-$(MAKE) distclean
 	-rm -f config.cache config.log lynx 
+	rm -f debian/icons/web-browser.png
 
 binary-indep:
 
@@ -96,6 +97,10 @@ binary-arch: checkroot build
 
 	$(install_dir) debian/tmp/usr/lib/mime/packages/
 	$(install_file) debian/mime debian/tmp/usr/lib/mime/packages/lynx
+
+	uudecode -o debian/icons/web-browser.png debian/icons/web-browser.png.uue
+	$(install_dir) debian/tmp/usr/share/icons/hicolor/22x22/apps/
+	$(install_file) debian/icons/web-browser.png debian/tmp/usr/share/icons/hicolor/22x22/apps/web-browser.png
 
 	dpkg-shlibdeps debian/tmp/usr/bin/lynx.stable
 	dpkg-gencontrol -isp

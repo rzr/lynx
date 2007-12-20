@@ -1,3 +1,19 @@
+lynx (2.8.6-2ubuntu2) hardy; urgency=low
+
+  * Fixed missing icon in KDE menu (LP: #159580)
+  * Updated Standards-Version 
+
+ -- Ralph Janke <txwikinger@ubuntu.com>  Thu, 20 Dec 2007 03:19:13 +0000
+
+lynx (2.8.6-2ubuntu1) gutsy; urgency=low
+
+  * debian/patches/01_default-config.dpatch: Updated HomePage to Ubuntu Default
+    (Closes LP: #18639)
+  * debian/control: Updated Maintainer Field
+  * debian/control: Updated Standards-Version to 3.7.2
+
+ -- Joseph Jackson IV <jjacksoniv@fluxbuntu.org>  Fri, 25 May 2007 09:34:00 -0400
+
 lynx (2.8.6-2) unstable; urgency=high
 
   * The 'Oh Crap, how did I miss _that_' release.
