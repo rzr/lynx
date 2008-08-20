@@ -32,7 +32,7 @@ build: patch-stamp
 		    --enable-ipv6 \
 		    --enable-nested-tables --enable-read-eta \
 		    --enable-nsl-fork --enable-justify-elts --enable-color-style \
-		    --with-gnutls=/usr \
+		    --without-gnutls \
 		    --with-zlib \
 		    --with-bzlib
 	$(MAKE)

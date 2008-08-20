@@ -1,3 +1,33 @@
+lynx (2.8.6-2.1ubuntu3) intrepid; urgency=low
+
+  * Corrected debian/lynx.desktop (LP: #147058)
+
+ -- Nicolai Spohrer <nicolai@xeve.de>  Thu, 21 Aug 2008 01:49:52 +0200
+
+lynx (2.8.6-2.1ubuntu2) intrepid; urgency=low
+
+  * Remove patch file.
+
+ -- Matthias Klose <doko@ubuntu.com>  Thu, 26 Jun 2008 00:38:38 +0200
+
+lynx (2.8.6-2.1ubuntu1) intrepid; urgency=low
+
+  * Merge with Debian; remaining changes:
+    - Fixed missing icon in KDE menu (LP: #159580).
+    - debian/patches/01_default-config.dpatch: Updated HomePage to Ubuntu Default
+      (Closes LP: #18639).
+    - debian/control: Updated Maintainer Field.
+
+ -- Matthias Klose <doko@ubuntu.com>  Thu, 26 Jun 2008 00:23:54 +0200
+
+lynx (2.8.6-2.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Stop linking against GnuTLS OpenSSL wrapper library, since licenses are
+    incompatible (GPLv2 vs. GPLv3+). Closes: #468769
+
+ -- Andreas Metzler <ametzler@debian.org>  Sat, 21 Jun 2008 17:08:19 +0000
+
 lynx (2.8.6-2ubuntu2) hardy; urgency=low
 
   * Fixed missing icon in KDE menu (LP: #159580)

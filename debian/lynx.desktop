@@ -1,6 +1,5 @@
 [Desktop Entry]
 Type=Application
-Encoding=UTF-8
 Name=Lynx Web Browser
 Name[ru]=Веб-браузер Lynx
 GenericName=Web Browser
@@ -10,8 +9,8 @@ Comment[ru]=Веб-браузер в текстовом (консольном) �
 TryExec=lynx
 Exec=lynx %u
 Terminal=true
-MimeType=text/html
-Categories=Application;Network;WebBrowser;ConsoleOnly;
+MimeType=text/html;
+Categories=Network;WebBrowser;ConsoleOnly;
 NotShowIn=GNOME;
 Icon=web-browser
-XClassHintResName=Lynx
+X-XClassHintResName=Lynx
