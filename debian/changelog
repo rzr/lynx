@@ -1,3 +1,9 @@
+lynx (2.8.6-2.1maemo3) diablo; urgency=low
+
+  * Repackaged to the architecture armel
+
+ -- Thomas Pietrowski <thopiekar@googlemail.com>  Thu, 19 Feb 2009 18:31:17 +0100 
+
 lynx (2.8.6-2.1ubuntu3) intrepid; urgency=low
 
   * Corrected debian/lynx.desktop (LP: #147058)
