@@ -1,7 +1,30 @@
 #ifndef LYCURSES_H
 #define LYCURSES_H
 
-#include "userdefs.h"
+#ifndef HTUTILS_H
+#include <HTUtils.h>
+#endif
+
+/*
+ * Because we have to configure PDCURSES last, we may get bogus definitions
+ * from the system curses library - cancel these now.
+ */
+#ifdef HAVE_XCURSES
+
+#undef ASSUME_DEFAULT_COLORS
+#undef COLOR_CURSES
+#undef FANCY_CURSES
+#undef HAVE_CBREAK
+#undef HAVE_RESIZETERM
+#undef HAVE_USE_DEFAULT_COLORS
+#undef NCURSES
+#undef USE_DEFAULT_COLORS
+
+#define HAVE_CBREAK 1
+#define COLOR_CURSES 1
+#define FANCY_CURSES 1
+
+#endif
 
 /*
  * The simple color scheme maps the 8 combinations of bold/underline/reverse
@@ -23,13 +46,9 @@
 #endif /* FALSE */
 
 #ifdef USE_SLANG
-#if defined(UNIX) && !defined(unix)
-#define unix
-#endif /* UNIX && !unix */
-#ifdef va_start
-#undef va_start	 /* not used, undef to avoid warnings on some systems */
-#endif /* va_start */
 #include <slang.h>
+#define WINDOW void
+#define waddstr(w,s) addstr(s)
 
 #else /* Using curses: */
 
@@ -75,6 +94,10 @@
 #undef PENDIN
 #endif
 
+#if defined(_MSC_VER)
+#undef MOUSE_MOVED	/* conflict between PDCURSES and _WIN32 */
+#endif /* _MSC_VER */
+
 #ifdef HAVE_CONFIG_H
 # ifdef HAVE_NCURSES_H
 #  include <ncurses.h>
@@ -85,7 +108,15 @@
 #   ifdef HAVE_JCURSES_H
 #    include <jcurses.h>	/* sony_news */
 #   else
-#    include <curses.h>		/* default */
+#    ifdef PDCURSES
+#     include <pdcurses.h>	/* for PDCurses */
+#    else
+#     ifdef HAVE_XCURSES
+#      include <xcurses.h>	/* PDCurses' UNIX port */
+#     else
+#      include <curses.h>	/* default */
+#     endif
+#    endif
 #   endif
 #  endif
 # endif
@@ -94,17 +125,40 @@
 #  define getbkgd(w) wgetbkgd(w)	/* workaround pre-1.9.9g bug */
 # endif
 
-# ifdef NCURSES
-extern void LYsubwindow PARAMS((WINDOW * param));
-# endif /* NCURSES */
+#if defined(NCURSES_VERSION) && defined(HAVE_DEFINE_KEY)
+#include <term.h>
+#define USE_KEYMAPS		1
+#endif
 
 #else
 # if defined(VMS) && defined(__GNUC__)
-#  include "LYGCurses.h"
+#  include <LYGCurses.h>
 # else
-#  include <curses.h>  /* everything else */
+#  ifdef PDCURSES	/* 1999/07/15 (Thu) 08:27:48 */
+#   include <pdcurses.h> /* for PDCurses */
+#  else
+#   include <curses.h>  /* everything else */
+#  endif /* not PDCURSES */
 # endif /* VMS && __GNUC__ */
 #endif /* HAVE_CONFIG_H */
+
+#if defined(NCURSES) || defined(PDCURSES)
+extern void LYsubwindow PARAMS((WINDOW * param));
+#endif /* NCURSES */
+
+/*
+ * PDCurses' mouse code does nothing in the DJGPP configuration.
+ */
+#if defined(PDCURSES) && !defined(__DJGPP__) && !defined(HAVE_XCURSES)
+#define USE_MOUSE 1
+#endif
+
+/*
+ * Pick up the native ncurses name:
+ */
+#if defined(NCURSES_MOUSE_VERSION)
+#define USE_MOUSE 1
+#endif
 
 #ifdef VMS
 extern void VMSbox PARAMS((WINDOW *win, int height, int width));
@@ -113,6 +167,25 @@ extern void LYbox PARAMS((WINDOW *win, BOOLEAN formfield));
 #endif /* VMS */
 #endif /* USE_SLANG */
 
+/*
+ * Useful macros not in PDCurses or very old ncurses headers.
+ */
+#if !defined(HAVE_GETATTRS) && !defined(getattrs)
+#define getattrs(win) ((win)->_attrs)
+#endif
+#if !defined(HAVE_GETBEGX) && !defined(getbegx)
+#define getbegx(win) ((win)->_begx)
+#endif
+#if !defined(HAVE_GETBEGY) && !defined(getbegy)
+#define getbegy(win) ((win)->_begy)
+#endif
+#if !defined(HAVE_GETBKGD) && !defined(getbkgd)
+#define getbkgd(win) ((win)->_bkgd)
+#endif
+
+#if defined(PDCURSES)
+#define HAVE_GETBKGD 1	/* can use fallback definition */
+#endif
 
 /* Both slang and curses: */
 #ifndef TRUE
@@ -145,35 +218,39 @@ extern void LYbox PARAMS((WINDOW *win, BOOLEAN formfield));
 extern int LYlines;  /* replaces LINES */
 extern int LYcols;   /* replaces COLS */
 
-#ifndef HTUTILS_H
-#include "HTUtils.h"
-#endif /* HTUTILS_H */
-
 extern void start_curses NOPARAMS;
 extern void stop_curses NOPARAMS;
 extern BOOLEAN setup PARAMS((char *terminal));
+extern void LYnoVideo PARAMS((int mask));
 extern void LYstartTargetEmphasis NOPARAMS;
 extern void LYstopTargetEmphasis NOPARAMS;
+extern void LYtouchline PARAMS((int row));
+extern void LYwaddnstr PARAMS((WINDOW *w, CONST char *s, size_t len));
+
+#define LYaddstr(s)      LYwaddnstr(stdscr, s, strlen(s))
+#define LYaddnstr(s,len) LYwaddnstr(stdscr, s, len)
+#define LYwaddstr(w,s)   LYwaddnstr(w, s, strlen(s))
 
 #ifdef VMS
+extern int DCLsystem (char *command);
 extern void VMSexit();
 extern int ttopen();
 extern int ttclose();
 extern int ttgetc();
-extern void *VMSsignal PARAMS((int sig, void (*func)()));
+extern void VMSsignal PARAMS((int sig, void (*func)()));
 #endif /* VMS */
 
 #if defined(USE_COLOR_STYLE)
 extern void curses_css PARAMS((char * name, int dir));
-extern void curses_style PARAMS((int style, int dir, int previous));
-extern void curses_w_style PARAMS((WINDOW* win, int style, int dir, int previous));
+extern void curses_style PARAMS((int style, int dir));
+extern void curses_w_style PARAMS((WINDOW* win, int style, int dir));
 extern void setHashStyle PARAMS((int style, int color, int cattr, int mono, char* element));
 extern void setStyle PARAMS((int style, int color, int cattr, int mono));
 extern void wcurses_css PARAMS((WINDOW * win, char* name, int dir));
-#define LynxChangeStyle curses_style
+#define LynxChangeStyle(style,dir,previous) curses_style(style,dir)
 #else
 extern int slang_style PARAMS((int style, int dir, int previous));
-#define LynxChangeStyle slang_style
+#define LynxChangeStyle(style,dir,previous) slang_style(style,dir,previous)
 #endif /* USE_COLOR_STYLE */
 
 #if USE_COLOR_TABLE
@@ -184,13 +261,20 @@ extern unsigned int Lynx_Color_Flags;
 #endif
 
 #ifdef USE_SLANG
+#define SHOW_WHEREIS_TARGETS 1
+
 #if !defined(VMS) && !defined(DJGPP)
-#define USE_SLANG_MOUSE		1
-#endif /* USE_SLANG */
+#define USE_MOUSE              1
+#endif
+
+#if !defined(__DJGPP__) && !defined(__CYGWIN__)
+#define USE_KEYMAPS		1
+#endif
 
 #define SL_LYNX_USE_COLOR	1
 #define SL_LYNX_USE_BLINK	2
 #define SL_LYNX_OVERRIDE_COLOR	4
+
 #define start_bold()      	LYaddAttr(1)
 #define start_reverse()   	LYaddAttr(2)
 #define start_underline() 	LYaddAttr(4)
@@ -205,6 +289,9 @@ extern unsigned int Lynx_Color_Flags;
 /*
  *  Map some curses functions to slang functions.
  */
+#ifndef WINDOW
+#define WINDOW void
+#endif
 #define stdscr NULL
 #ifdef SLANG_MBCS_HACK
 extern int PHYSICAL_SLtt_Screen_Cols;
@@ -255,6 +342,7 @@ extern void VTHome NOPARAMS;
 #else /* Define curses functions: */
 
 #ifdef FANCY_CURSES
+#define SHOW_WHEREIS_TARGETS 1
 
 #ifdef VMS
 /*
@@ -288,9 +376,7 @@ extern void VTHome NOPARAMS;
  */
 #if USE_COLOR_TABLE
 extern void LYaddWAttr PARAMS((WINDOW *win, int a));
-extern void LYaddAttr PARAMS((int a));
 extern void LYsubWAttr PARAMS((WINDOW *win, int a));
-extern void LYsubAttr PARAMS((int a));
 extern void LYaddWAttr PARAMS((WINDOW *win, int a));
 extern void LYsubWAttr PARAMS((WINDOW *win, int a));
 extern void lynx_set_color PARAMS((int a));
@@ -301,8 +387,8 @@ extern int  lynx_chg_color PARAMS((int, int, int));
 #undef  standend
 #define standend() 		lynx_standout(FALSE)
 #else
-#define LYaddAttr		attrset
-#define LYaddWAttr		wattrset
+#define LYaddAttr		attron
+#define LYaddWAttr		wattron
 #define LYsubAttr		attroff
 #define LYsubWAttr		wattroff
 #endif
@@ -310,14 +396,24 @@ extern int  lynx_chg_color PARAMS((int, int, int));
 #ifdef UNDERLINE_LINKS
 #define start_bold()		LYaddAttr(A_UNDERLINE)
 #define stop_bold()		LYsubAttr(A_UNDERLINE)
+#ifdef __CYGWIN__	/* 1999/02/25 (Thu) 01:09:45 */
+#define start_underline()	/* LYaddAttr(A_BOLD) */
+#define stop_underline()	/* LYsubAttr(A_BOLD) */
+#else
 #define start_underline()	LYaddAttr(A_BOLD)
 #define stop_underline()	LYsubAttr(A_BOLD)
+#endif /* __CYGWIN__ */
 #else /* not UNDERLINE_LINKS: */
 #define start_bold()		LYaddAttr(A_BOLD)
 #define stop_bold()		LYsubAttr(A_BOLD)
+#ifdef USE_COLOR_STYLE
+#define start_underline()	attron(A_UNDERLINE) /* allow combining - kw */
+#else
 #define start_underline()	LYaddAttr(A_UNDERLINE)
+#endif /* USE_COLOR_STYLE */
 #define stop_underline()	LYsubAttr(A_UNDERLINE)
 #endif /* UNDERLINE_LINKS */
+
 #if defined(SNAKE) && defined(HP_TERMINAL)
 #define start_reverse()		LYaddWAttr(stdscr, A_DIM)
 #define wstart_reverse(a)	LYaddWAttr(a, A_DIM)
@@ -329,9 +425,18 @@ extern int  lynx_chg_color PARAMS((int, int, int));
 #define stop_reverse()		LYsubAttr(A_REVERSE)
 #define wstop_reverse(a)	LYsubWAttr(a, A_REVERSE)
 #endif /* SNAKE && HP_TERMINAL */
+
 #endif /* VMS */
 
 #else /* Not FANCY_CURSES: */
+
+#ifdef COLOR_CURSES
+#undef COLOR_CURSES
+Error FANCY_CURSES
+There is a problem with the configuration.  We expect to have FANCY_CURSES
+defined when COLOR_CURSES is defined, since we build on the attributes used in
+FANCY_CURSES.  Check your config.log to see why the FANCY_CURSES test failed.
+#endif
 
 /*
  *  We only have [w]standout() and [w]standin(),
@@ -360,6 +465,16 @@ extern int  lynx_chg_color PARAMS((int, int, int));
 #endif /* getyx */
 #endif /* USE_SLANG */
 
+/*
+ * If the screen library allows us to specify "default" color, allow user to 
+ * control it.
+ */
+#if USE_DEFAULT_COLORS
+#if USE_SLANG || (HAVE_ASSUME_DEFAULT_COLORS && !defined(USE_COLOR_STYLE))
+#define EXP_ASSUMED_COLOR 1
+#endif
+#endif
+
 extern void lynx_enable_mouse PARAMS((int));
 extern void lynx_force_repaint NOPARAMS;
 extern void lynx_start_title_color NOPARAMS;
@@ -377,5 +492,35 @@ extern void lynx_stop_prompt_color NOPARAMS;
 extern void lynx_start_radio_color NOPARAMS;
 extern void lynx_stop_radio_color NOPARAMS;
 extern void lynx_stop_all_colors NOPARAMS;
+
+/*
+ * To prevent corrupting binary data on DOS, MS-WINDOWS or OS/2 we open files
+ * and stdout in BINARY mode by default.  Where necessary we should open and
+ * (close!) TEXT mode.
+ *
+ * Note:  EMX has no corresponding variable like _fmode on DOS, but it does
+ * have setmode.
+ */
+#if defined(_WINDOWS) || defined(DJGPP) || defined(__EMX__) || defined(WIN_EX)
+#define SetOutputMode(mode) setmode(fileno(stdout), mode)
+#else
+#define SetOutputMode(mode) /* nothing */
+#endif
+
+#if defined(_WINDOWS) || defined(DJGPP)
+#define SetDefaultMode(mode) _fmode = mode
+#else
+#define SetDefaultMode(mode) /* nothing */
+#endif
+
+/*
+ * Very old versions of curses cannot put the cursor on the lower right corner.
+ * Adjust our "hidden" cursor position accordingly.
+ */
+#if defined(FANCY_CURSES) || defined(USE_SLANG)
+#define LYHideCursor() move((LYlines - 1), (LYcols - 1))
+#else
+#define LYHideCursor() move((LYlines - 1), (LYcols - 2))
+#endif
 
 #endif /* LYCURSES_H */

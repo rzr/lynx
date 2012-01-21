@@ -2,7 +2,7 @@
 #define LYREADCFG_H
 
 #ifndef LYSTRUCTS_H
-#include "LYStructs.h"
+#include <LYStructs.h>
 #endif /* LYSTRUCTS_H */
 
 #if defined(USE_COLOR_STYLE) || defined(USE_COLOR_TABLE)
@@ -40,10 +40,19 @@
 extern int default_fg;
 extern int default_bg;
 
+#if HAVE_USE_DEFAULT_COLORS && USE_DEFAULT_COLORS
+extern int lynx_default_colors NOPARAMS;
+#endif
+
 extern int check_color PARAMS((char * color, int the_default));
 #endif
 
-extern void read_cfg PARAMS((char *cfg_filename));
+extern void read_cfg PARAMS((char *cfg_filename, char *parent_filename, int nesting_level, FILE *fp0));
+extern void free_lynx_cfg NOPARAMS;
 extern BOOLEAN have_read_cfg;
+
+extern int lynx_cfg_infopage PARAMS((document *newdoc));
+extern int lynx_compile_opts PARAMS((document *newdoc));
+extern void reload_read_cfg NOPARAMS; /* implemented in LYMain.c */
 
 #endif /* LYREADCFG_H */

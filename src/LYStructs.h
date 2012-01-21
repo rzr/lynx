@@ -1,13 +1,8 @@
-
 #ifndef LYSTRUCTS_H
 #define LYSTRUCTS_H
 
-#ifndef USERDEFS_H
-#include "userdefs.h"
-#endif /* USERDEFS_H */
-
 #ifndef HTANCHOR_H
-#include "HTAnchor.h"
+#include <HTAnchor.h>
 #endif /* HTANCHOR_H */
 
 typedef struct link {
@@ -32,9 +27,9 @@ typedef struct _document {
    char * address;
    char * post_data;
    char * post_content_type;
+   char * bookmark;
    BOOL   safe;
    BOOL   isHEAD;
-   char * bookmark;
    int    link;
    int    line;
    BOOL   internal_link;	/* whether doc was reached via an internal
@@ -45,7 +40,7 @@ typedef struct _document {
 } document;
 
 #ifndef HTFORMS_H
-#include "HTForms.h"
+#include <HTForms.h>
 #endif /* HTFORMS_H */
 
 typedef struct _histstruct {
@@ -53,11 +48,11 @@ typedef struct _histstruct {
     char * address;
     char * post_data;
     char * post_content_type;
-    BOOL   safe;
     char * bookmark;
+    BOOL   safe;
     BOOL   isHEAD;
     int    link;
-    int    page;
+    int    line;
     BOOL   internal_link;	/* whether doc was reached via an internal
 				 (fragment) link. - kw */
     int    intern_seq_start;	/* indicates which element on the history
@@ -65,9 +60,21 @@ typedef struct _histstruct {
 				   "internal links", otherwise -1 */
 } histstruct;
 
+extern int Visited_Links_As;
+
+#define VISITED_LINKS_AS_FIRST_V 0
+#define VISITED_LINKS_AS_TREE    1
+#define VISITED_LINKS_AS_LATEST  2
+#define VISITED_LINKS_REVERSE    4
+
 typedef struct _VisitedLink {
     char * title;
     char * address;
+    int level;
+    struct _VisitedLink *next_tree;
+    struct _VisitedLink *prev_latest;
+    struct _VisitedLink *next_latest;
+    struct _VisitedLink *prev_first;
 } VisitedLink;
 
 extern histstruct history[MAXHIST];

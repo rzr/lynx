@@ -7,10 +7,26 @@ WWW_MACH = djgpp
 # The ASIS repository's name for the machine we are on
 #ASIS_MACH = hardware/os
 
-CFLAGS = -O3 -DUSE_ZLIB -DDOSPATH -DNOUSERS -DDEBUG -I../../../djgpp/tcplib/include -I../../../djgpp/tcplib/include/tcp \
--I../../../src -I../../..
+# Use this option to enable optional and *experimental* color style.
+#ENABLE_COLOR_STYLE = \
+ -DUSE_COLOR_STYLE \
+ -DUSE_HASH \
+ -DLINKEDSTYLES
+
+
+CFLAGS = -O1 -DUSE_ZLIB -DDOSPATH -DNOUSERS -DDISP_PARTIAL \
+-DDIRED_SUPPORT -DSOURCE_CACHE -DUSE_PRETTYSRC \
+ $(ENABLE_COLOR_STYLE) \
+-DEXP_FILE_UPLOAD \
+-DWATT32 \
+-I../Implementation \
+-I../../../djgpp/watt32/inc -I../../../djgpp/watt32/inc/sys \
+-I../../../src \
+-I../../../curses \
+-I../../.. $(INTLFLAGS)
 LFLAGS =
 CC = gcc
+#INTLFLAGS = -DHAVE_GETTEXT -DHAVE_LIBINTL_H
 
 # Directory for installed binary:
 !BINDIR = /usr/local/bin

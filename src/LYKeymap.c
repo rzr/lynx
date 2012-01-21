@@ -1,48 +1,92 @@
-#include "HTUtils.h"
-#include "tcp.h"
-#include "LYUtils.h"
-#include "LYKeymap.h"
-#include "LYGlobalDefs.h"
-#include "HTAccess.h"
-#include "HTFormat.h"
-#include "HTAlert.h"
 
-#include "LYLeaks.h"
+#include <HTUtils.h>
+#include <LYUtils.h>
+#include <LYKeymap.h>
+#include <LYGlobalDefs.h>
+#include <LYCharSets.h>		/* for LYlowest_eightbit - kw */
+#include <HTAccess.h>
+#include <HTFormat.h>
+#include <HTAlert.h>
+#include <LYStrings.h>		/* for USE_KEYMAP stuff - kw */
 
-PRIVATE CONST DocAddress keymap_anchor = {"LYNXKEYMAP", NULL, NULL};
+#include <LYLeaks.h>
 
-struct _HTStream 
+#ifdef EXP_KEYBOARD_LAYOUT
+#include <jcuken_kb.h>
+#include <yawerty_kb.h>
+#include <rot13_kb.h>
+#endif
+
+#ifdef EXP_KEYBOARD_LAYOUT
+PUBLIC int current_layout = 0;  /* Index into LYKbLayouts[]   */
+
+PUBLIC LYKbLayout_t * LYKbLayouts[]={
+	kb_layout_rot13,
+	kb_layout_jcuken,
+	kb_layout_yawerty
+};
+
+PUBLIC char * LYKbLayoutNames[]={
+	"ROT13'd keyboard layout",
+	"JCUKEN Cyrillic, for AT 101-key kbd",
+	"YAWERTY Cyrillic, for DEC LK201 kbd",
+        (char *) 0
+};
+#endif /* EXP_KEYBOARD_LAYOUT */
+
+struct _HTStream
 {
   HTStreamClass * isa;
 };
 
+/* * *  Tables mapping LynxKeyCodes to LynxActionCodes  * * */
+
+/*
+ *  Lynxkeycodes include all single-byte keys as well as codes
+ *  for function keys and some special purposes.  See LYStrings.h.
+ *  Extended lynxkeycode values can also contain flags for modifiers
+ *  and other purposes, but here only the base values are mapped to
+ *  lynxactioncodes.  They are called `keystrokes' in lynx.cfg.
+ *
+ *  Lynxactioncodes (confusingly, constants are named LYK_foo and
+ *  typed as LYKeymapCode) specify key `functions', see LYKeymap.h.
+ */
+
 /* the character gets 1 added to it before lookup,
  * so that EOF maps to 0
  */
-char keymap[] = {
+LYKeymap_t keymap[KEYMAP_SIZE] = {
 
 0,
 /* EOF */
 
-0,                  LYK_HOME,       LYK_PREV_PAGE,     0,
+LYK_DO_NOTHING,     LYK_HOME,       LYK_PREV_PAGE,     0,
 /* nul */           /* ^A */        /* ^B */       /* ^C */
 
 LYK_ABORT,          LYK_END,        LYK_NEXT_PAGE,     0,
 /* ^D */            /* ^E */        /* ^F */       /* ^G */
 
-LYK_HISTORY,      LYK_NEXT_LINK,    LYK_ACTIVATE,  LYK_COOKIE_JAR,
+LYK_HISTORY,    LYK_FASTFORW_LINK,  LYK_ACTIVATE,  LYK_COOKIE_JAR,
 /* bs */            /* ht */        /* nl */       /* ^K */
 
-LYK_REFRESH,      LYK_ACTIVATE,     LYK_DOWN_TWO,      0,
+#ifdef KANJI_CODE_OVERRIDE
+LYK_CHG_KCODE,    LYK_ACTIVATE,     LYK_DOWN_TWO,      0,
 /* ^L */            /* cr */        /* ^N */       /* ^O */
 
+#else
+LYK_REFRESH,      LYK_ACTIVATE,     LYK_DOWN_TWO,      0,
+/* ^L */            /* cr */        /* ^N */       /* ^O */
+#endif
+
+#ifdef SH_EX	/* 1998/10/02 (Fri) 08:48:44 */
+LYK_UP_TWO,       LYK_CHG_CENTER,   LYK_RELOAD,    LYK_TO_CLIPBOARD,
+/* ^P */            /* XON */       /* ^R */       /* ^S */
+
+#else
 LYK_UP_TWO,             0,          LYK_RELOAD,        0,
 /* ^P */            /* XON */       /* ^R */       /* XOFF */
+#endif
 
-#ifdef NOT_USED
-LYK_TRACE_TOGGLE,       0,          LYK_VERSION,   LYK_REFRESH,
-/* ^T */            /* ^U */        /* ^V */       /* ^W */
-#endif /* NOT_USED */
 LYK_TRACE_TOGGLE,       0,        LYK_SWITCH_DTD,  LYK_REFRESH,
 /* ^T */            /* ^U */        /* ^V */       /* ^W */
 
@@ -55,19 +99,14 @@ LYK_TRACE_TOGGLE,       0,        LYK_SWITCH_DTD,  LYK_REFRESH,
 LYK_NEXT_PAGE,       LYK_SHELL,  LYK_SOFT_DQUOTES,  LYK_TOOLBAR,
 /* sp */             /* ! */         /* " */        /* # */
 
-0,                      0,              0,          LYK_HISTORICAL,
+LYK_LAST_LINK,          0,              0,          LYK_HISTORICAL,
 /* $ */              /* % */         /* & */        /* ' */
 
 LYK_UP_HALF,      LYK_DOWN_HALF, LYK_IMAGE_TOGGLE,  LYK_NEXT_PAGE,
 /* ( */              /* ) */         /* * */        /* + */
 
-#ifndef USE_EXTERNALS
-LYK_NEXT_PAGE,    LYK_PREV_PAGE,        0,          LYK_WHEREIS,
-/* , */              /* - */         /* . */        /* / */
-#else
 LYK_NEXT_PAGE,    LYK_PREV_PAGE, LYK_EXTERN,        LYK_WHEREIS,
 /* , */              /* - */         /* . */        /* / */
-#endif
 
 LYK_F_LINK_NUM,      LYK_1,          LYK_2,         LYK_3,
 /* 0 */              /* 1 */         /* 2 */        /* 3 */
@@ -81,21 +120,11 @@ LYK_8,               LYK_9,             0,          LYK_TRACE_LOG,
 LYK_UP_LINK,         LYK_INFO,     LYK_DOWN_LINK,   LYK_HELP,
 /* < */              /* = */         /* > */        /* ? */
 
-LYK_RAW_TOGGLE,  LYK_ADD_BOOKMARK, LYK_PREV_PAGE,   LYK_COMMENT,
+LYK_RAW_TOGGLE,      LYK_ADDRLIST, LYK_PREV_PAGE,   LYK_COMMENT,
 /* @ */              /* A */         /* B */        /* C */
 
-LYK_DOWNLOAD,        LYK_ELGOTO,             
-/* D */              /* E */         
-
-#if defined(DIRED_SUPPORT) || defined(VMS)
-LYK_DIRED_MENU,
-#else
-0,          
-#endif /* DIRED_SUPPORT || VMS */
-/* F */        
-
-LYK_ECGOTO,
-/* G */
+LYK_DOWNLOAD,        LYK_ELGOTO,  LYK_DIRED_MENU,   LYK_ECGOTO,
+/* D */              /* E */         /* F */        /* G */
 
 LYK_HELP,            LYK_INDEX,      LYK_JUMP,      LYK_KEYMAP,
 /* H */              /* I */         /* J */        /* K */
@@ -106,41 +135,20 @@ LYK_LIST,          LYK_MAIN_MENU,    LYK_NEXT,      LYK_OPTIONS,
 LYK_PRINT,          LYK_ABORT,    LYK_DEL_BOOKMARK, LYK_INDEX_SEARCH,
 /* P */              /* Q */         /* R */        /* S */
 
-#ifdef DIRED_SUPPORT
-LYK_TAG_LINK,     
-#else
-0,
-#endif /* DIRED_SUPPORT */
-/* T */
+LYK_TAG_LINK,      LYK_PREV_DOC,    LYK_VLINKS,         0,
+/* T */              /* U */         /* V */        /* W */
 
- 	          LYK_PREV_DOC,    LYK_VLINKS,         0,
-                     /* U */         /* V */        /* W */
-
-#ifdef NOT_USED
-LYK_FORM_UP,            0,        LYK_FORM_DOWN,    LYK_INLINE_TOGGLE,
-/* X */              /* Y */         /* Z */        /* [ */
-#endif /* NOT_USED */
 LYK_NOCACHE,            0,        LYK_INTERRUPT,    LYK_INLINE_TOGGLE,
 /* X */              /* Y */         /* Z */        /* [ */
 
-LYK_SOURCE,          LYK_HEAD,          0,          LYK_CLEAR_AUTH,
+LYK_SOURCE,          LYK_HEAD,    LYK_FIRST_LINK,   LYK_CLEAR_AUTH,
 /* \ */              /* ] */         /* ^ */        /* _ */
 
 LYK_MINIMAL,   LYK_ADD_BOOKMARK,  LYK_PREV_PAGE,    LYK_COMMENT,
 /* ` */              /* a */         /* b */        /* c */
 
-LYK_DOWNLOAD,        LYK_EDIT,             
-/* d */              /* e */         
-
-#if defined(DIRED_SUPPORT) || defined(VMS)
-LYK_DIRED_MENU,
-#else
-0,          
-#endif /* DIRED_SUPPORT || VMS */
-/* f */        
-
-LYK_GOTO,
-/* g */
+LYK_DOWNLOAD,        LYK_EDIT,    LYK_DIRED_MENU,   LYK_GOTO,
+/* d */              /* e */         /* f */        /* g */
 
 LYK_HELP,            LYK_INDEX,      LYK_JUMP,      LYK_KEYMAP,
 /* h */              /* i */         /* j */        /* k */
@@ -151,25 +159,15 @@ LYK_LIST,         LYK_MAIN_MENU,     LYK_NEXT,      LYK_OPTIONS,
 LYK_PRINT,           LYK_QUIT,    LYK_DEL_BOOKMARK, LYK_INDEX_SEARCH,
 /* p */              /* q */         /* r */        /* s */
 
-#ifdef DIRED_SUPPORT
-LYK_TAG_LINK,     
-#else
-0,
-#endif /* DIRED_SUPPORT */
-/* t */
+LYK_TAG_LINK,     LYK_PREV_DOC,   LYK_VIEW_BOOKMARK,   0,
+/* t */              /* u */         /* v */        /* w */
 
-                    LYK_PREV_DOC,   LYK_VIEW_BOOKMARK,   0,
-                     /* u */         /* v */         /* w */
-
-#ifdef NOT_USED
-LYK_FORM_UP,            0,          LYK_FORM_DOWN,     0,
-/* x */              /* y */          /* z */       /* { */
-#endif /* NOT_USED */
 LYK_NOCACHE,            0,          LYK_INTERRUPT,     0,
 /* x */              /* y */          /* z */       /* { */
 
 LYK_PIPE,               0,              0,          LYK_HISTORY,
 /* | */               /* } */         /* ~ */       /* del */
+
 
 /* 80..9F (illegal ISO-8859-1) 8-bit characters. */
    0,                  0,              0,             0,
@@ -207,21 +205,151 @@ LYK_PIPE,               0,              0,          LYK_HISTORY,
    0,                  0,              0,             0,
    0,                  0,              0,             0,
 
-/* 100..10E function key definitions in LYStrings.h */
+/* 100..10F function key definitions in LYStrings.h */
 LYK_PREV_LINK,    LYK_NEXT_LINK,    LYK_ACTIVATE,   LYK_PREV_DOC,
 /* UPARROW */     /* DNARROW */     /* RTARROW */   /* LTARROW */
 
 LYK_NEXT_PAGE,    LYK_PREV_PAGE,    LYK_HOME,       LYK_END,
 /* PGDOWN */      /* PGUP */        /* HOME */      /* END */
 
-LYK_HELP,         LYK_ACTIVATE,     LYK_HOME,       LYK_END,
+#if (defined(_WINDOWS) || defined(__DJGPP__) || defined(__CYGWIN__))
+
+LYK_DWIMHELP,          0,              0,             0,
+/* F1*/
+#else
+
+LYK_DWIMHELP,     LYK_ACTIVATE,     LYK_HOME,       LYK_END,
 /* F1*/ 	  /* Do key */      /* Find key */  /* Select key */
 
-LYK_UP_TWO,       LYK_DOWN_TWO,
-/* Insert key */  /* Remove key */
+#endif /* _WINDOWS || __DJGPP__ || __CYGWIN__ */
 
-LYK_DO_NOTHING,
-/* DO_NOTHING*/
+LYK_UP_TWO,       LYK_DOWN_TWO,     LYK_DO_NOTHING, LYK_FASTBACKW_LINK,
+/* Insert key */  /* Remove key */  /* DO_NOTHING*/ /* Back tab */
+
+/* 110..18F */
+
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,             LYK_DO_NOTHING,      0,             0,
+               /* 0x11d: MOUSE_KEY */
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+#ifdef DJGPP_KEYHANDLER
+   0,                  LYK_ABORT,      0,             0,
+                       /* ALT_X */
+#else
+   0,                  0,              0,             0,
+#endif /* DJGPP_KEYHANDLER */
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+/* 190..20F */
+
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+#if (defined(_WINDOWS) || defined(__DJGPP__) || defined(__CYGWIN__)) && !defined(USE_SLANG) /* PDCurses */
+   LYK_ABORT,          0,              0,             0,
+   /* ALT_X */
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              LYK_WHEREIS,   0,
+                                       /* KP_SLASH */
+   0,                  0,              0,           LYK_IMAGE_TOGGLE,
+                                                    /* KP_* */
+   LYK_PREV_PAGE,      LYK_NEXT_PAGE,  0,             0,
+   /* KP_- */          /* KP_+ */
+#else
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+#endif /* (_WINDOWS || __DJGPP__ || __CYGWIN__) && !USE_SLANG */
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+/* 210..28F */
+
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   /* 290...293 */
+   LYK_CHANGE_LINK,    0,              0,             0,
 };
 
 #if defined(DIRED_SUPPORT) && defined(OK_OVERRIDE)
@@ -231,7 +359,7 @@ LYK_DO_NOTHING,
  * allowed at compile time.
  */
 
-char override[] = {
+LYKeymap_t key_override[KEYMAP_SIZE] = {
 
     0,
 /* EOF */
@@ -368,7 +496,7 @@ LYK_TAG_LINK,      LYK_UPLOAD,         0,             0,
    0,                  0,              0,             0,
    0,                  0,              0,             0,
 
-/* 100..10E function key definitions in LYStrings.h */
+/* 100..10F function key definitions in LYStrings.h */
    0,                   0,             0,              0,
 /* UPARROW */     /* DNARROW */     /* RTARROW */   /* LTARROW */
 
@@ -378,18 +506,122 @@ LYK_TAG_LINK,      LYK_UPLOAD,         0,             0,
    0,                  0,              0,              0,
 /* F1*/ 	  /* Do key */      /* Find key */  /* Select key */
 
-   0,                  0,
-/* Insert key */  /* Remove key */
+   0,                  0,           LYK_DO_NOTHING,    0,
+/* Insert key */  /* Remove key */  /* DO_NOTHING */ /* Back tab */
 
-LYK_DO_NOTHING,
-/* DO_NOTHING*/
+/* 110..18F */
+
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+/* 190..20F */
+
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+/* 210..28F */
+
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   0,                  0,              0,             0,
+   /* 290...293 */
+   0,                  0,              0,             0,
 };
 #endif /* DIRED_SUPPORT && OK_OVERRIDE */
 
 struct rmap {
-	char *name;
-	char *doc;
+	CONST char *name;
+	CONST char *doc;
 };
+
+/* The order of this array must match the LYKeymapCode enum in LYKeymap.h */
 PRIVATE struct rmap revmap[] = {
 { "UNMAPPED",		NULL },
 { "1",			NULL },
@@ -415,8 +647,14 @@ PRIVATE struct rmap revmap[] = {
 { "REFRESH",		"refresh the screen to clear garbled text" },
 { "HOME",		"go to the beginning of the current document" },
 { "END",		"go to the end of the current document" },
+{ "FIRST_LINK",		"make the first link on the line current" },
+{ "LAST_LINK",		"make the last link on the line current" },
 { "PREV_LINK",		"make the previous link current" },
 { "NEXT_LINK",		"make the next link current" },
+{ "LPOS_PREV_LINK",	"make previous link current, same column for input" },
+{ "LPOS_NEXT_LINK",	"make next link current, same column for input" },
+{ "FASTBACKW_LINK",	"previous link or text area, only stops on links" },
+{ "FASTFORW_LINK",	"next link or text area, only stops on links" },
 { "UP_LINK",		"move up the page to a previous link" },
 { "DOWN_LINK",		"move down the page to another link" },
 { "RIGHT_LINK",		"move right to another link" },
@@ -424,19 +662,21 @@ PRIVATE struct rmap revmap[] = {
 { "HISTORY",		"display stack of currently-suspended documents" },
 { "PREV_DOC",		"go back to the previous document" },
 { "ACTIVATE",		"go to the document given by the current link" },
+{ "MOUSE_SUBMIT",	"follow current link, submit" }, /* not mapped */
 { "GOTO",		"go to a document given as a URL" },
 { "ECGOTO",		"edit the current document's URL and go to it" },
 { "HELP",		"display help on using the browser" },
+{ "DWIMHELP",		"display help page that may depend on context" },
 { "INDEX",		"display an index of potentially useful documents" },
 { "NOCACHE",		"force submission of form or link with no-cache" },
-{ "INTERRUPT",		"interrupt network transmission" },
+{ "INTERRUPT",		"interrupt network connection or transmission" },
 { "MAIN_MENU",		"return to the first screen (home page)" },
 { "OPTIONS",		"display and change option settings" },
 { "INDEX_SEARCH",	"allow searching of an index" },
 { "WHEREIS",		"search within the current document" },
 { "NEXT",		"search for the next occurence" },
 { "COMMENT",		"send a comment to the author of the current document" },
-{ "EDIT",		"edit the current document" },
+{ "EDIT",		"edit the current document or a form's textarea" },
 { "INFO",		"display information on the current document and link" },
 { "PRINT",		"display choices for printing the current document" },
 { "ADD_BOOKMARK",	"add to your personal bookmark list" },
@@ -465,6 +705,14 @@ PRIVATE struct rmap revmap[] = {
 { "CLEAR_AUTH",		"clear all authorization info for this session" },
 { "SWITCH_DTD",		"switch between two ways of parsing HTML" },
 { "ELGOTO",		"edit the current link's URL or ACTION and go to it" },
+{ "CHANGE_LINK",	"force reset of the current link on the page" },
+{ "DWIMEDIT",		"use external editor for context-dependent purpose" },
+{ "EDITTEXTAREA",	"use an external editor to edit a form's textarea" },
+{ "GROWTEXTAREA",	"add 5 new blank lines to the bottom of a textarea" },
+{ "INSERTFILE",		"insert file into a textarea (just above cursorline)" },
+#ifdef EXP_ADDRLIST_PAGE
+{ "ADDRLIST",		"like LIST command, but always shows the links' URLs" },
+#endif
 #ifdef USE_EXTERNALS
 { "EXTERN",		"run external program with url" },
 #endif
@@ -480,16 +728,16 @@ PRIVATE struct rmap revmap[] = {
 { "UPLOAD",		"upload from your computer to the current directory" },
 { "INSTALL",		"install file or tagged files into a system area" },
 #endif /* DIRED_SUPPORT */
+#ifdef SH_EX		/* 1999/01/01 (Fri) 01:18:12 */
+{ "CHANGE_CENTER",	"toggle center alignment in HTML TABLE" },
+{ "TO_CLIPBOARD",	"link's URL to Clip Board" },
+{ "CHANGE_KCODE",	"Change Kanji code" },
+#endif
 #endif /* VMS */
-#ifdef NOT_USED
-{ "VERSION",		"report version of lynx"},
-{ "FORM_UP",		"toggle a checkbox" },
-{ "FORM_DOWN",		"toggle a checkbox" },
-#endif /* NOT_USED */
 { NULL,			"" }
 };
 
-PRIVATE char *funckey[] = {
+PRIVATE CONST char *funckey[] = {
   "Up Arrow",
   "Down Arrow",
   "Right Arrow",
@@ -503,7 +751,71 @@ PRIVATE char *funckey[] = {
   "Find key",
   "Select key",
   "Insert key",
-  "Remove key"
+  "Remove key",
+  "(DO_NOTHING)",		/* should normally not appear in list */
+  "Back Tab",
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0,
+  "mouse pseudo key",		/* normally not mapped to keymap[] action */
+};
+
+
+struct emap {
+	CONST char *name;
+	CONST int   code;
+	CONST char *descr;
+};
+
+PRIVATE struct emap ekmap[] = {
+  {"NOP",	LYE_NOP,	"Do Nothing"},
+  {"CHAR",	LYE_CHAR,	"Insert printable char"},
+  {"ENTER",	LYE_ENTER,	"Input complete, return char/lynxkeycode"},
+  {"TAB",	LYE_TAB,	"Input complete, return TAB"},
+  {"ABORT",	LYE_ABORT,	"Input cancelled"},
+
+  {"PASS",	LYE_FORM_PASS,  "In fields: input complete, or Do Nothing"},
+
+  {"DELN",	LYE_DELN,	"Delete next/curr char"},
+  {"DELP",	LYE_DELP,	"Delete prev      char"},
+  {"DELNW",	LYE_DELNW,	"Delete next word"},
+  {"DELPW",	LYE_DELPW,	"Delete prev word"},
+
+  {"ERASE",	LYE_ERASE,	"Erase the line"},
+
+  {"BOL",	LYE_BOL,	"Go to begin of line"},
+  {"EOL",	LYE_EOL,	"Go to end   of line"},
+  {"FORW",	LYE_FORW,	"Cursor forwards"},
+  {"BACK",	LYE_BACK,	"Cursor backwards"},
+  {"FORWW",	LYE_FORWW,	"Word forward"},
+  {"BACKW",	LYE_BACKW,	"Word back"},
+
+  {"LOWER",	LYE_LOWER,	"Lower case the line"},
+  {"UPPER",	LYE_UPPER,	"Upper case the line"},
+
+  {"LKCMD",	LYE_LKCMD,	"Invoke command prompt"},
+
+  {"AIX",	LYE_AIX,	"Hex 97"},
+
+  {"DELBL",	LYE_DELBL,	"Delete back to BOL"},
+  {"DELEL",	LYE_DELEL,	"Delete thru EOL"},
+
+  {"SWMAP",	LYE_SWMAP,	"Switch input keymap"},
+
+  {"TPOS",	LYE_TPOS,	"Transpose characters"},
+
+  {"SETM1",	LYE_SETM1,	"Set modifier 1 flag"},
+  {"SETM2",	LYE_SETM2,	"Set modifier 2 flag"},
+  {"UNMOD",	LYE_UNMOD,	"Fall back to no-modifier command"},
+
+  {"C1CHAR",	LYE_C1CHAR,	"Insert C1 char if printable"},
+
+  {"SETMARK",	LYE_SETMARK,	"emacs-like set-mark-command"},
+  {"XPMARK",	LYE_XPMARK,	"emacs-like exchange-point-and-mark"},
+  {"KILLREG",	LYE_KILLREG,	"emacs-like kill-region"},
+  {"YANK",	LYE_YANK,	"emacs-like yank"}
+#if defined(WIN_EX)
+, {"PASTE",	LYE_PASTE,	"ClipBoard to Lynx"}
+#endif
 };
 
 PRIVATE char *pretty ARGS1 (int, c)
@@ -511,44 +823,214 @@ PRIVATE char *pretty ARGS1 (int, c)
 	static char buf[30];
 
 	if (c == '\t')
-		sprintf(buf, "&lt;tab&gt;       ");
+		sprintf(buf, "<tab>");
 	else if (c == '\r')
-		sprintf(buf, "&lt;return&gt;    ");
+		sprintf(buf, "<return>");
+	else if (c == CH_ESC)
+		sprintf(buf, "ESC");
 	else if (c == ' ')
-		sprintf(buf, "&lt;space&gt;     ");
+		sprintf(buf, "<space>");
 	else if (c == '<')
-		sprintf(buf, "&lt;           ");
+		sprintf(buf, "<");
 	else if (c == '>')
-		sprintf(buf, "&gt;           ");
+		sprintf(buf, ">");
 	else if (c == 0177)
-		sprintf(buf, "&lt;delete&gt;    ");
-	else if (c > ' ' && c <= 0377)
+		sprintf(buf, "<delete>");
+	else if (c > ' ' && c < 0177)
+		sprintf(buf, "%c", c);
+	else if (c > ' ' && c <= 0377 &&
+		 c <= LYlowest_eightbit[current_char_set])
 		sprintf(buf, "%c", c);
 	else if (c < ' ')
 		sprintf(buf, "^%c", c|0100);
+	else if (c >= 0400 && (c - 0400) < (int) TABLESIZE(funckey)
+		 && funckey[c-0400])
+		sprintf(buf, "%.*s", (int)(sizeof(buf) - 1), funckey[c-0400]);
+	else if (c >= 0400)
+		sprintf(buf, "key-%#x", c);
 	else
-		sprintf(buf, "%s", funckey[c-0400]);
-	
+		return 0;
+
 	return buf;
 }
 
-PRIVATE void print_binding ARGS3(HTStream *, target, char *, buf, int, i)
+PRIVATE char *pretty_html ARGS1 (int, c)
 {
+	static char buf[30];
+
+	if (c == '\t')
+		sprintf(buf, "&lt;tab&gt;      ");
+	else if (c == '\r')
+		sprintf(buf, "&lt;return&gt;   ");
+	else if (c == ' ')
+		sprintf(buf, "&lt;space&gt;    ");
+	else if (c == '<')
+		sprintf(buf, "&lt;          ");
+	else if (c == '>')
+		sprintf(buf, "&gt;          ");
+	else if (c == 0177)
+		sprintf(buf, "&lt;delete&gt;   ");
+	else if (c > ' ' && c < 0177)
+		sprintf(buf, "%c", c);
+	else if (c > ' ' && c <= 0377 &&
+		 c <= LYlowest_eightbit[current_char_set])
+		sprintf(buf, "%c", c);
+	else if (c < ' ')
+		sprintf(buf, "^%c", c|0100);
+	else if (c >= 0400 && (c - 0400) < (int) TABLESIZE(funckey)
+		 && funckey[c-0400])
+		sprintf(buf, "%.*s", (int)(sizeof(buf) - 1), funckey[c-0400]);
+	else if (c >= 0400)
+		sprintf(buf, "%#x", c);
+	else
+		return 0;
+
+	return buf;
+}
+
+PRIVATE char * format_binding ARGS2(
+	LYKeymap_t *,	table,
+	int,		i)
+{
+    unsigned the_key = table[i];
+    char *buf = 0;
+    char *formatted;
+
+    if (the_key != 0
+     && the_key < TABLESIZE(revmap)
+     && revmap[the_key].name != 0
+     && revmap[the_key].doc != 0
+     && (formatted = pretty_html(i-1)) != 0) {
+	HTSprintf0(&buf, "%-11s %-13s %s\n", formatted,
+		revmap[the_key].name,
+		revmap[the_key].doc);
+	return buf;
+    }
+    return 0;
+}
+
+/* if both is true, produce an additional line for the corresponding
+   uppercase key if its binding is different. - kw */
+PRIVATE void print_binding ARGS3(
+    HTStream *,	target,
+    int,	i,
+    BOOLEAN, 	both)
+{
+    char *buf;
+    LYKeymapCode lac1 = LYK_UNKNOWN; /* 0 */
+
 #if defined(DIRED_SUPPORT) && defined(OK_OVERRIDE)
     if (prev_lynx_edit_mode && !no_dired_support &&
-        override[i] && revmap[(unsigned char)override[i]].doc) {
-	sprintf(buf, "%-12s%-14s%s\n", pretty(i-1),
-		revmap[(unsigned char)override[i]].name,
-		revmap[(unsigned char)override[i]].doc);
-	(*target->isa->put_block)(target, buf, strlen(buf));
+	(lac1 = key_override[i]) != LYK_UNKNOWN) {
+	if ((buf = format_binding(key_override, i)) != 0) {
+	    (*target->isa->put_block)(target, buf, strlen(buf));
+	    FREE(buf);
+	}
     } else
 #endif /* DIRED_SUPPORT && OK_OVERRIDE */
-    if (keymap[i] && revmap[(unsigned char)keymap[i]].doc) {
-	sprintf(buf, "%-12s%-14s%s\n", pretty(i-1),
-		revmap[(unsigned char)keymap[i]].name,
-		revmap[(unsigned char)keymap[i]].doc);
+    if ((buf = format_binding(keymap, i)) != 0) {
+	lac1 = keymap[i];
 	(*target->isa->put_block)(target, buf, strlen(buf));
+	FREE(buf);
     }
+
+    if (!both)
+	return;
+    i -= ' ';			/* corresponding uppercase key */
+
+#if defined(DIRED_SUPPORT) && defined(OK_OVERRIDE)
+    if (prev_lynx_edit_mode && !no_dired_support && key_override[i]) {
+	if (key_override[i] != lac1 &&
+	    (buf = format_binding(key_override, i)) != 0) {
+	    (*target->isa->put_block)(target, buf, strlen(buf));
+	    FREE(buf);
+	}
+    } else
+#endif /* DIRED_SUPPORT && OK_OVERRIDE */
+    if (keymap[i] != lac1 && (buf = format_binding(keymap, i)) != 0) {
+	(*target->isa->put_block)(target, buf, strlen(buf));
+	FREE(buf);
+    }
+}
+
+/*
+ *  Return lynxactioncode whose name is the string func.
+ *  func must be present in the revmap table.
+ *  returns -1 if not found. - kw
+ */
+PUBLIC int lacname_to_lac ARGS1(
+	CONST char *,	func)
+{
+       int i;
+       struct rmap *mp;
+
+       if (func == NULL || *func == '\0')
+	       return (-1);
+       for (i = 0, mp = revmap; (*mp).name != NULL; mp++, i++) {
+               if (strcmp((*mp).name, func) == 0) {
+                       return i;
+               }
+       }
+       return (-1);
+}
+
+/*
+ *  Return editactioncode whose name is the string func.
+ *  func must be present in the ekmap table.
+ *  returns -1 if not found. - kw
+ */
+PUBLIC int lecname_to_lec ARGS1(
+	CONST char *,	func)
+{
+       int i;
+       struct emap *mp;
+
+       if (func == NULL || *func == '\0')
+	       return (-1);
+       for (i = 0, mp = ekmap; (*mp).name != NULL; mp++, i++) {
+               if (strcmp((*mp).name, func) == 0) {
+                       return (*mp).code;
+               }
+       }
+       return (-1);
+}
+
+/*
+ *  Return lynxkeycode represented by string src.
+ *  returns -1 if not valid.
+ *  This is simpler than what map_string_to_keysym() does for
+ *  USE_KEYMAP, but compatible with revmap() used for processing
+ *  KEYMAP options in the configuration file. - kw
+ */
+PUBLIC int lkcstring_to_lkc ARGS1(
+	CONST char *,	src)
+{
+    int c = -1;
+
+    if (strlen(src) == 1)
+	c = *src;
+    else if (strlen(src) == 2 && *src == '^')
+	c = src[1] & 037;
+    else if (strlen(src) >= 2 && isdigit(*src)) {
+	if (sscanf(src, "%i", &c) != 1)
+	    return (-1);
+#ifdef USE_KEYMAPS
+    } else {
+	map_string_to_keysym(src, &c);
+#ifndef USE_SLANG
+	if (c >= 0) {
+	    if ((c&LKC_MASK) > 255 && !(c & LKC_ISLKC))
+		return (-1);	/* Don't accept untranslated curses KEY_* */
+	    else
+		c &= ~LKC_ISLKC;
+	}
+#endif
+#endif
+    }
+    if (c < -1)
+	return (-1);
+    else
+	return c;
 }
 
 PRIVATE int LYLoadKeymap ARGS4 (
@@ -559,7 +1041,7 @@ PRIVATE int LYLoadKeymap ARGS4 (
 {
     HTFormat format_in = WWW_HTML;
     HTStream *target;
-    char buf[256];
+    char *buf = 0;
     int i;
 
     /*
@@ -567,42 +1049,52 @@ PRIVATE int LYLoadKeymap ARGS4 (
      */
     target = HTStreamStack(format_in, format_out, sink, anAnchor);
     if (!target || target == NULL) {
-	sprintf(buf, CANNOT_CONVERT_I_TO_O,
-		     HTAtom_name(format_in), HTAtom_name(format_out));
+	HTSprintf0(&buf, CANNOT_CONVERT_I_TO_O,
+			 HTAtom_name(format_in), HTAtom_name(format_out));
 	HTAlert(buf);
+	FREE(buf);
 	return(HT_NOT_LOADED);
     }
     anAnchor->no_cache = TRUE;
 
-    sprintf(buf, "<head>\n<title>%s</title>\n</head>\n<body>\n",
-    		  CURRENT_KEYMAP_TITLE);
-    (*target->isa->put_block)(target, buf, strlen(buf));
-	
-    sprintf(buf, "<h1>%s (%s Version %s)</h1>\n<pre>",
-		 CURRENT_KEYMAP_TITLE, LYNX_NAME, LYNX_VERSION);
-    (*target->isa->put_block)(target, buf, strlen(buf));
+#define PUTS(buf)    (*target->isa->put_block)(target, buf, strlen(buf))
+
+    HTSprintf0(&buf, "<head>\n<title>%s</title>\n</head>\n<body>\n",
+		     CURRENT_KEYMAP_TITLE);
+    PUTS(buf);
+#if 0	/* There isn't really a help page *on* the current keymap.
+	   And we don't need a title and version info here, better
+	   make the page as compact as possible. - kw */
+    HTSprintf0(&buf, "<h1>%s (%s)%s<a href=\"%s%s\">%s</a></h1>\n",
+	LYNX_NAME, LYNX_VERSION,
+	HELP_ON_SEGMENT,
+	helpfilepath, CURRENT_KEYMAP_HELP, CURRENT_KEYMAP_TITLE);
+    PUTS(buf);
+#endif
+    HTSprintf0(&buf, "<pre>\n");
+    PUTS(buf);
 
     for (i = 'a'+1; i <= 'z'+1; i++) {
-	print_binding(target, buf, i);
-	if (keymap[i - ' '] != keymap[i]) {
-	    print_binding(target, buf,
-			  i-' ');  /* uppercase mapping is different */
-	}
+	print_binding(target, i, TRUE);
     }
-    for (i = 1; i < (int) sizeof(keymap); i++) {
+    for (i = 1; i < KEYMAP_SIZE; i++) {
 	/*
 	 *  LYK_PIPE not implemented yet.
+	 *
+	 *  Don't show CHANGE_LINK if mouse not enabled.
 	 */
-	if ((i > 127 || i <= ' ' || !isalpha(i-1)) &&
-	    strcmp(revmap[(unsigned char)keymap[i]].name, "PIPE")) {
-	    print_binding(target, buf, i);
+	if ((i >= 0200 || i <= ' ' || !isalpha(i-1)) &&
+	    strcmp(revmap[keymap[i]].name, "PIPE") &&
+	    (LYUseMouse || strcmp(revmap[keymap[i]].name, "CHANGE_LINK"))) {
+	    print_binding(target, i, FALSE);
 	}
     }
 
-    sprintf(buf,"</pre>\n</body>\n");
-    (*target->isa->put_block)(target, buf, strlen(buf));
+    HTSprintf0(&buf,"</pre>\n</body>\n");
+    PUTS(buf);
 
     (*target->isa->_free)(target);
+    FREE(buf);
     return(HT_LOADED);
 }
 
@@ -614,42 +1106,67 @@ GLOBALDEF PUBLIC HTProtocol LYLynxKeymap = {"LYNXKEYMAP", LYLoadKeymap, 0};
 #endif /* GLOBALDEF_IS_MACRO */
 
 /*
- * install func as the mapping for key.
+ * Install func as the mapping for key.
+ * If for_dired is TRUE, install it in the key_override[] table
+ * for Dired mode, otherwise in the general keymap[] table.
+ * If DIRED_SUPPORT or OK_OVERRIDE is not defined, don't do anything
+ * when for_dired is requested.
  * func must be present in the revmap table.
- * returns TRUE if the mapping was made, FALSE if not.
+ * returns lynxkeycode value != 0 if the mapping was made, 0 if not.
  */
-PUBLIC int remap ARGS2(char *,key, char *,func)
- {
-       int i;
-       struct rmap *mp;
-       int c = 0;
+PUBLIC int remap ARGS3(
+	char *,		key,
+	char *,		func,
+	BOOLEAN,	for_dired)
+{
+    int i;
+    struct rmap *mp;
+    int c;
 
-       if (func == NULL)
-	       return 0;
-       if (strlen(key) == 1)
-               c = *key;
-       else if (strlen(key) == 2 && *key == '^')
-               c = key[1] & 037;
-       else if (strlen(key) >= 2 && isdigit(*key))
-               if (sscanf(key, "%i", &c) != 1)
-                       return 0;
-       for (i = 0, mp = revmap; (*mp).name != NULL; mp++, i++) {
-               if (strcmp((*mp).name, func) == 0) {
-                       keymap[c+1] = i;
-                       return c;
-               }
-       }
-       return 0;
+#if !defined(DIRED_SUPPORT) || !defined(OK_OVERRIDE)
+    if (for_dired)
+	return 0;
+#endif
+    if (func == NULL)
+	return 0;
+    c = lkcstring_to_lkc(key);
+    if (c <= -1)
+	return 0;
+    else if (c >= 0) {
+	/* Remapping of key actions is supported only for basic
+	 * lynxkeycodes, without modifiers etc.!  If we get somehow
+	 * called for an invalid lynxkeycode, fail or silently ignore
+	 * modifiers. - kw
+	 */
+	if (c & (LKC_ISLECLAC|LKC_ISLAC))
+	   return 0;
+	if ((c & LKC_MASK) != c)
+	   c &= LKC_MASK;
+    }
+    if (c + 1 >= KEYMAP_SIZE)
+	return 0;
+    for (i = 0, mp = revmap; (*mp).name != NULL; mp++, i++) {
+	if (strcmp((*mp).name, func) == 0) {
+#if defined(DIRED_SUPPORT) && defined(OK_OVERRIDE)
+	    if (for_dired)
+		key_override[c+1] = (char) i;
+	    else
+#endif
+		keymap[c+1] = (char) i;
+	    return (c ? c : LAC_TO_LKC0(i)); /* don't return 0, successful */
+	}
+    }
+    return 0;
 }
 
 
 PUBLIC void set_vms_keys NOARGS
 {
       keymap[26+1] = LYK_ABORT;  /* control-Z */
-      keymap['$'+1] = LYK_SHELL;  
-} 
+      keymap['$'+1] = LYK_SHELL;
+}
 
-static char saved_vi_keys[4];
+static LYKeymap_t saved_vi_keys[4];
 static BOOLEAN did_vi_keys;
 
 PUBLIC void set_vi_keys NOARGS
@@ -679,7 +1196,7 @@ PUBLIC void reset_vi_keys NOARGS
       did_vi_keys = FALSE;
 }
 
-static char saved_emacs_keys[4];
+static LYKeymap_t saved_emacs_keys[4];
 static BOOLEAN did_emacs_keys;
 
 PUBLIC void set_emacs_keys NOARGS
@@ -709,7 +1226,7 @@ PUBLIC void reset_emacs_keys NOARGS
       did_emacs_keys = FALSE;
 }
 
-static char saved_number_keys[9];
+static LYKeymap_t saved_number_keys[9];
 static BOOLEAN did_number_keys;
 
 PUBLIC void set_numbers_as_arrows NOARGS
@@ -763,55 +1280,202 @@ PUBLIC void reset_numbers_as_arrows NOARGS
     did_number_keys = FALSE;
 }
 
-PUBLIC char *key_for_func ARGS1 (
-	int,		func)
+PUBLIC int lookup_keymap ARGS1(
+	int,	func)
 {
-	static char buf[512];
-	size_t i;
+    size_t i;
 
-	buf[0] = '\0';
-	for (i = 1; i < sizeof(keymap); i++) {
-		if (keymap[i] == func) {
-			if (*buf)
-				strcat(buf, " or ");
-			strcat(buf, pretty(i-1));
-		}
+    for (i = 1; i < KEYMAP_SIZE; i++) {
+	if (LYisNonAlnumKeyname(i, func)) {
+	    return i;
 	}
-	return buf;
+    }
+    return -1;
+}
+
+PUBLIC char *key_for_func ARGS1 (
+	int,	func)
+{
+    static char *buf;
+    int i;
+    char *formatted;
+
+    if ((i = LYReverseKeymap(func)) >= 0) {
+	formatted = pretty(i);
+	StrAllocCopy(buf, formatted != 0 ? formatted : "?");
+    } else if (buf == 0) {
+	StrAllocCopy(buf, "");
+    }
+    return buf;
+}
+
+/*
+ *  Given one or two keys as lynxkeycodes, returns an allocated string
+ *  representing the key(s) suitable for statusline messages, or NULL
+ *  if no valid lynxkeycode is passed in (i.e., lkc_first < 0 or some other
+ *  failure).  The caller must free the string. - kw
+ */
+PUBLIC char *fmt_keys ARGS2(
+    int,	lkc_first,
+    int,	lkc_second)
+{
+    char *buf = NULL;
+    BOOLEAN quotes = FALSE;
+    char *fmt_first;
+    char *fmt_second;
+    if (lkc_first < 0)
+	return NULL;
+    fmt_first = pretty(lkc_first);
+    if (fmt_first && strlen(fmt_first) == 1 && *fmt_first != '\'') {
+	quotes = TRUE;
+    }
+    if (quotes) {
+	if (lkc_second < 0) {
+	    HTSprintf0(&buf, "'%s'", fmt_first);
+	    return buf;
+	} else {
+	    HTSprintf0(&buf, "'%s", fmt_first);
+	}
+    } else {
+	StrAllocCopy(buf, fmt_first);
+    }
+    if (lkc_second >= 0) {
+	fmt_second = pretty(lkc_second);
+	if (!fmt_second) {
+	    FREE(buf);
+	    return NULL;
+	}
+	HTSprintf(&buf, "%s%s%s",
+		  ((strlen(fmt_second) > 2 && *fmt_second != '<') ||
+		   (strlen(buf) > 2 && buf[strlen(buf)-1] != '>')) ? " " : "",
+		  fmt_second, quotes ? "'" : "");
+    }
+    return buf;
+}
+
+/*
+ *  This function returns the (int)ch mapped to the
+ *  LYK_foo value passed to it as an argument.  It is like
+ *  LYReverseKeymap, only the order of search is different;
+ *  e.g., small ASCII letters will be returned in preference to
+ *  capital ones.  Cf. LYKeyForEditAction, LYEditKeyForAction in
+ *  LYEditmap.c which use the same order to find a best key.
+ *  In addition, this function takes the dired override map into
+ *  account while LYReverseKeymap doesn't.
+ *  The caller must free the returned string. - kw
+ */
+#define FIRST_I 97
+#define NEXT_I(i,imax) ((i==122) ? 32 : (i==96) ? 123 : (i==126) ? 0 :\
+			(i==31) ? 256 : (i==imax) ? 127 :\
+			(i==255) ? (-1) :i+1)
+PRIVATE int best_reverse_keymap ARGS1(
+	int,	lac)
+{
+    int i, c;
+
+    for (i = FIRST_I; i >= 0; i = NEXT_I(i,KEYMAP_SIZE-2)) {
+#ifdef NOT_ASCII
+	if (i < 256) {
+	    c = FROMASCII(i);
+	} else
+#endif
+	    c = i;
+#if defined(DIRED_SUPPORT) && defined(OK_OVERRIDE)
+	if (lynx_edit_mode && !no_dired_support && lac &&
+	    LKC_TO_LAC(key_override,c) == lac)
+	    return c;
+#endif /* DIRED_SUPPORT && OK_OVERRIDE */
+	if (LKC_TO_LAC(keymap,c) == lac) {
+	    return c;
+	}
+    }
+
+    return(-1);
+}
+
+/*
+ *  This function returns a string representing a key mapped
+ *  to a LYK_foo function, or NULL if not found.  The string
+ *  may represent a pair of keys.  if context_code is FOR_INPUT,
+ *  an appropriate binding for use while in the (forms) line editor
+ *  is sought.  - kw
+ */
+PUBLIC char* key_for_func_ext ARGS2(
+    int,	lac,
+    int,	context_code)
+{
+    int lkc, modkey = -1;
+
+    if (context_code == FOR_INPUT) {
+	lkc = LYEditKeyForAction(lac, &modkey);
+	if (lkc >= 0) {
+	    if (lkc & (LKC_MOD1|LKC_MOD2|LKC_MOD3)) {
+		return fmt_keys(modkey, lkc & ~(LKC_MOD1|LKC_MOD2|LKC_MOD3));
+	    } else {
+		return fmt_keys(lkc, -1);
+	    }
+	}
+    }
+    lkc = best_reverse_keymap(lac);
+    if (lkc < 0)
+	return NULL;
+    if (context_code == FOR_INPUT) {
+	modkey = LYKeyForEditAction(LYE_LKCMD);
+	if (modkey < 0)
+	    return NULL;
+	return fmt_keys(modkey, lkc);
+    } else {
+	return fmt_keys(lkc, -1);
+    }
 }
 
 /*
  *  This function returns TRUE if the ch is non-alphanumeric
- *  and maps to key_name (LYK_foo in the keymap[] array). - FM
- */ 
+ *  and maps to KeyName (LYK_foo in the keymap[] array). - FM
+ */
 PUBLIC BOOL LYisNonAlnumKeyname ARGS2(
 	int,	ch,
-	int,	key_name)
+	int,	KeyName)
 {
     if ((ch >= '0' && ch <= '9') ||
         (ch >= 'A' && ch <= 'z') ||
-	ch < 0 || ch > 269)
+	ch < 0 || ch >= KEYMAP_SIZE)
 	return (FALSE);
 
-    return(keymap[ch+1] == key_name);
+    return (BOOL) (keymap[ch+1] == KeyName);
 }
 
-#ifdef NOTUSED_FOTEMODS
 /*
  *  This function returns the (int)ch mapped to the
  *  LYK_foo value passed to it as an argument. - FM
  */
 PUBLIC int LYReverseKeymap ARGS1(
-	int,		key_name)
+	int,	KeyName)
 {
     int i;
 
-    for (i = 1; i < sizeof(keymap); i++) {
-	if (keymap[i] == key_name) {
+    for (i = 1; i < KEYMAP_SIZE; i++) {
+	if (keymap[i] == KeyName) {
 	    return(i - 1);
 	}
     }
 
-    return(0);
+    return(-1);
+}
+
+#ifdef EXP_KEYBOARD_LAYOUT
+PUBLIC int LYSetKbLayout ARGS1(
+	char *,	layout_id)
+{
+    int i;
+
+    for (i = 0; i < (int) TABLESIZE(LYKbLayoutNames) - 1; i++) {
+	if (!strcmp(LYKbLayoutNames[i], layout_id)) {
+	    current_layout = i;
+	    return (-1);
+	}
+    }
+
+    return 0;
 }
 #endif
