@@ -16,9 +16,11 @@ if [ -x /usr/sbin/update-mime ]; then
     update-mime
 fi
 
+
+update-alternatives --quiet --install /usr/bin/lynx lynx /usr/bin/lynx.stable 20
+
 update-alternatives --quiet --install /usr/bin/www-browser www-browser \
        /usr/bin/lynx 50 \
        --slave /usr/share/man/man1/www-browser.1.gz www-browser.1.gz \
        /usr/share/man/man1/lynx.1.gz
 
-update-alternatives --quiet --install /usr/bin/lynx lynx /usr/bin/lynx.stable 20
