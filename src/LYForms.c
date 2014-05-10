@@ -1,3 +1,4 @@
+/* $LynxId: LYForms.c,v 1.111 2013/12/07 13:46:58 tom Exp $ */
 #include <HTUtils.h>
 #include <HTCJK.h>
 #include <HTTP.h>
@@ -20,14 +21,14 @@
 #endif
 
 #if defined(VMS) && !defined(USE_SLANG)
-#define CTRL_W_HACK DO_NOTHING
+#define RepaintKey() 12		/* CTRL-L for repaint */
 #else
-#define CTRL_W_HACK 23		/* CTRL-W refresh without clearok */
+#define RepaintKey() ((!enable_scrollback) ? 23 : 12)	/* CTRL-W or CTRL-L */
 #endif /* VMS && !USE_SLANG */
 
 static int form_getstr(int cur,
-		       BOOLEAN use_last_tfpos,
-		       BOOLEAN redraw_only);
+		       int use_last_tfpos,
+		       int redraw_only);
 
 /*
  * Returns an array of pointers to the given list
@@ -48,6 +49,9 @@ static char **options_list(OptionType * opt_ptr)
 	if (pass == 0) {
 	    len++;
 	    result = typecallocn(char *, len);
+
+	    if (result == 0)
+		outofmem(__FILE__, "options_list");
 	} else {
 	    result[len] = 0;
 	}
@@ -59,16 +63,15 @@ static char **options_list(OptionType * opt_ptr)
 int change_form_link_ex(int cur,
 			DocInfo *newdoc,
 			BOOLEAN *refresh_screen,
-			BOOLEAN use_last_tfpos,
-			BOOLEAN immediate_submit,
-			BOOLEAN redraw_only)
+			int use_last_tfpos,
+			int immediate_submit,
+			int redraw_only)
 {
     FormInfo *form = links[cur].l_form;
-    char *link_name = form->name;
-    char *link_value = form->value;
+    char *link_name;
+    char *link_value;
     int newdoc_changed = 0;
     int c = DO_NOTHING;
-    int OrigNumValue;
     int title_adjust = (no_title ? -TITLE_LINES : 0);
     char **my_data = 0;
 
@@ -78,6 +81,8 @@ int change_form_link_ex(int cur,
     if (form == NULL) {
 	return (c);
     }
+    link_name = form->name;
+    link_value = form->value;
     my_data = options_list(form->select_list);
 
     /*
@@ -87,7 +92,7 @@ int change_form_link_ex(int cur,
 
     switch (form->type) {
     case F_CHECKBOX_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    break;
 	LYSetHilite(cur, form->num_value ? unchecked_box : checked_box);
 	form->num_value = !form->num_value;
@@ -100,35 +105,25 @@ int change_form_link_ex(int cur,
 	    break;
 	}
 
-	if (form->disabled == YES) {
-	    int dummy;
-
-	    dummy = LYhandlePopupList(form->num_value,
-				      links[cur].ly,
-				      links[cur].lx,
-				      (const char **) my_data,
-				      form->size,
-				      form->size_l,
-				      form->disabled,
-				      FALSE,
-				      FALSE);
-#if CTRL_W_HACK != DO_NOTHING
-	    if (!enable_scrollback)
-		c = CTRL_W_HACK;	/* CTRL-W refresh without clearok */
-	    else
-#endif
-		c = 12;		/* CTRL-L for repaint */
+	if (FormIsReadonly(form)) {
+	    (void) LYhandlePopupList(form->num_value,
+				     links[cur].ly,
+				     links[cur].lx,
+				     (STRING2PTR) my_data,
+				     form->size,
+				     form->size_l,
+				     FormIsReadonly(form),
+				     FALSE);
+	    c = RepaintKey();
 	    break;
 	}
-	OrigNumValue = form->num_value;
 	form->num_value = LYhandlePopupList(form->num_value,
 					    links[cur].ly,
 					    links[cur].lx,
-					    (const char **) my_data,
+					    (STRING2PTR) my_data,
 					    form->size,
 					    form->size_l,
-					    form->disabled,
-					    FALSE,
+					    FormIsReadonly(form),
 					    FALSE);
 	{
 	    OptionType *opt_ptr = form->select_list;
@@ -148,16 +143,11 @@ int change_form_link_ex(int cur,
 	     */
 	    form->value_cs = opt_ptr->value_cs;
 	}
-#if CTRL_W_HACK != DO_NOTHING
-	if (!enable_scrollback)
-	    c = CTRL_W_HACK;	/* CTRL-W refresh without clearok */
-	else
-#endif
-	    c = 12;		/* CTRL-L for repaint */
+	c = RepaintKey();
 	break;
 
     case F_RADIO_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    break;
 	/*
 	 * Radio buttons must have one and only one down at a time!
@@ -205,13 +195,13 @@ int change_form_link_ex(int cur,
     case F_TEXTAREA_TYPE:
     case F_PASSWORD_TYPE:
 	c = form_getstr(cur, use_last_tfpos, redraw_only);
-	LYSetHilite(cur, (form->type == F_PASSWORD_TYPE)
-		    ? STARS(strlen(form->value))
-		    : form->value);
+	LYSetHilite(cur, ((form->type == F_PASSWORD_TYPE)
+			  ? STARS(LYstrCells(form->value))
+			  : form->value));
 	break;
 
     case F_RESET_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    break;
 	HText_ResetForm(form);
 	*refresh_screen = TRUE;
@@ -224,7 +214,7 @@ int change_form_link_ex(int cur,
 	}
 	if (!immediate_submit)
 	    c = form_getstr(cur, use_last_tfpos, FALSE);
-	if (form->disabled == YES &&
+	if (FormIsReadonly(form) &&
 	    (c == '\r' || c == '\n' || immediate_submit)) {
 	    if (peek_mouse_link() >= 0)
 		c = LAC_TO_LKC0(LYK_ACTIVATE);
@@ -250,12 +240,14 @@ int change_form_link_ex(int cur,
 	 * kw
 	 */
 	if (immediate_submit ||
-	    ((c == '\r' || c == '\n' || c == LAC_TO_LKC0(LYK_SUBMIT)) &&
+	    ((c == '\r' ||
+	      c == '\n' ||
+	      c == LAC_TO_LKC0(LYK_MOUSE_SUBMIT)) &&
 	     peek_mouse_link() == -1)) {
 	    LYSetHilite(cur, form->value);
 #ifdef TEXT_SUBMIT_CONFIRM_WANTED
 	    if (!immediate_submit && (c == '\r' || c == '\n') &&
-		!HTConfirmDefault(NO_SUBMIT_BUTTON_QUERY), YES) {
+		!HTConfirmDefault(NO_SUBMIT_BUTTON_QUERY, YES)) {
 		/* User was prompted and declined; if canceled with ^G
 		 * let mainloop stay on this field, otherwise move on to
 		 * the next field or link. - kw
@@ -267,7 +259,7 @@ int change_form_link_ex(int cur,
 		break;
 	    }
 #endif
-	    if (!form->submit_action || *form->submit_action == '\0') {
+	    if (isEmpty(form->submit_action)) {
 		HTUserMsg(NO_FORM_ACTION);
 		c = DO_NOTHING;
 		break;
@@ -279,7 +271,7 @@ int change_form_link_ex(int cur,
 		       ((no_file_url &&
 			 isFILE_URL(form->submit_action)) ||
 			!strncasecomp(form->submit_action, "lynx", 4))) {
-		c = LAC_TO_LKC0(LYK_SUBMIT);
+		c = LAC_TO_LKC0(LYK_MOUSE_SUBMIT);
 		break;
 	    } else {
 		if (form->no_cache &&
@@ -308,7 +300,7 @@ int change_form_link_ex(int cur,
 
     case F_SUBMIT_TYPE:
     case F_IMAGE_SUBMIT_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    break;
 	if (form->no_cache &&
 	    form->submit_method != URL_MAIL_METHOD) {
@@ -346,8 +338,8 @@ int change_form_link_ex(int cur,
 int change_form_link(int cur,
 		     DocInfo *newdoc,
 		     BOOLEAN *refresh_screen,
-		     BOOLEAN use_last_tfpos,
-		     BOOLEAN immediate_submit)
+		     int use_last_tfpos,
+		     int immediate_submit)
 {
     /*pass all our args and FALSE as last arg */
     return change_form_link_ex(cur,
@@ -366,16 +358,14 @@ static void LYSetLastTFPos(int pos)
 }
 
 static int form_getstr(int cur,
-		       BOOLEAN use_last_tfpos,
-		       BOOLEAN redraw_only)
+		       int use_last_tfpos,
+		       int redraw_only)
 {
     FormInfo *form = links[cur].l_form;
-    char *value = form->value;
+    char *link_value = form->value;
     int ch;
     int far_col;
-    int max_length;
     int startcol, startline;
-    BOOL HaveMaxlength = FALSE;
     int action, repeat;
     int last_xlkc = -1;
 
@@ -383,13 +373,17 @@ static int form_getstr(int cur,
     BOOL refresh_mb = TRUE;
 #endif
 
-    EditFieldData MyEdit;
+    FieldEditor MyEdit, *edit = &MyEdit;
     BOOLEAN Edited = FALSE;	/* Value might be updated? */
 
     /*
      * Get the initial position of the cursor.
      */
     LYGetYX(startline, startcol);
+    if (startline < 0)
+	startline = 0;
+    if (startcol < 0)
+	startcol = 0;
     if ((startcol + form->size) > LYcolLimit)
 	far_col = LYcolLimit;
     else
@@ -398,17 +392,14 @@ static int form_getstr(int cur,
     /*
      * Make sure the form field value does not exceed our buffer.  - FM
      */
-    max_length = ((form->maxlength > 0 &&
-		   form->maxlength < sizeof(MyEdit.buffer)) ?
-		  form->maxlength :
-		  (sizeof(MyEdit.buffer) - 1));
-    if (strlen(form->value) > (size_t) max_length) {
+    if (form->maxlength != 0 &&
+	strlen(form->value) > form->maxlength) {
 	/*
 	 * We can't fit the entire value into the editing buffer, so enter as
 	 * much of the tail as fits.  - FM
 	 */
-	value += (strlen(form->value) - max_length);
-	if (!form->disabled &&
+	link_value += (strlen(form->value) - form->maxlength);
+	if (!FormIsReadonly(form) &&
 	    !(form->submit_method == URL_MAIL_METHOD && no_mail)) {
 	    /*
 	     * If we can edit it, report that we are using the tail.  - FM
@@ -422,24 +413,27 @@ static int form_getstr(int cur,
     /*
      * Print panned line
      */
-    LYSetupEdit(&MyEdit, value, max_length, (far_col - startcol));
-    MyEdit.pad = '_';
-    MyEdit.hidden = (BOOL) (form->type == F_PASSWORD_TYPE);
-    if (use_last_tfpos && LastTFPos >= 0 && LastTFPos < MyEdit.strlen) {
+    LYSetupEdit(edit, link_value, form->maxlength, (far_col - startcol));
+    edit->efPadChar = '_';
+    edit->efIsMasked = (BOOL) (form->type == F_PASSWORD_TYPE);
+    if (use_last_tfpos &&
+	LastTFPos >= 0 &&
+	LastTFPos < (int) edit->efBufInUse) {
 #if defined(TEXTFIELDS_MAY_NEED_ACTIVATION) && defined(INACTIVE_INPUT_STYLE_VH)
 	if (redraw_only) {
-	    if (!(MyEdit.strlen >= MyEdit.dspwdth &&
-		  LastTFPos >= MyEdit.dspwdth - MyEdit.margin)) {
-		MyEdit.pos = LastTFPos;
-		if (MyEdit.strlen >= MyEdit.dspwdth)
+	    if (!(edit->efBufInUse >= edit->efWide &&
+		  LastTFPos >= edit->efWide - edit->efPanMargin)) {
+		edit->efEditAt = LastTFPos;
+		if (edit->efBufInUse >= edit->efWide)
 		    textinput_redrawn = FALSE;
 	    }
 	} else
 #endif /* TEXTFIELDS_MAY_NEED_ACTIVATION && INACTIVE_INPUT_STYLE_VH */
-	    MyEdit.pos = LastTFPos;
+	    edit->efEditAt = LastTFPos;
 #ifdef ENHANCED_LINEEDIT
-	if (MyEdit.pos == 0)
-	    MyEdit.mark = -1 - MyEdit.strlen;	/* Do not show the region. */
+	if (edit->efEditAt == 0)
+	    /* Do not show the region. */
+	    edit->efEditMark = -(int) (1 + edit->efBufInUse);
 #endif
     }
     /* Try to prepare for setting position based on the last mouse event */
@@ -447,7 +441,7 @@ static int form_getstr(int cur,
     if (!redraw_only) {
 	if (peek_mouse_levent()) {
 	    if (!use_last_tfpos && !textinput_redrawn) {
-		MyEdit.pos = 0;
+		edit->efEditAt = 0;
 	    }
 	}
 	textinput_redrawn = FALSE;
@@ -455,13 +449,17 @@ static int form_getstr(int cur,
 #else
     if (peek_mouse_levent()) {
 	if (!use_last_tfpos)
-	    MyEdit.pos = 0;
+	    edit->efEditAt = 0;
     }
 #endif /* TEXTFIELDS_MAY_NEED_ACTIVATION && INACTIVE_INPUT_STYLE_VH */
-    LYRefreshEdit(&MyEdit);
-    if (redraw_only)
+    LYRefreshEdit(edit);
+    if (redraw_only) {
+	LYFinishEdit(edit);
 	return 0;		/*return value won't be analysed */
-
+    }
+#ifdef FEPCTRL
+    fep_on();
+#endif
     /*
      * And go for it!
      */
@@ -529,21 +527,19 @@ static int form_getstr(int cur,
 		 * within a mouse menu.  Let's at least make sure here that the
 		 * cursor position gets restored.  - kw
 		 */
-		MyEdit.dirty = TRUE;
+		edit->efIsDirty = TRUE;
 	    }
-	    last_xlkc = -1;
 	} else
-#  endif			/* NCURSES || PDCURSES */
+#  endif /* NCURSES || PDCURSES */
 #endif /* USE_MOUSE */
 
 	{
 	    if (!(ch & LKC_ISLECLAC))
-		ch |= MyEdit.current_modifiers;
-	    MyEdit.current_modifiers = 0;
+		ch |= edit->efInputMods;
+	    edit->efInputMods = 0;
 	    if (last_xlkc != -1) {
 		if (ch == last_xlkc)
 		    ch |= LKC_MOD3;
-		last_xlkc = -1;	/* consumed */
 	    }
 	}
 	if (peek_mouse_link() != -1)
@@ -562,14 +558,14 @@ static int form_getstr(int cur,
 	    /*
 	     * Set flag for modifier 1.
 	     */
-	    MyEdit.current_modifiers |= LKC_MOD1;
+	    edit->efInputMods |= LKC_MOD1;
 	    continue;
 	}
 	if (action == LYE_SETM2) {
 	    /*
 	     * Set flag for modifier 2.
 	     */
-	    MyEdit.current_modifiers |= LKC_MOD2;
+	    edit->efInputMods |= LKC_MOD2;
 	    continue;
 	}
 	/*
@@ -603,7 +599,7 @@ static int form_getstr(int cur,
 
 	    if (!s)
 		break;
-	    len = strlen((const char *) s);
+	    len = (int) strlen((const char *) s);
 	    e = s + len;
 
 	    if (len > 0) {
@@ -612,10 +608,10 @@ static int form_getstr(int cur,
 		while (e1 < e) {
 		    if (*e1 < ' ') {	/* Stop here? */
 			if (e1 > s)
-			    LYEditInsert(&MyEdit, s, e1 - s, -1, TRUE);
+			    LYEditInsert(edit, s, (int) (e1 - s), -1, TRUE);
 			s = e1;
 			if (*e1 == '\t') {	/* Replace by space */
-			    LYEditInsert(&MyEdit, (unsigned char *) " ", 1,
+			    LYEditInsert(edit, (unsigned const char *) " ", 1,
 					 -1, TRUE);
 			    s = ++e1;
 			} else
@@ -624,20 +620,14 @@ static int form_getstr(int cur,
 			++e1;
 		}
 		if (e1 > s)
-		    LYEditInsert(&MyEdit, s, e1 - s, -1, TRUE);
+		    LYEditInsert(edit, s, (int) (e1 - s), -1, TRUE);
 		while (e1 < e && *e1 == '\r')
 		    e1++;
 		if (e1 + 1 < e && *e1 == '\n')
 		    StrAllocCopy(buf, (char *) e1 + 1);		/* Survive _release() */
 		get_clip_release();
-		if (MyEdit.strlen >= max_length) {
-		    HaveMaxlength = TRUE;
-		} else if (HaveMaxlength &&
-			   MyEdit.strlen < max_length) {
-		    HaveMaxlength = FALSE;
-		    _statusline(ENTER_TEXT_ARROWS_OR_TAB);
-		}
-		if (strcmp(value, MyEdit.buffer) != 0) {
+		_statusline(ENTER_TEXT_ARROWS_OR_TAB);
+		if (strcmp(link_value, edit->efBuffer) != 0) {
 		    Edited = TRUE;
 		}
 		if (buf) {
@@ -646,16 +636,19 @@ static int form_getstr(int cur,
 		    ch = '\n';	/* Sometimes moves to the next line */
 		    break;
 		}
-		LYRefreshEdit(&MyEdit);
+		LYRefreshEdit(edit);
 	    } else {
 		HTInfoMsg(gettext("Clipboard empty or Not text data."));
+#ifdef FEPCTRL
+		fep_off();
+#endif
 		continue;
 	    }
 	}
 #endif
 #ifndef WIN_EX
 	if (action == LYE_AIX &&
-	    (HTCJK == NOCJK && LYlowest_eightbit[current_char_set] > 0x97))
+	    (!IS_CJK_TTY && LYlowest_eightbit[current_char_set] > 0x97))
 	    break;
 #endif
 	if (action == LYE_TAB) {
@@ -663,6 +656,10 @@ static int form_getstr(int cur,
 	    break;
 	}
 	if (action == LYE_ABORT) {
+#ifdef FEPCTRL
+	    fep_off();
+#endif
+	    LYFinishEdit(edit);
 	    return (DO_NOTHING);
 	}
 	if (action == LYE_STOP) {
@@ -671,8 +668,9 @@ static int form_getstr(int cur,
 	    break;
 #else
 #ifdef ENHANCED_LINEEDIT
-	    if (MyEdit.mark >= 0)
-		MyEdit.mark = -1 - MyEdit.strlen;	/* Disable. */
+	    if (edit->efEditMark >= 0)
+		/* Disable. */
+		edit->efEditMark = -(int) (1 + edit->efBufInUse);
 #endif
 #endif
 	}
@@ -688,27 +686,31 @@ static int form_getstr(int cur,
 	switch (ch) {
 	default:
 	    /* [ 1999/04/14 (Wed) 15:01:33 ]
-	     * Left arrrow in column 0 deserves special treatment here, else
+	     * Left arrow in column 0 deserves special treatment here, else
 	     * you can get trapped in a form without submit button!
 	     */
-	    if (action == LYE_BACK && MyEdit.pos == 0 && repeat == -1) {
+	    if (action == LYE_BACK && edit->efEditAt == 0 && repeat == -1) {
 		int c = YES;	/* Go back immediately if no changes */
 
 		if (textfield_prompt_at_left_edge) {
 		    c = HTConfirmDefault(PREV_DOC_QUERY, NO);
-		} else if (strcmp(MyEdit.buffer, value)) {
+		} else if (strcmp(edit->efBuffer, link_value)) {
 		    c = HTConfirmDefault(PREV_DOC_QUERY, NO);
 		}
 		if (c == YES) {
+#ifdef FEPCTRL
+		    fep_off();
+#endif
+		    LYFinishEdit(edit);
 		    return (ch);
 		} else {
-		    if (form->disabled == YES)
+		    if (FormIsReadonly(form))
 			_statusline(ARROWS_OR_TAB_TO_MOVE);
 		    else
 			_statusline(ENTER_TEXT_ARROWS_OR_TAB);
 		}
 	    }
-	    if (form->disabled == YES) {
+	    if (FormIsReadonly(form)) {
 		/*
 		 * Allow actions that don't modify the contents even in
 		 * disabled form fields, so the user can scroll through the
@@ -741,7 +743,7 @@ static int form_getstr(int cur,
 	    if (repeat < 0)
 		repeat = 1;
 	    while (repeat--) {
-		int rc = LYEdit1(&MyEdit, ch, action & ~LYE_DF, TRUE);
+		int rc = LYDoEdit(edit, ch, action & ~LYE_DF, TRUE);
 
 		if (rc < 0) {
 		    ch = -rc;
@@ -755,68 +757,70 @@ static int form_getstr(int cur,
 		       so we deduce it ourselves.  We don't have the info
 		       to do it inside LYLineEdit().
 		       This should work for prompts too.  */
-		    if ((action != LYE_BACK_LL && action != LYE_FORW_RL)
-			|| (cur >= 0
-			    && cur < nlinks
-			    && (action == LYE_FORW_RL
-				? cur < nlinks - 1
-				: cur > 0)
-			    && links[cur + ((action == LYE_FORW_RL)
-					    ? 1
-					    : -1)].ly
-			    == links[cur].ly))
+		    switch (action) {
+		    case LYE_BACK_LL:
+			if (cur > 0
+			    && links[cur - 1].ly == links[cur].ly) {
+			    goto breakfor;
+			}
+			break;
+		    case LYE_FORW_RL:
+			if (cur >= 0
+			    && cur < nlinks - 1
+			    && links[cur + 1].ly == links[cur].ly) {
+			    goto breakfor;
+			}
+			break;
+		    default:
 			goto breakfor;
+		    }
 		}
 #ifdef SUPPORT_MULTIBYTE_EDIT
 		if (rc == 0) {
-		    if (HTCJK != NOCJK && (0x80 <= ch)
+		    if (IS_CJK_TTY && (0x80 <= ch)
 			&& (ch <= 0xfe) && refresh_mb)
 			refresh_mb = FALSE;
 		    else
 			refresh_mb = TRUE;
 		} else {
 		    if (!refresh_mb) {
-			LYEdit1(&MyEdit, 0, LYE_DELP, TRUE);
+			LYDoEdit(edit, 0, LYE_DELP, TRUE);
 		    }
 		}
 #endif /* SUPPORT_MULTIBYTE_EDIT */
 	    }
-	    if (MyEdit.strlen >= max_length) {
-		HaveMaxlength = TRUE;
-	    } else if (HaveMaxlength &&
-		       MyEdit.strlen < max_length) {
-		HaveMaxlength = FALSE;
-		_statusline(ENTER_TEXT_ARROWS_OR_TAB);
-	    }
-	    if (strcmp(value, MyEdit.buffer)) {
+	    _statusline(ENTER_TEXT_ARROWS_OR_TAB);
+	    if (strcmp(link_value, edit->efBuffer)) {
 		Edited = TRUE;
 	    }
 #ifdef SUPPORT_MULTIBYTE_EDIT
 	    if (refresh_mb)
 #endif
-		LYRefreshEdit(&MyEdit);
-	    LYSetLastTFPos(MyEdit.pos);
+		LYRefreshEdit(edit);
+	    LYSetLastTFPos(edit->efEditAt);
 	}
     }
   breakfor:
     if (Edited) {
-	char *p;
 
 	/*
 	 * Load the new value.
 	 */
-	if (value == form->value) {
+	if (link_value == form->value) {
 	    /*
 	     * The previous value did fit in the line buffer, so replace it
 	     * with the new value.  - FM
 	     */
-	    StrAllocCopy(form->value, MyEdit.buffer);
+	    StrAllocCopy(form->value, edit->efBuffer);
 	} else {
+	    int old_len = (int) strlen(form->value);
+	    int new_len = (int) strlen(link_value);
+
 	    /*
 	     * Combine the modified tail with the unmodified head.  - FM
 	     */
-	    form->value[(strlen(form->value) - strlen(value))] = '\0';
-	    StrAllocCat(form->value, MyEdit.buffer);
+	    form->value[(old_len > new_len) ? (old_len - new_len) : 0] = '\0';
+	    StrAllocCat(form->value, edit->efBuffer);
 	    HTUserMsg(FORM_TAIL_COMBINED_WITH_HEAD);
 	}
 
@@ -830,10 +834,7 @@ static int form_getstr(int cur,
 	 * form????
 	 */
 	if (LYtrimInputFields) {
-	    p = &(form->value[strlen(form->value)]);
-	    while ((p != form->value) && (p[-1] == ' '))
-		p--;
-	    *p = '\0';
+	    LYTrimTrailing(form->value);
 	}
 
 	/*
@@ -847,6 +848,10 @@ static int form_getstr(int cur,
 	if (non_empty(form->value))
 	    form->value_cs = current_char_set;
     }
+#ifdef FEPCTRL
+    fep_off();
+#endif
+    LYFinishEdit(edit);
     return (ch);
 }
 
@@ -858,7 +863,7 @@ void show_formlink_statusline(const FormInfo * form,
 {
     switch (form->type) {
     case F_PASSWORD_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    statusline(FORM_LINK_PASSWORD_UNM_MSG);
 	else
 #ifdef TEXTFIELDS_MAY_NEED_ACTIVATION
@@ -869,25 +874,25 @@ void show_formlink_statusline(const FormInfo * form,
 	    statusline(FORM_LINK_PASSWORD_MESSAGE);
 	break;
     case F_OPTION_LIST_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    statusline(FORM_LINK_OPTION_LIST_UNM_MSG);
 	else
 	    statusline(FORM_LINK_OPTION_LIST_MESSAGE);
 	break;
     case F_CHECKBOX_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    statusline(FORM_LINK_CHECKBOX_UNM_MSG);
 	else
 	    statusline(FORM_LINK_CHECKBOX_MESSAGE);
 	break;
     case F_RADIO_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    statusline(FORM_LINK_RADIO_UNM_MSG);
 	else
 	    statusline(FORM_LINK_RADIO_MESSAGE);
 	break;
     case F_TEXT_SUBMIT_TYPE:
-	if (form->disabled == YES) {
+	if (FormIsReadonly(form)) {
 	    statusline(FORM_LINK_TEXT_SUBMIT_UNM_MSG);
 	} else if (form->submit_method ==
 		   URL_MAIL_METHOD) {
@@ -935,7 +940,7 @@ void show_formlink_statusline(const FormInfo * form,
 	break;
     case F_SUBMIT_TYPE:
     case F_IMAGE_SUBMIT_TYPE:
-	if (form->disabled == YES) {
+	if (FormIsReadonly(form)) {
 	    statusline(FORM_LINK_SUBMIT_DIS_MSG);
 	} else if (form->submit_method ==
 		   URL_MAIL_METHOD) {
@@ -978,19 +983,25 @@ void show_formlink_statusline(const FormInfo * form,
 	}
 	break;
     case F_RESET_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    statusline(FORM_LINK_RESET_DIS_MSG);
 	else
 	    statusline(FORM_LINK_RESET_MESSAGE);
 	break;
+    case F_BUTTON_TYPE:
+	if (FormIsReadonly(form))
+	    statusline(FORM_LINK_BUTTON_DIS_MSG);
+	else
+	    statusline(FORM_LINK_BUTTON_MESSAGE);
+	break;
     case F_FILE_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    statusline(FORM_LINK_FILE_UNM_MSG);
 	else
 	    statusline(FORM_LINK_FILE_MESSAGE);
 	break;
     case F_TEXT_TYPE:
-	if (form->disabled == YES)
+	if (FormIsReadonly(form))
 	    statusline(FORM_LINK_TEXT_UNM_MSG);
 	else
 #ifdef TEXTFIELDS_MAY_NEED_ACTIVATION
@@ -1001,14 +1012,14 @@ void show_formlink_statusline(const FormInfo * form,
 	    statusline(FORM_LINK_TEXT_MESSAGE);
 	break;
     case F_TEXTAREA_TYPE:
-	if (form->disabled == YES) {
+	if (FormIsReadonly(form)) {
 	    statusline(FORM_LINK_TEXT_UNM_MSG);
 	} else {
 	    char *submit_str = NULL;
 	    char *xkey_info = NULL;
 
-	    if (!no_editor && editor && editor) {
-		xkey_info = key_for_func_ext(LYK_EDIT_TEXTAREA, for_what);
+	    if (!no_editor && non_empty(editor)) {
+		xkey_info = key_for_func_ext(LYK_EDITTEXTAREA, for_what);
 #ifdef TEXTAREA_AUTOEXTEDIT
 		if (!xkey_info)
 		    xkey_info = key_for_func_ext(LYK_DWIMEDIT, for_what);

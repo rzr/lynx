@@ -1,5 +1,8 @@
 /*
+ * $LynxId: LYexit.c,v 1.36 2013/10/24 09:16:37 tom Exp $
+ *
  *	Copyright (c) 1994, University of Kansas, All Rights Reserved
+ *	(most of this file was rewritten in 1996 and 2004).
  */
 #include <HTUtils.h>
 #include <LYexit.h>
@@ -25,31 +28,30 @@ static void (*callstack[ATEXITSIZE]) (void);
 static int topOfStack = 0;
 
 /*
- * Purpose:		Registers termination function.
- * Arguments:		function	The function to register.
- * Return Value:	int	0	registered
- *				!0	no more space to register
- * Remarks/Portability/Dependencies/Restrictions:
- * Revision History:
- *	06-15-94	created Lynx 2-3-1 Garrett Arch Blythe
+ * Capture "atexit()" calls for our own accounting.
  */
-
 int LYatexit(void (*function) (void))
 {
-    /*
-     * Check for available space.
-     */
-    if (topOfStack == ATEXITSIZE) {
-	CTRACE((tfp, "(LY)atexit: Too many functions, ignoring one!\n"));
-	return (-1);
-    }
+    int result = 0;
 
-    /*
-     * Register the function.
-     */
-    callstack[topOfStack] = function;
-    topOfStack++;
-    return (0);
+    if (topOfStack >= ATEXITSIZE) {
+	CTRACE((tfp, "(LY)atexit: Too many functions, ignoring one!\n"));
+	result = -1;
+    } else {
+	int n;
+	BOOLEAN found = FALSE;
+
+	for (n = 0; n < topOfStack; ++n) {
+	    if (callstack[n] == function) {
+		found = TRUE;
+		break;
+	    }
+	}
+	if (!found) {
+	    callstack[topOfStack++] = function;
+	}
+    }
+    return result;
 }
 
 /*
@@ -84,9 +86,6 @@ void LYexit(int status)
 {
 #ifndef VMS			/*  On VMS, the VMSexit() handler does these. - FM */
 #ifdef _WINDOWS
-    extern CRITICAL_SECTION critSec_DNS;	/* 1998/09/03 (Thu) 22:01:56 */
-    extern CRITICAL_SECTION critSec_READ;	/* 1998/09/03 (Thu) 22:01:56 */
-
     DeleteCriticalSection(&critSec_DNS);
     DeleteCriticalSection(&critSec_READ);
 
@@ -102,9 +101,9 @@ void LYexit(int status)
 	(void) signal(SIGTERM, SIG_IGN);
 	(void) signal(SIGINT, SIG_IGN);
 #ifndef __linux__
-#ifndef DOSPATH
+#ifdef SIGBUS
 	(void) signal(SIGBUS, SIG_IGN);
-#endif /* DOSPATH */
+#endif /* SIGBUS */
 #endif /* !__linux__ */
 	(void) signal(SIGSEGV, SIG_IGN);
 	(void) signal(SIGILL, SIG_IGN);
@@ -123,9 +122,9 @@ void LYexit(int status)
 	}
 	cleanup_sig(0);
 #ifndef __linux__
-#ifndef DOSPATH
+#ifdef SIGBUS
 	signal(SIGBUS, SIG_DFL);
-#endif /* DOSPATH */
+#endif /* SIGBUS */
 #endif /* !__linux__ */
 	signal(SIGSEGV, SIG_DFL);
 	signal(SIGILL, SIG_DFL);
@@ -164,6 +163,15 @@ void LYexit(int status)
     LYCloseTracelog();
 #endif /* !VMS */
     show_alloc();
+
+#if defined(NCURSES_VERSION) && defined(LY_FIND_LEAKS)
+#if defined(HAVE__NC_FREE_AND_EXIT)
+    _nc_free_and_exit(status);
+#elif defined(HAVE__NC_FREEALL)
+    _nc_freeall();
+#endif
+#endif /* NCURSES_VERSION */
+
     exit(status);
 }
 

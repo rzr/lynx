@@ -1,4 +1,7 @@
-/*		Manage different file formats			HTFormat.c
+/*
+ * $LynxId: HTFormat.c,v 1.82 2013/11/28 11:12:32 tom Exp $
+ *
+ *		Manage different file formats			HTFormat.c
  *		=============================
  *
  * Bugs:
@@ -9,6 +12,8 @@
  *	Therefore, non-ASCII machines can't read local files.
  *
  */
+
+#define HTSTREAM_INTERNAL 1
 
 #include <HTUtils.h>
 
@@ -54,13 +59,6 @@ static float HTMaxSecs = 1e10;	/* No effective limit */
 
 BOOL HTOutputSource = NO;	/* Flag: shortcut parser to stdout */
 
-#ifdef ORIGINAL
-struct _HTStream {
-    const HTStreamClass *isa;
-    /* ... */
-};
-#endif /* ORIGINAL */
-
 /* this version used by the NetToText stream */
 struct _HTStream {
     const HTStreamClass *isa;
@@ -97,6 +95,17 @@ void HTSetPresentation(const char *representation,
 
     if (pres == NULL)
 	outofmem(__FILE__, "HTSetPresentation");
+
+    assert(pres != NULL);
+    assert(representation != NULL);
+
+    CTRACE2(TRACE_CFG,
+	    (tfp,
+	     "HTSetPresentation rep=%s, command=%s, test=%s, qual=%f\n",
+	     NonNull(representation),
+	     NonNull(command),
+	     NonNull(testcommand),
+	     quality));
 
     pres->rep = HTAtom_for(representation);
     pres->rep_out = WWW_PRESENT;	/* Fixed for now ... :-) */
@@ -139,9 +148,9 @@ void HTSetPresentation(const char *representation,
 void HTSetConversion(const char *representation_in,
 		     const char *representation_out,
 		     HTConverter *converter,
-		     float quality,
-		     float secs,
-		     float secs_per_byte,
+		     double quality,
+		     double secs,
+		     double secs_per_byte,
 		     long int maxbytes,
 		     AcceptMedia media)
 {
@@ -150,14 +159,23 @@ void HTSetConversion(const char *representation_in,
     if (pres == NULL)
 	outofmem(__FILE__, "HTSetConversion");
 
+    assert(pres != NULL);
+
+    CTRACE2(TRACE_CFG,
+	    (tfp,
+	     "HTSetConversion rep_in=%s, rep_out=%s, qual=%f\n",
+	     NonNull(representation_in),
+	     NonNull(representation_out),
+	     quality));
+
     pres->rep = HTAtom_for(representation_in);
     pres->rep_out = HTAtom_for(representation_out);
     pres->converter = converter;
     pres->command = NULL;
     pres->testcommand = NULL;
-    pres->quality = quality;
-    pres->secs = secs;
-    pres->secs_per_byte = secs_per_byte;
+    pres->quality = (float) quality;
+    pres->secs = (float) secs;
+    pres->secs_per_byte = (float) secs_per_byte;
     pres->maxbytes = maxbytes;
     pres->get_accept = TRUE;
     pres->accept_opt = media;
@@ -270,7 +288,7 @@ int HTGetCharacter(void)
 }
 
 #ifdef USE_SSL
-char HTGetSSLCharacter(void *handle)
+int HTGetSSLCharacter(void *handle)
 {
     char ch;
 
@@ -310,7 +328,7 @@ char HTGetSSLCharacter(void *handle)
  */
 static int half_match(char *trial_type, char *target)
 {
-    char *cp = strchr(trial_type, '/');
+    char *cp = StrChr(trial_type, '/');
 
     /* if no '/' or no '*' */
     if (!cp || *(cp + 1) != '*')
@@ -320,7 +338,7 @@ static int half_match(char *trial_type, char *target)
 	    trial_type, target));
 
     /* main type matches */
-    if (!strncmp(trial_type, target, (cp - trial_type) - 1))
+    if (!StrNCmp(trial_type, target, ((cp - trial_type) - 1)))
 	return 1;
 
     return 0;
@@ -378,8 +396,9 @@ static HTPresentation *HTFindPresentation(HTFormat rep_in,
 	    if (pres->rep_out == rep_out) {
 		if (failsMailcap(pres, anchor))
 		    continue;
-		CTRACE((tfp, "FindPresentation: found exact match: %s\n",
-			HTAtom_name(pres->rep)));
+		CTRACE((tfp, "FindPresentation: found exact match: %s -> %s\n",
+			HTAtom_name(pres->rep),
+			HTAtom_name(pres->rep_out)));
 		return pres;
 
 	    } else if (!fill_in) {
@@ -394,8 +413,9 @@ static HTPresentation *HTFindPresentation(HTFormat rep_in,
 			strong_wildcard_match = pres;
 		    /* otherwise use the first one */
 		    CTRACE((tfp,
-			    "StreamStack: found strong wildcard match: %s\n",
-			    HTAtom_name(pres->rep)));
+			    "StreamStack: found strong wildcard match: %s -> %s\n",
+			    HTAtom_name(pres->rep),
+			    HTAtom_name(pres->rep_out)));
 		}
 	    }
 
@@ -411,8 +431,9 @@ static HTPresentation *HTFindPresentation(HTFormat rep_in,
 		    strong_subtype_wildcard_match = pres;
 		/* otherwise use the first one */
 		CTRACE((tfp,
-			"StreamStack: found strong subtype wildcard match: %s\n",
-			HTAtom_name(pres->rep)));
+			"StreamStack: found strong subtype wildcard match: %s -> %s\n",
+			HTAtom_name(pres->rep),
+			HTAtom_name(pres->rep_out)));
 	    }
 	}
 
@@ -477,18 +498,10 @@ HTStream *HTStreamStack(HTFormat rep_in,
     HTPresentation *match;
     HTStream *result;
 
-    CTRACE((tfp, "HTFormat: Constructing stream stack for %s to %s (%s)\n",
+    CTRACE((tfp, "StreamStack: Constructing stream stack for %s to %s (%s)\n",
 	    HTAtom_name(rep_in),
 	    HTAtom_name(rep_out),
 	    NONNULL(anchor->content_type_params)));
-
-    /* don't return on WWW_SOURCE some people might like
-     * to make use of the source!!!!  LJM
-     */
-#if 0
-    if (rep_out == WWW_SOURCE || rep_out == rep_in)
-	return sink;		/*  LJM */
-#endif
 
     if (rep_out == rep_in) {
 	result = sink;
@@ -497,8 +510,9 @@ HTStream *HTStreamStack(HTFormat rep_in,
 	if (match == &temp) {
 	    CTRACE((tfp, "StreamStack: Using %s\n", HTAtom_name(temp.rep_out)));
 	} else {
-	    CTRACE((tfp, "StreamStack: found exact match: %s\n",
-		    HTAtom_name(match->rep)));
+	    CTRACE((tfp, "StreamStack: found exact match: %s -> %s\n",
+		    HTAtom_name(match->rep),
+		    HTAtom_name(match->rep_out)));
 	}
 	result = (*match->converter) (match, anchor, sink);
     } else {
@@ -584,7 +598,7 @@ void HTFilterPresentations(void)
  */
 float HTStackValue(HTFormat rep_in,
 		   HTFormat rep_out,
-		   float initial_value,
+		   double initial_value,
 		   long int length)
 {
     HTAtom *wildcard = WWW_WILDCARD_REP_OUT;
@@ -604,11 +618,13 @@ float HTStackValue(HTFormat rep_in,
 	    pres = (HTPresentation *) HTList_objectAt(HTPresentations, i);
 	    if (pres->rep == rep_in &&
 		(pres->rep_out == rep_out || pres->rep_out == wildcard)) {
-		float value = initial_value * pres->quality;
+		float value = (float) (initial_value * pres->quality);
 
-		if (HTMaxSecs != 0.0)
-		    value = value - (length * pres->secs_per_byte + pres->secs)
-			/ HTMaxSecs;
+		if (HTMaxSecs > 0.0)
+		    value = (value
+			     - ((float) length * pres->secs_per_byte
+				+ pres->secs)
+			     / HTMaxSecs);
 		return value;
 	    }
 	}
@@ -718,7 +734,9 @@ int HTCopy(HTParentAnchor *anchor,
 {
     HTStreamClass targetClass;
     BOOL suppress_readprogress = NO;
-    int bytes;
+    off_t limit = anchor ? anchor->content_length : 0;
+    off_t bytes = anchor ? anchor->actual_length : 0;
+    off_t total;
     int rv = 0;
 
     /*  Push the data down the stream
@@ -730,7 +748,7 @@ int HTCopy(HTParentAnchor *anchor,
      *
      * This operation could be put into a main event loop
      */
-    HTReadProgress(bytes = 0, 0);
+    HTReadProgress(bytes, (off_t) 0);
     for (;;) {
 	int status;
 
@@ -798,8 +816,6 @@ int HTCopy(HTParentAnchor *anchor,
 		    HTAlert("Unexpected server disconnect.");
 		    CTRACE((tfp,
 			    "HTCopy: Unexpected server disconnect. Treating as completed.\n"));
-		    status = 0;
-		    break;
 #else /* !UNIX */
 		    /*
 		     * Treat what we've gotten already as the complete
@@ -808,7 +824,6 @@ int HTCopy(HTParentAnchor *anchor,
 		    CTRACE((tfp,
 			    "HTCopy: Unexpected server disconnect.  Treating as completed.\n"));
 		    status = 0;
-		    break;
 #endif /* UNIX */
 		}
 #ifdef UNIX
@@ -841,9 +856,9 @@ int HTCopy(HTParentAnchor *anchor,
 	 * put up by the HTTP module or elsewhere can linger in the statusline
 	 * for a while.  - kw
 	 */
-	suppress_readprogress = (anchor && anchor->content_type &&
-				 !strcmp(anchor->content_type,
-					 "message/x-http-redirection"));
+	suppress_readprogress = (BOOL) (anchor && anchor->content_type &&
+					!strcmp(anchor->content_type,
+						"message/x-http-redirection"));
 #ifdef NOT_ASCII
 	{
 	    char *p;
@@ -854,13 +869,24 @@ int HTCopy(HTParentAnchor *anchor,
 	}
 #endif /* NOT_ASCII */
 
-	(*targetClass.put_block) (sink, input_buffer, status);
-	bytes += status;
+	total = bytes + status;
+	if (limit == 0 || bytes == 0 || (total < limit)) {
+	    (*targetClass.put_block) (sink, input_buffer, status);
+	} else if (bytes < limit) {
+	    (*targetClass.put_block) (sink, input_buffer, (int) (limit - bytes));
+	}
+	bytes = total;
 	if (!suppress_readprogress)
-	    HTReadProgress(bytes, anchor ? anchor->content_length : 0);
+	    HTReadProgress(bytes, limit);
 	HTDisplayPartial();
 
     }				/* next bufferload */
+    if (anchor != 0) {
+	CTRACE((tfp, "HTCopy copied %"
+		PRI_off_t " actual, %"
+		PRI_off_t " limit\n", bytes, limit));
+	anchor->actual_length = bytes;
+    }
 
     _HTProgress(TRANSFER_COMPLETE);
     (void) NETCLOSE(file_number);
@@ -894,7 +920,8 @@ int HTCopy(HTParentAnchor *anchor,
 int HTFileCopy(FILE *fp, HTStream *sink)
 {
     HTStreamClass targetClass;
-    int status, bytes;
+    int status;
+    off_t bytes;
     int rv = HT_OK;
 
     /*  Push the data down the stream
@@ -903,9 +930,11 @@ int HTFileCopy(FILE *fp, HTStream *sink)
 
     /*  Push binary from socket down sink
      */
-    HTReadProgress(bytes = 0, 0);
+    HTReadProgress(bytes = 0, (off_t) 0);
     for (;;) {
-	status = fread(input_buffer, 1, INPUT_BUFFER_SIZE, fp);
+	status = (int) fread(input_buffer,
+			     (size_t) 1,
+			     (size_t) INPUT_BUFFER_SIZE, fp);
 	if (status == 0) {	/* EOF or error */
 	    if (ferror(fp) == 0) {
 		rv = HT_LOADED;
@@ -923,7 +952,7 @@ int HTFileCopy(FILE *fp, HTStream *sink)
 
 	(*targetClass.put_block) (sink, input_buffer, status);
 	bytes += status;
-	HTReadProgress(bytes, 0);
+	HTReadProgress(bytes, (off_t) 0);
 	/* Suppress last screen update in partial mode - a regular update under
 	 * control of mainloop() should follow anyway.  - kw
 	 */
@@ -967,11 +996,11 @@ int HTFileCopy(FILE *fp, HTStream *sink)
 int HTMemCopy(HTChunk *chunk, HTStream *sink)
 {
     HTStreamClass targetClass;
-    int bytes = 0;
+    off_t bytes;
     int rv = HT_OK;
 
     targetClass = *(sink->isa);
-    HTReadProgress(0, 0);
+    HTReadProgress(bytes = 0, (off_t) 0);
     for (; chunk != NULL; chunk = chunk->next) {
 
 	/* Push the data down the stream a piece at a time, in case we're
@@ -980,7 +1009,7 @@ int HTMemCopy(HTChunk *chunk, HTStream *sink)
 	(*targetClass.put_block) (sink, chunk->data, chunk->size);
 	bytes += chunk->size;
 
-	HTReadProgress(bytes, 0);
+	HTReadProgress(bytes, (off_t) 0);
 	HTDisplayPartial();
 
 	if (HTCheckForInterrupt()) {
@@ -1023,7 +1052,8 @@ int HTMemCopy(HTChunk *chunk, HTStream *sink)
 static int HTGzFileCopy(gzFile gzfp, HTStream *sink)
 {
     HTStreamClass targetClass;
-    int status, bytes;
+    int status;
+    off_t bytes;
     int gzerrnum;
     int rv = HT_OK;
 
@@ -1033,7 +1063,7 @@ static int HTGzFileCopy(gzFile gzfp, HTStream *sink)
 
     /*  read and inflate gzip'd file, and push binary down sink
      */
-    HTReadProgress(bytes = 0, 0);
+    HTReadProgress(bytes = 0, (off_t) 0);
     for (;;) {
 	status = gzread(gzfp, input_buffer, INPUT_BUFFER_SIZE);
 	if (status <= 0) {	/* EOF or error */
@@ -1059,16 +1089,12 @@ static int HTGzFileCopy(gzFile gzfp, HTStream *sink)
 
 	(*targetClass.put_block) (sink, input_buffer, status);
 	bytes += status;
-	HTReadProgress(bytes, -1);
+	HTReadProgress(bytes, (off_t) -1);
 	HTDisplayPartial();
 
 	if (HTCheckForInterrupt()) {
 	    _HTProgress(TRANSFER_INTERRUPTED);
-	    if (bytes) {
-		rv = HT_INTERRUPTED;
-	    } else {
-		rv = -1;
-	    }
+	    rv = HT_INTERRUPTED;
 	    break;
 	}
     }				/* next bufferload */
@@ -1082,6 +1108,7 @@ static int HTGzFileCopy(gzFile gzfp, HTStream *sink)
 static const char *zError(int status)
 {
     static char result[80];
+
     sprintf(result, "zlib error %d", status);
     return result;
 }
@@ -1118,7 +1145,7 @@ static int HTZzFileCopy(FILE *zzfp, HTStream *sink)
 
     z_stream s;
     HTStreamClass targetClass;
-    int bytes;
+    off_t bytes;
     int rv = HT_OK;
     char output_buffer[INPUT_BUFFER_SIZE];
     int status;
@@ -1136,7 +1163,7 @@ static int HTZzFileCopy(FILE *zzfp, HTStream *sink)
     status = inflateInit(&s);
     if (status != Z_OK) {
 	CTRACE((tfp, "HTZzFileCopy inflateInit() %s\n", zError(status)));
-	exit_immediately(1);
+	exit_immediately(EXIT_FAILURE);
     }
     s.avail_in = 0;
     s.next_out = (Bytef *) output_buffer;
@@ -1145,19 +1172,22 @@ static int HTZzFileCopy(FILE *zzfp, HTStream *sink)
 
     /*  read and inflate deflate'd file, and push binary down sink
      */
-    HTReadProgress(bytes = 0, 0);
+    HTReadProgress(bytes = 0, (off_t) 0);
     for (;;) {
 	if (s.avail_in == 0) {
 	    s.next_in = (Bytef *) input_buffer;
-	    len = s.avail_in = fread(input_buffer, 1, INPUT_BUFFER_SIZE, zzfp);
+	    s.avail_in = (uInt) fread(input_buffer,
+				      (size_t) 1,
+				      (size_t) INPUT_BUFFER_SIZE, zzfp);
+	    len = (int) s.avail_in;
 	}
 	status = inflate(&s, flush);
 	if (status == Z_STREAM_END || status == Z_BUF_ERROR) {
-	    len = sizeof(output_buffer) - s.avail_out;
+	    len = (int) sizeof(output_buffer) - (int) s.avail_out;
 	    if (len > 0) {
 		(*targetClass.put_block) (sink, output_buffer, len);
 		bytes += len;
-		HTReadProgress(bytes, -1);
+		HTReadProgress(bytes, (off_t) -1);
 		HTDisplayPartial();
 	    }
 	    rv = HT_LOADED;
@@ -1166,14 +1196,14 @@ static int HTZzFileCopy(FILE *zzfp, HTStream *sink)
 	    status = inflateReset(&s);
 	    if (status != Z_OK) {
 		CTRACE((tfp, "HTZzFileCopy inflateReset() %s\n", zError(status)));
-		rv = bytes ? HT_PARTIAL_CONTENT : -1;
+		rv = -1;
 		break;
 	    }
 	    s.next_in = (Bytef *) dummy_head;
 	    s.avail_in = sizeof(dummy_head);
-	    status = inflate(&s, flush);
+	    (void) inflate(&s, flush);
 	    s.next_in = (Bytef *) input_buffer;
-	    s.avail_in = len;
+	    s.avail_in = (unsigned) len;
 	    continue;
 	} else if (status != Z_OK) {
 	    CTRACE((tfp, "HTZzFileCopy inflate() %s\n", zError(status)));
@@ -1186,7 +1216,7 @@ static int HTZzFileCopy(FILE *zzfp, HTStream *sink)
 
 	    (*targetClass.put_block) (sink, output_buffer, len);
 	    bytes += len;
-	    HTReadProgress(bytes, -1);
+	    HTReadProgress(bytes, (off_t) -1);
 	    HTDisplayPartial();
 
 	    if (HTCheckForInterrupt()) {
@@ -1228,7 +1258,8 @@ static int HTZzFileCopy(FILE *zzfp, HTStream *sink)
 static int HTBzFileCopy(BZFILE * bzfp, HTStream *sink)
 {
     HTStreamClass targetClass;
-    int status, bytes;
+    int status;
+    off_t bytes;
     int bzerrnum;
     int rv = HT_OK;
 
@@ -1238,7 +1269,7 @@ static int HTBzFileCopy(BZFILE * bzfp, HTStream *sink)
 
     /*  read and inflate bzip'd file, and push binary down sink
      */
-    HTReadProgress(bytes = 0, 0);
+    HTReadProgress(bytes = 0, (off_t) 0);
     for (;;) {
 	status = BZ2_bzread(bzfp, input_buffer, INPUT_BUFFER_SIZE);
 	if (status <= 0) {	/* EOF or error */
@@ -1260,16 +1291,12 @@ static int HTBzFileCopy(BZFILE * bzfp, HTStream *sink)
 
 	(*targetClass.put_block) (sink, input_buffer, status);
 	bytes += status;
-	HTReadProgress(bytes, -1);
+	HTReadProgress(bytes, (off_t) -1);
 	HTDisplayPartial();
 
 	if (HTCheckForInterrupt()) {
 	    _HTProgress(TRANSFER_INTERRUPTED);
-	    if (bytes) {
-		rv = HT_INTERRUPTED;
-	    } else {
-		rv = -1;
-	    }
+	    rv = HT_INTERRUPTED;
 	    break;
 	}
     }				/* next bufferload */
@@ -1312,7 +1339,7 @@ void HTCopyNoCR(HTParentAnchor *anchor GCC_UNUSED,
 	character = HTGetCharacter();
 	if (character == EOF)
 	    break;
-	(*targetClass.put_character) (sink, UCH(character));
+	(*targetClass.put_character) (sink, (char) character);
     }
 }
 
@@ -1419,50 +1446,54 @@ int HTParseFile(HTFormat rep_in,
     HTStream *stream;
     HTStreamClass targetClass;
     int rv;
+    int result;
 
-#ifdef SH_EX			/* 1998/01/04 (Sun) 16:04:09 */
-    if (fp == NULL)
-	return HT_LOADED;
-#endif
-
-    stream = HTStreamStack(rep_in, format_out, sink, anchor);
-
-    if (!stream) {
-	char *buffer = 0;
-
-	if (LYCancelDownload) {
-	    LYCancelDownload = FALSE;
-	    return -1;
-	}
-	HTSprintf0(&buffer, CANNOT_CONVERT_I_TO_O,
-		   HTAtom_name(rep_in), HTAtom_name(format_out));
-	CTRACE((tfp, "HTFormat(in HTParseFile): %s\n", buffer));
-	rv = HTLoadError(sink, 501, buffer);
-	FREE(buffer);
-	return rv;
-    }
-
-    /*
-     * Push the data down the stream
-     *
-     * @@ Bug:  This decision ought to be made based on "encoding" rather than
-     * on content-type.  @@@ When we handle encoding.  The current method
-     * smells anyway.
-     */
-    targetClass = *(stream->isa);	/* Copy pointers to procedures */
-    rv = HTFileCopy(fp, stream);
-    if (rv == -1 || rv == HT_INTERRUPTED) {
-	(*targetClass._abort) (stream, NULL);
+    if (fp == NULL) {
+	result = HT_LOADED;
     } else {
-	(*targetClass._free) (stream);
-    }
+	stream = HTStreamStack(rep_in, format_out, sink, anchor);
 
-    if (rv == -1)
-	return HT_NO_DATA;
-    else if (rv == HT_INTERRUPTED || (rv > 0 && rv != HT_LOADED))
-	return HT_PARTIAL_CONTENT;
-    else
-	return HT_LOADED;
+	if (!stream || !stream->isa) {
+	    char *buffer = 0;
+
+	    if (LYCancelDownload) {
+		LYCancelDownload = FALSE;
+		result = -1;
+	    } else {
+		HTSprintf0(&buffer, CANNOT_CONVERT_I_TO_O,
+			   HTAtom_name(rep_in), HTAtom_name(format_out));
+		CTRACE((tfp, "HTFormat(in HTParseFile): %s\n", buffer));
+		rv = HTLoadError(sink, 501, buffer);
+		FREE(buffer);
+		result = rv;
+	    }
+	} else {
+
+	    /*
+	     * Push the data down the stream
+	     *
+	     * @@ Bug:  This decision ought to be made based on "encoding"
+	     * rather than on content-type.  @@@ When we handle encoding.  The
+	     * current method smells anyway.
+	     */
+	    targetClass = *(stream->isa);	/* Copy pointers to procedures */
+	    rv = HTFileCopy(fp, stream);
+	    if (rv == -1 || rv == HT_INTERRUPTED) {
+		(*targetClass._abort) (stream, NULL);
+	    } else {
+		(*targetClass._free) (stream);
+	    }
+
+	    if (rv == -1) {
+		result = HT_NO_DATA;
+	    } else if (rv == HT_INTERRUPTED || (rv > 0 && rv != HT_LOADED)) {
+		result = HT_PARTIAL_CONTENT;
+	    } else {
+		result = HT_LOADED;
+	    }
+	}
+    }
+    return result;
 }
 
 #ifdef USE_SOURCE_CACHE
@@ -1491,9 +1522,10 @@ int HTParseMem(HTFormat rep_in,
     HTStream *stream;
     HTStreamClass targetClass;
     int rv;
+    int result;
 
     stream = HTStreamStack(rep_in, format_out, sink, anchor);
-    if (!stream) {
+    if (!stream || !stream->isa) {
 	char *buffer = 0;
 
 	HTSprintf0(&buffer, CANNOT_CONVERT_I_TO_O,
@@ -1501,15 +1533,17 @@ int HTParseMem(HTFormat rep_in,
 	CTRACE((tfp, "HTFormat(in HTParseMem): %s\n", buffer));
 	rv = HTLoadError(sink, 501, buffer);
 	FREE(buffer);
-	return rv;
-    }
+	result = rv;
+    } else {
 
-    /* Push the data down the stream
-     */
-    targetClass = *(stream->isa);
-    rv = HTMemCopy(chunk, stream);
-    (*targetClass._free) (stream);
-    return HT_LOADED;
+	/* Push the data down the stream
+	 */
+	targetClass = *(stream->isa);
+	(void) HTMemCopy(chunk, stream);
+	(*targetClass._free) (stream);
+	result = HT_LOADED;
+    }
+    return result;
 }
 #endif
 
@@ -1556,47 +1590,52 @@ int HTParseGzFile(HTFormat rep_in,
     HTStream *stream;
     HTStreamClass targetClass;
     int rv;
+    int result;
 
     stream = HTStreamStack(rep_in, format_out, sink, anchor);
 
-    if (!stream) {
+    if (!stream || !stream->isa) {
 	char *buffer = 0;
 
 	HTCloseGzFile(gzfp);
 	if (LYCancelDownload) {
 	    LYCancelDownload = FALSE;
-	    return -1;
+	    result = -1;
+	} else {
+	    HTSprintf0(&buffer, CANNOT_CONVERT_I_TO_O,
+		       HTAtom_name(rep_in), HTAtom_name(format_out));
+	    CTRACE((tfp, "HTFormat(in HTParseGzFile): %s\n", buffer));
+	    rv = HTLoadError(sink, 501, buffer);
+	    FREE(buffer);
+	    result = rv;
 	}
-	HTSprintf0(&buffer, CANNOT_CONVERT_I_TO_O,
-		   HTAtom_name(rep_in), HTAtom_name(format_out));
-	CTRACE((tfp, "HTFormat(in HTParseGzFile): %s\n", buffer));
-	rv = HTLoadError(sink, 501, buffer);
-	FREE(buffer);
-	return rv;
-    }
-
-    /*
-     * Push the data down the stream
-     *
-     * @@ Bug:  This decision ought to be made based on "encoding" rather than
-     * on content-type.  @@@ When we handle encoding.  The current method
-     * smells anyway.
-     */
-    targetClass = *(stream->isa);	/* Copy pointers to procedures */
-    rv = HTGzFileCopy(gzfp, stream);
-    if (rv == -1 || rv == HT_INTERRUPTED) {
-	(*targetClass._abort) (stream, NULL);
     } else {
-	(*targetClass._free) (stream);
-    }
 
-    HTCloseGzFile(gzfp);
-    if (rv == -1)
-	return HT_NO_DATA;
-    else if (rv == HT_INTERRUPTED || (rv > 0 && rv != HT_LOADED))
-	return HT_PARTIAL_CONTENT;
-    else
-	return HT_LOADED;
+	/*
+	 * Push the data down the stream
+	 *
+	 * @@ Bug:  This decision ought to be made based on "encoding" rather than
+	 * on content-type.  @@@ When we handle encoding.  The current method
+	 * smells anyway.
+	 */
+	targetClass = *(stream->isa);	/* Copy pointers to procedures */
+	rv = HTGzFileCopy(gzfp, stream);
+	if (rv == -1 || rv == HT_INTERRUPTED) {
+	    (*targetClass._abort) (stream, NULL);
+	} else {
+	    (*targetClass._free) (stream);
+	}
+
+	HTCloseGzFile(gzfp);
+	if (rv == -1) {
+	    result = HT_NO_DATA;
+	} else if (rv == HT_INTERRUPTED || (rv > 0 && rv != HT_LOADED)) {
+	    result = HT_PARTIAL_CONTENT;
+	} else {
+	    result = HT_LOADED;
+	}
+    }
+    return result;
 }
 
 /*	HTParseZzFile
@@ -1624,47 +1663,52 @@ int HTParseZzFile(HTFormat rep_in,
     HTStream *stream;
     HTStreamClass targetClass;
     int rv;
+    int result;
 
     stream = HTStreamStack(rep_in, format_out, sink, anchor);
 
-    if (!stream) {
+    if (!stream || !stream->isa) {
 	char *buffer = 0;
 
 	fclose(zzfp);
 	if (LYCancelDownload) {
 	    LYCancelDownload = FALSE;
-	    return -1;
+	    result = -1;
+	} else {
+	    HTSprintf0(&buffer, CANNOT_CONVERT_I_TO_O,
+		       HTAtom_name(rep_in), HTAtom_name(format_out));
+	    CTRACE((tfp, "HTFormat(in HTParseGzFile): %s\n", buffer));
+	    rv = HTLoadError(sink, 501, buffer);
+	    FREE(buffer);
+	    result = rv;
 	}
-	HTSprintf0(&buffer, CANNOT_CONVERT_I_TO_O,
-		   HTAtom_name(rep_in), HTAtom_name(format_out));
-	CTRACE((tfp, "HTFormat(in HTParseGzFile): %s\n", buffer));
-	rv = HTLoadError(sink, 501, buffer);
-	FREE(buffer);
-	return rv;
-    }
-
-    /*
-     * Push the data down the stream
-     *
-     * @@ Bug:  This decision ought to be made based on "encoding" rather than
-     * on content-type.  @@@ When we handle encoding.  The current method
-     * smells anyway.
-     */
-    targetClass = *(stream->isa);	/* Copy pointers to procedures */
-    rv = HTZzFileCopy(zzfp, stream);
-    if (rv == -1 || rv == HT_INTERRUPTED) {
-	(*targetClass._abort) (stream, NULL);
     } else {
-	(*targetClass._free) (stream);
-    }
 
-    fclose(zzfp);
-    if (rv == -1)
-	return HT_NO_DATA;
-    else if (rv == HT_INTERRUPTED || (rv > 0 && rv != HT_LOADED))
-	return HT_PARTIAL_CONTENT;
-    else
-	return HT_LOADED;
+	/*
+	 * Push the data down the stream
+	 *
+	 * @@ Bug:  This decision ought to be made based on "encoding" rather than
+	 * on content-type.  @@@ When we handle encoding.  The current method
+	 * smells anyway.
+	 */
+	targetClass = *(stream->isa);	/* Copy pointers to procedures */
+	rv = HTZzFileCopy(zzfp, stream);
+	if (rv == -1 || rv == HT_INTERRUPTED) {
+	    (*targetClass._abort) (stream, NULL);
+	} else {
+	    (*targetClass._free) (stream);
+	}
+
+	fclose(zzfp);
+	if (rv == -1) {
+	    result = HT_NO_DATA;
+	} else if (rv == HT_INTERRUPTED || (rv > 0 && rv != HT_LOADED)) {
+	    result = HT_PARTIAL_CONTENT;
+	} else {
+	    result = HT_LOADED;
+	}
+    }
+    return result;
 }
 #endif /* USE_ZLIB */
 
@@ -1700,47 +1744,52 @@ int HTParseBzFile(HTFormat rep_in,
     HTStream *stream;
     HTStreamClass targetClass;
     int rv;
+    int result;
 
     stream = HTStreamStack(rep_in, format_out, sink, anchor);
 
-    if (!stream) {
+    if (!stream || !stream->isa) {
 	char *buffer = 0;
 
 	HTCloseBzFile(bzfp);
 	if (LYCancelDownload) {
 	    LYCancelDownload = FALSE;
-	    return -1;
+	    result = -1;
+	} else {
+	    HTSprintf0(&buffer, CANNOT_CONVERT_I_TO_O,
+		       HTAtom_name(rep_in), HTAtom_name(format_out));
+	    CTRACE((tfp, "HTFormat(in HTParseBzFile): %s\n", buffer));
+	    rv = HTLoadError(sink, 501, buffer);
+	    FREE(buffer);
+	    result = rv;
 	}
-	HTSprintf0(&buffer, CANNOT_CONVERT_I_TO_O,
-		   HTAtom_name(rep_in), HTAtom_name(format_out));
-	CTRACE((tfp, "HTFormat(in HTParseBzFile): %s\n", buffer));
-	rv = HTLoadError(sink, 501, buffer);
-	FREE(buffer);
-	return rv;
-    }
-
-    /*
-     * Push the data down the stream
-     *
-     * @@ Bug:  This decision ought to be made based on "encoding" rather than
-     * on content-type.  @@@ When we handle encoding.  The current method
-     * smells anyway.
-     */
-    targetClass = *(stream->isa);	/* Copy pointers to procedures */
-    rv = HTBzFileCopy(bzfp, stream);
-    if (rv == -1 || rv == HT_INTERRUPTED) {
-	(*targetClass._abort) (stream, NULL);
     } else {
-	(*targetClass._free) (stream);
-    }
 
-    HTCloseBzFile(bzfp);
-    if (rv == -1)
-	return HT_NO_DATA;
-    else if (rv == HT_INTERRUPTED || (rv > 0 && rv != HT_LOADED))
-	return HT_PARTIAL_CONTENT;
-    else
-	return HT_LOADED;
+	/*
+	 * Push the data down the stream
+	 *
+	 * @@ Bug:  This decision ought to be made based on "encoding" rather than
+	 * on content-type.  @@@ When we handle encoding.  The current method
+	 * smells anyway.
+	 */
+	targetClass = *(stream->isa);	/* Copy pointers to procedures */
+	rv = HTBzFileCopy(bzfp, stream);
+	if (rv == -1 || rv == HT_INTERRUPTED) {
+	    (*targetClass._abort) (stream, NULL);
+	} else {
+	    (*targetClass._free) (stream);
+	}
+
+	HTCloseBzFile(bzfp);
+	if (rv == -1) {
+	    result = HT_NO_DATA;
+	} else if (rv == HT_INTERRUPTED || (rv > 0 && rv != HT_LOADED)) {
+	    result = HT_PARTIAL_CONTENT;
+	} else {
+	    result = HT_LOADED;
+	}
+    }
+    return result;
 }
 #endif /* USE_BZLIB */
 
@@ -1754,9 +1803,9 @@ int HTParseBzFile(HTFormat rep_in,
  *	C representation of a new line.
  */
 
-static void NetToText_put_character(HTStream *me, char net_char)
+static void NetToText_put_character(HTStream *me, int net_char)
 {
-    char c = FROMASCII(net_char);
+    char c = (char) FROMASCII(net_char);
 
     if (me->had_cr) {
 	if (c == LF) {
@@ -1820,6 +1869,9 @@ HTStream *HTNetToText(HTStream *sink)
 
     if (me == NULL)
 	outofmem(__FILE__, "NetToText");
+
+    assert(me != NULL);
+
     me->isa = &NetToTextClass;
 
     me->had_cr = NO;
@@ -1835,7 +1887,7 @@ static HTStream HTBaseStreamInstance;	/* Made static */
  *	There is only one error stream shared by anyone who wants a
  *	generic error returned from all stream methods.
  */
-static void HTErrorStream_put_character(HTStream *me GCC_UNUSED, char c GCC_UNUSED)
+static void HTErrorStream_put_character(HTStream *me GCC_UNUSED, int c GCC_UNUSED)
 {
     LYCancelDownload = TRUE;
 }

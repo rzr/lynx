@@ -1,4 +1,7 @@
-/*			File Transfer Protocol (FTP) Client
+/*
+ * $LynxId: HTFTP.c,v 1.125 2013/11/28 11:11:05 tom Exp $
+ *
+ *			File Transfer Protocol (FTP) Client
  *			for a WorldWideWeb browser
  *			===================================
  *
@@ -93,9 +96,8 @@
 
 typedef struct _connection {
     struct _connection *next;	/* Link on list         */
-    unsigned long addr;		/* IP address           */
     int socket;			/* Socket number for communication */
-    BOOL binary;		/* Binary mode? */
+    BOOL is_binary;		/* Binary mode? */
 } connection;
 
 /*		Hypertext object building machinery
@@ -130,7 +132,7 @@ typedef struct _connection {
 #elif defined(SYS_HPUX)
 #  if defined(_XOPEN_SOURCE_EXTENDED) && defined(SO_PROTOTYPE)
 #    define LY_SOCKLEN socklen_t
-#  else				/* HPUX 10.20, etc. */
+#  else	/* HPUX 10.20, etc. */
 #    define LY_SOCKLEN int
 #  endif
 #elif defined(SYS_TRU64)
@@ -145,12 +147,19 @@ typedef struct _connection {
 #  define LY_SOCKLEN socklen_t
 #endif
 
-#define PUTC(c)      (*targetClass.put_character) (target, c)
-#define PUTS(s)      (*targetClass.put_string)    (target, s)
-#define START(e)     (*targetClass.start_element) (target, e, 0, 0, -1, 0)
-#define END(e)       (*targetClass.end_element)   (target, e, 0)
-#define FREE_TARGET  (*targetClass._free)         (target)
-#define ABORT_TARGET (*targetClass._free)         (target)
+#define PUTC(c)      (*target->isa->put_character) (target, c)
+#define PUTS(s)      (*target->isa->put_string)    (target, s)
+#define START(e)     (*target->isa->start_element) (target, e, 0, 0, -1, 0)
+#define END(e)       (*target->isa->end_element)   (target, e, 0)
+#define FREE_TARGET  (*target->isa->_free)         (target)
+#define ABORT_TARGET (*target->isa->_free)         (target)
+
+#define TRACE_ENTRY(tag, entry_info) \
+    CTRACE((tfp, "HTFTP: %s filename: %s  date: %s  size: %" PRI_off_t "\n", \
+	    tag, \
+	    entry_info->filename, \
+	    NonNull(entry_info->date), \
+	    entry_info->size))
 
 struct _HTStructured {
     const HTStructuredClass *isa;
@@ -179,21 +188,20 @@ static char *user_entered_password = NULL;
 static char *last_username_and_host = NULL;
 
 /*
- * ProFTPD 1.2.5rc1 is known to have a broken implementation of RETR.  If asked
- * to retrieve a directory, it gets confused and fails subsequent commands such
- * as CWD and LIST.  Since this is an unusual bug, we should remove this ifdef
- * at some point - TD 2004/1/1.
+ * Some ftp servers are known to have a broken implementation of RETR.  If
+ * asked to retrieve a directory, they get confused and fail subsequent
+ * commands such as CWD and LIST.
  */
-#define BROKEN_PROFTPD 1
-static int ProFTPD_bugs = FALSE;
+static int Broken_RETR = FALSE;
 
 /*
- * wu-ftpd 2.6.2(12) is known to have a broken implementation of EPSV.  The
+ * Some ftp servers are known to have a broken implementation of EPSV.  The
  * server will hang for a long time when we attempt to connect after issuing
- * this command - TD 2004/12/28
+ * this command.
  */
-#define BROKEN_WUFTPD 1
-static int WU_FTPD_bugs = FALSE;
+#ifdef INET6
+static int Broken_EPSV = FALSE;
+#endif
 
 typedef enum {
     GENERIC_SERVER
@@ -224,10 +232,12 @@ static int interrupted_in_next_data_char = FALSE;
 static PortNumber port_number = FIRST_TCP_PORT;
 #endif /* POLL_PORTS */
 
-static int master_socket = -1;	/* Listening socket = invalid   */
+static BOOL have_socket = FALSE;	/* true if master_socket is valid */
+static unsigned master_socket;	/* Listening socket = invalid */
+
 static char port_command[255];	/* Command for setting the port */
 static fd_set open_sockets;	/* Mask of active channels */
-static int num_sockets;		/* Number of sockets to scan */
+static unsigned num_sockets;	/* Number of sockets to scan */
 static PortNumber passive_port;	/* Port server specified for data */
 
 #define NEXT_CHAR HTGetCharacter()	/* Use function in HTFormat.c */
@@ -239,6 +249,18 @@ static char *data_write_pointer;
 
 #define NEXT_DATA_CHAR next_data_char()
 static int close_connection(connection * con);
+
+#ifndef HAVE_ATOLL
+off_t LYatoll(const char *value)
+{
+    off_t result = 0;
+
+    while (*value != '\0') {
+	result = (result * 10) + (off_t) (*value++ - '0');
+    }
+    return result;
+}
+#endif
 
 #ifdef LY_FIND_LEAKS
 /*
@@ -286,9 +308,13 @@ char *HTVMS_name(const char *nn,
 
     if (!filename || !nodename)
 	outofmem(__FILE__, "HTVMSname");
+
+    assert(filename != NULL);
+    assert(nodename != NULL);
+
     strcpy(filename, fn);
     strcpy(nodename, "");	/* On same node?  Yes if node names match */
-    if (strncmp(nn, "localhost", 9)) {
+    if (StrNCmp(nn, "localhost", 9)) {
 	const char *p;
 	const char *q;
 
@@ -298,7 +324,7 @@ char *HTVMS_name(const char *nn,
 		char *r;
 
 		strcpy(nodename, nn);
-		r = strchr(nodename, '.');	/* Mismatch */
+		r = StrChr(nodename, '.');	/* Mismatch */
 		if (r)
 		    *r = '\0';	/* Chop domain */
 		strcat(nodename, "::");		/* Try decnet anyway */
@@ -307,7 +333,7 @@ char *HTVMS_name(const char *nn,
 	}
     }
 
-    second = strchr(filename + 1, '/');		/* 2nd slash */
+    second = StrChr(filename + 1, '/');		/* 2nd slash */
     last = strrchr(filename, '/');	/* last slash */
 
     if (!second) {		/* Only one slash */
@@ -324,9 +350,13 @@ char *HTVMS_name(const char *nn,
 	HTSprintf0(&vmsname, "%s%s:[%s]%s",
 		   nodename, filename + 1, second + 1, last + 1);
 	*second = *last = '/';	/* restore filename */
-	for (p = strchr(vmsname, '['); *p != ']'; p++)
-	    if (*p == '/')
-		*p = '.';	/* Convert dir sep.  to dots */
+	if ((p = StrChr(vmsname, '[')) != 0) {
+	    while (*p != '\0' && *p != ']') {
+		if (*p == '/')
+		    *p = '.';	/* Convert dir sep.  to dots */
+		++p;
+	    }
+	}
     }
     FREE(nodename);
     FREE(filename);
@@ -345,7 +375,7 @@ static int next_data_char(void)
 	if (status == HT_INTERRUPTED)
 	    interrupted_in_next_data_char = 1;
 	if (status <= 0)
-	    return -1;
+	    return EOF;
 	data_write_pointer = data_buffer + status;
 	data_read_pointer = data_buffer;
     }
@@ -458,7 +488,7 @@ static int write_cmd(const char *cmd)
 	    }
 	}
 #endif /* NOT_ASCII */
-	status = NETWRITE(control->socket, cmd, (int) strlen(cmd));
+	status = (int) NETWRITE(control->socket, cmd, (unsigned) strlen(cmd));
 	if (status < 0) {
 	    CTRACE((tfp,
 		    "HTFTP: Error %d sending command: closing socket %d\n",
@@ -468,6 +498,25 @@ static int write_cmd(const char *cmd)
 	}
     }
     return 1;
+}
+
+/*
+ * For each string in the list, check if it is found in the response text.
+ * If so, return TRUE.
+ */
+static BOOL find_response(HTList *list)
+{
+    BOOL result = FALSE;
+    HTList *p = list;
+    char *value;
+
+    while ((value = (char *) HTList_nextObject(p)) != NULL) {
+	if (LYstrstr(response_text, value)) {
+	    result = TRUE;
+	    break;
+	}
+    }
+    return result;
 }
 
 /*	Execute Command and get Response
@@ -523,9 +572,9 @@ static int response(const char *cmd)
 		CTRACE((tfp, "    Rx: %s", response_text));
 
 		/* Check for login or help messages */
-		if (!strncmp(response_text, "230-", 4) ||
-		    !strncmp(response_text, "250-", 4) ||
-		    !strncmp(response_text, "220-", 4))
+		if (!StrNCmp(response_text, "230-", 4) ||
+		    !StrNCmp(response_text, "250-", 4) ||
+		    !StrNCmp(response_text, "220-", 4))
 		    help_message_cache_add(response_text + 4);
 
 		sscanf(response_text, "%d%c", &result, &continuation);
@@ -537,16 +586,13 @@ static int response(const char *cmd)
 			continuation == ' ')
 			continuation_response = -1;	/* ended */
 		}
-#ifdef BROKEN_PROFTPD
-		if (result == 220 && LYstrstr(response_text, "ProFTPD 1.2.5")) {
-		    ProFTPD_bugs = TRUE;
+		if (result == 220 && find_response(broken_ftp_retr)) {
+		    Broken_RETR = TRUE;
 		    CTRACE((tfp, "This server is broken (RETR)\n"));
 		}
-#endif
-#ifdef BROKEN_WUFTPD
-		if (result == 220 && LYstrstr(response_text,
-					      "(Version wu-2.6.2-12)")) {
-		    WU_FTPD_bugs = TRUE;
+#ifdef INET6
+		if (result == 220 && find_response(broken_ftp_epsv)) {
+		    Broken_EPSV = TRUE;
 		    CTRACE((tfp, "This server is broken (EPSV)\n"));
 		}
 #endif
@@ -643,7 +689,7 @@ static void get_ftp_pwd(eServerType *ServerType, BOOLEAN *UseList)
     if (status < 0) {
 	return;
     } else {
-	cp = strchr(response_text + 5, '"');
+	cp = StrChr(response_text + 5, '"');
 	if (cp)
 	    *cp = '\0';
 	if (*ServerType == TCPC_SERVER) {
@@ -721,6 +767,15 @@ static void set_unix_dirstyle(eServerType *ServerType, BOOLEAN *UseList)
     }
 }
 
+#define CheckForInterrupt(msg) \
+	if (status == HT_INTERRUPTED) { \
+	    CTRACE((tfp, "HTFTP: Interrupted %s.\n", msg)); \
+	    _HTProgress(CONNECTION_INTERRUPTED); \
+	    NETCLOSE(control->socket); \
+	    control->socket = -1; \
+	    return HT_INTERRUPTED; \
+	}
+
 /*	Get a valid connection to the host
  *	----------------------------------
  *
@@ -756,33 +811,30 @@ static int get_connection(const char *arg,
 	firstuse = FALSE;
     }
 
-    if (control) {
-	/*
-	 * Reuse this object - KW, DW & FM
-	 */
+    if (control != 0) {
+	connection *next = control->next;
+
 	if (control->socket != -1) {
 	    NETCLOSE(control->socket);
 	}
-	con = control;
-	con->addr = 0;
-	con->binary = FALSE;
+	memset(con = control, 0, sizeof(*con));
+	con->next = next;
     } else {
-	/*
-	 * Allocate and init control struct.
-	 */
 	con = typecalloc(connection);
 	if (con == NULL)
 	    outofmem(__FILE__, "get_connection");
+
+	assert(con != NULL);
     }
     con->socket = -1;
 
-    if (!arg)
+    if (isEmpty(arg)) {
+	free(con);
 	return -1;		/* Bad if no name specified     */
-    if (!*arg)
-	return -1;		/* Bad if name had zero length  */
+    }
 
-/* Get node name:
-*/
+    /* Get node name:
+     */
     CTRACE((tfp, "get_connection(%s)\n", arg));
     {
 	char *p1 = HTParse(arg, "", PARSE_HOST);
@@ -793,7 +845,7 @@ static int get_connection(const char *arg,
 	    username = p1;
 	    *p2 = '\0';		/* terminate */
 	    p1 = p2 + 1;	/* point to host */
-	    pw = strchr(username, ':');
+	    pw = StrChr(username, ':');
 	    if (pw != NULL) {
 		*pw++ = '\0';
 		password = HTUnEscape(pw);
@@ -862,24 +914,18 @@ static int get_connection(const char *arg,
     }
 
     CTRACE((tfp, "FTP connected, socket %d  control %p\n",
-	    con->socket, con));
+	    con->socket, (void *) con));
     control = con;		/* Current control connection */
 
     /* Initialise buffering for control connection */
     HTInitInput(control->socket);
     init_help_message_cache();	/* Clear the login message buffer. */
 
-/*	Now we log in		Look up username, prompt for pw.
-*/
+    /*  Now we log in           Look up username, prompt for pw.
+     */
     status = response((char *) 0);	/* Get greeting */
+    CheckForInterrupt("at beginning of login");
 
-    if (status == HT_INTERRUPTED) {
-	CTRACE((tfp, "HTFTP: Interrupted at beginning of login.\n"));
-	_HTProgress(CONNECTION_INTERRUPTED);
-	NETCLOSE(control->socket);
-	control->socket = -1;
-	return HT_INTERRUPTED;
-    }
     server_type = GENERIC_SERVER;	/* reset */
     if (status == 2) {		/* Send username */
 	char *cp;		/* look at greeting text */
@@ -902,25 +948,16 @@ static int get_connection(const char *arg,
 			    ? username
 			    : "anonymous");
 
-	if (status == HT_INTERRUPTED) {
-	    CTRACE((tfp, "HTFTP: Interrupted while sending username.\n"));
-	    _HTProgress(CONNECTION_INTERRUPTED);
-	    NETCLOSE(control->socket);
-	    control->socket = -1;
-	    return HT_INTERRUPTED;
-	}
+	CheckForInterrupt("while sending username");
     }
     if (status == 3) {		/* Send password */
-	if (password) {
-	    /*
-	     * We have non-zero length password, so send it. - FM
-	     */
+	if (non_empty(password)) {
 	    HTSprintf0(&command, "PASS %s%c%c", password, CR, LF);
 	} else {
 	    /*
-	     * Create and send a mail address as the password. - FM
+	     * No password was given; use mail-address.
 	     */
-	    char *the_address;
+	    const char *the_address;
 	    char *user = NULL;
 	    const char *host = NULL;
 	    char *cp;
@@ -934,7 +971,7 @@ static int get_connection(const char *arg,
 		the_address = "WWWuser";
 
 	    StrAllocCopy(user, the_address);
-	    if ((cp = strchr(user, '@')) != NULL) {
+	    if ((cp = StrChr(user, '@')) != NULL) {
 		*cp++ = '\0';
 		if (*cp == '\0')
 		    host = HTHostName();
@@ -948,7 +985,7 @@ static int get_connection(const char *arg,
 	     * If host is not fully qualified, suppress it
 	     * as ftp.uu.net prefers a blank to a bad name
 	     */
-	    if (!(host) || strchr(host, '.') == NULL)
+	    if (!(host) || StrChr(host, '.') == NULL)
 		host = "";
 
 	    HTSprintf0(&command, "PASS %s@%s%c%c", user, host, CR, LF);
@@ -956,26 +993,13 @@ static int get_connection(const char *arg,
 	}
 	status = response(command);
 	FREE(command);
-	if (status == HT_INTERRUPTED) {
-	    CTRACE((tfp, "HTFTP: Interrupted while sending password.\n"));
-	    _HTProgress(CONNECTION_INTERRUPTED);
-	    NETCLOSE(control->socket);
-	    control->socket = -1;
-	    return HT_INTERRUPTED;
-	}
+	CheckForInterrupt("while sending password");
     }
     FREE(username);
 
     if (status == 3) {
 	status = send_cmd_1("ACCT noaccount");
-	if (status == HT_INTERRUPTED) {
-	    CTRACE((tfp, "HTFTP: Interrupted while sending password.\n"));
-	    _HTProgress(CONNECTION_INTERRUPTED);
-	    NETCLOSE(control->socket);
-	    control->socket = -1;
-	    return HT_INTERRUPTED;
-	}
-
+	CheckForInterrupt("while sending password");
     }
     if (status != 2) {
 	CTRACE((tfp, "HTFTP: Login fail: %s", response_text));
@@ -988,9 +1012,9 @@ static int get_connection(const char *arg,
     if (server_type != NETPRESENZ_SERVER)
 	server_type = GENERIC_SERVER;	/* reset */
     use_list = FALSE;		/* reset */
-    if ((status = response("SYST\r\n")) == 2) {
+    if (response("SYST\r\n") == 2) {
 	/* we got a line -- what kind of server are we talking to? */
-	if (strncmp(response_text + 4,
+	if (StrNCmp(response_text + 4,
 		    "UNIX Type: L8 MAC-OS MachTen", 28) == 0) {
 	    server_type = MACHTEN_SERVER;
 	    use_list = TRUE;
@@ -1008,7 +1032,7 @@ static int get_connection(const char *arg,
 	    use_list = TRUE;
 	    CTRACE((tfp, "HTFTP: Treating as MSDOS (Unix emulation) server.\n"));
 
-	} else if (strncmp(response_text + 4, "VMS", 3) == 0) {
+	} else if (StrNCmp(response_text + 4, "VMS", 3) == 0) {
 	    char *tilde = strstr(arg, "/~");
 
 	    use_list = TRUE;
@@ -1022,13 +1046,13 @@ static int get_connection(const char *arg,
 		CTRACE((tfp, "HTFTP: Treating as VMS server.\n"));
 	    }
 
-	} else if ((strncmp(response_text + 4, "VM/CMS", 6) == 0) ||
-		   (strncmp(response_text + 4, "VM ", 3) == 0)) {
+	} else if ((StrNCmp(response_text + 4, "VM/CMS", 6) == 0) ||
+		   (StrNCmp(response_text + 4, "VM ", 3) == 0)) {
 	    server_type = CMS_SERVER;
 	    use_list = TRUE;
 	    CTRACE((tfp, "HTFTP: Treating as CMS server.\n"));
 
-	} else if (strncmp(response_text + 4, "DCTS", 4) == 0) {
+	} else if (StrNCmp(response_text + 4, "DCTS", 4) == 0) {
 	    server_type = DCTS_SERVER;
 	    CTRACE((tfp, "HTFTP: Treating as DCTS server.\n"));
 
@@ -1043,28 +1067,28 @@ static int get_connection(const char *arg,
 	    set_mac_binary(server_type);
 	    CTRACE((tfp, "HTFTP: Treating as NetPresenz (MACOS) server.\n"));
 
-	} else if (strncmp(response_text + 4, "MACOS Peter's Server", 20) == 0) {
+	} else if (StrNCmp(response_text + 4, "MACOS Peter's Server", 20) == 0) {
 	    server_type = PETER_LEWIS_SERVER;
 	    use_list = TRUE;
 	    set_mac_binary(server_type);
 	    CTRACE((tfp, "HTFTP: Treating as Peter Lewis (MACOS) server.\n"));
 
-	} else if (strncmp(response_text + 4, "Windows_NT", 10) == 0) {
+	} else if (StrNCmp(response_text + 4, "Windows_NT", 10) == 0) {
 	    server_type = WINDOWS_NT_SERVER;
 	    CTRACE((tfp, "HTFTP: Treating as Window_NT server.\n"));
 	    set_unix_dirstyle(&server_type, &use_list);
 
-	} else if (strncmp(response_text + 4, "Windows2000", 11) == 0) {
+	} else if (StrNCmp(response_text + 4, "Windows2000", 11) == 0) {
 	    server_type = WINDOWS_2K_SERVER;
 	    CTRACE((tfp, "HTFTP: Treating as Window_2K server.\n"));
 	    set_unix_dirstyle(&server_type, &use_list);
 
-	} else if (strncmp(response_text + 4, "MS Windows", 10) == 0) {
+	} else if (StrNCmp(response_text + 4, "MS Windows", 10) == 0) {
 	    server_type = MS_WINDOWS_SERVER;
 	    use_list = TRUE;
 	    CTRACE((tfp, "HTFTP: Treating as MS Windows server.\n"));
 
-	} else if (strncmp(response_text + 4,
+	} else if (StrNCmp(response_text + 4,
 			   "MACOS AppleShare IP FTP Server", 30) == 0) {
 	    server_type = APPLESHARE_SERVER;
 	    use_list = TRUE;
@@ -1082,21 +1106,19 @@ static int get_connection(const char *arg,
 	get_ftp_pwd(&server_type, &use_list);
     }
 
-/*  Now we inform the server of the port number we will listen on
-*/
-#ifdef NOTREPEAT_PORT
-    {
-	int status = response(port_command);
-
-	if (status != 2) {
-	    if (control->socket)
-		close_connection(control->socket);
-	    return -status;	/* Bad return */
-	}
-	CTRACE((tfp, "HTFTP: Port defined.\n"));
-    }
-#endif /* NOTREPEAT_PORT */
     return con->socket;		/* Good return */
+}
+
+static void reset_master_socket(void)
+{
+    have_socket = FALSE;
+}
+
+static void set_master_socket(int value)
+{
+    have_socket = (BOOLEAN) (value >= 0);
+    if (have_socket)
+	master_socket = (unsigned) value;
 }
 
 /*	Close Master (listening) socket
@@ -1108,11 +1130,14 @@ static int close_master_socket(void)
 {
     int status;
 
-    if (master_socket != -1)
+    if (have_socket)
 	FD_CLR(master_socket, &open_sockets);
-    status = NETCLOSE(master_socket);
-    CTRACE((tfp, "HTFTP: Closed master socket %d\n", master_socket));
-    master_socket = -1;
+
+    status = NETCLOSE((int) master_socket);
+    CTRACE((tfp, "HTFTP: Closed master socket %u\n", master_socket));
+
+    reset_master_socket();
+
     if (status < 0)
 	return HTInetStatus(gettext("close master socket"));
     else
@@ -1126,6 +1151,7 @@ static int close_master_socket(void)
  *	connect with the data.
  *
  * On entry,
+ *	have_socket	Must be false, if master_socket is not setup already
  *	master_socket	Must be negative if not set up already.
  * On exit,
  *	Returns		socket number if good
@@ -1151,13 +1177,13 @@ static int get_listen_socket(void)
     num_sockets = 0;
 
 #ifndef REPEAT_LISTEN
-    if (master_socket >= 0)
+    if (have_socket)
 	return master_socket;	/* Done already */
 #endif /* !REPEAT_LISTEN */
 
 #ifdef INET6
     /* query address family of control connection */
-    slen = sizeof(soc_address);
+    slen = (LY_SOCKLEN) sizeof(soc_address);
     if (getsockname(control->socket, (struct sockaddr *) &soc_address,
 		    &slen) < 0) {
 	return HTInetStatus("getsockname failed");
@@ -1246,7 +1272,7 @@ static int get_listen_socket(void)
 #else
     {
 	int status;
-	LY_SOCKLEN address_length = sizeof(soc_address);
+	LY_SOCKLEN address_length = (LY_SOCKLEN) sizeof(soc_address);
 
 #ifdef SOCKS
 	if (socks_flag)
@@ -1258,11 +1284,13 @@ static int get_listen_socket(void)
 	    status = getsockname(control->socket,
 				 (struct sockaddr *) &soc_address,
 				 &address_length);
-	if (status < 0)
+	if (status < 0) {
+	    close(new_socket);
 	    return HTInetStatus("getsockname");
+	}
 #ifdef INET6
 	CTRACE((tfp, "HTFTP: This host is %s\n",
-		HTInetString((SockA *) soc_in)));
+		HTInetString((void *) soc_in)));
 
 	soc_in->sin_port = 0;	/* Unspecified: please allocate */
 #else
@@ -1288,8 +1316,10 @@ static int get_listen_socket(void)
 	    /* Cast to generic sockaddr */
 			  SOCKADDR_LEN(soc_address)
 		);
-	if (status < 0)
+	if (status < 0) {
+	    close(new_socket);
 	    return HTInetStatus("bind");
+	}
 
 	address_length = sizeof(soc_address);
 #ifdef SOCKS
@@ -1302,15 +1332,17 @@ static int get_listen_socket(void)
 	    status = getsockname(new_socket,
 				 (struct sockaddr *) &soc_address,
 				 &address_length);
-	if (status < 0)
+	if (status < 0) {
+	    close(new_socket);
 	    return HTInetStatus("getsockname");
+	}
     }
 #endif /* POLL_PORTS */
 
 #ifdef INET6
     CTRACE((tfp, "HTFTP: bound to port %d on %s\n",
 	    (int) ntohs(soc_in->sin_port),
-	    HTInetString((SockA *) soc_in)));
+	    HTInetString((void *) soc_in)));
 #else
     CTRACE((tfp, "HTFTP: bound to port %d on %s\n",
 	    (int) ntohs(soc_in->sin_port),
@@ -1318,11 +1350,11 @@ static int get_listen_socket(void)
 #endif /* INET6 */
 
 #ifdef REPEAT_LISTEN
-    if (master_socket >= 0)
+    if (have_socket)
 	(void) close_master_socket();
 #endif /* REPEAT_LISTEN */
 
-    master_socket = new_socket;
+    set_master_socket(new_socket);
 
 /*	Now we must find out who we are to tell the other guy
 */
@@ -1350,7 +1382,10 @@ static int get_listen_socket(void)
 
 	    getnameinfo((struct sockaddr *) &soc_address,
 			SOCKADDR_LEN(soc_address),
-			hostbuf, sizeof(hostbuf), portbuf, sizeof(portbuf),
+			hostbuf,
+			(socklen_t) sizeof(hostbuf),
+			portbuf,
+			(socklen_t) sizeof(portbuf),
 			NI_NUMERICHOST | NI_NUMERICSERV);
 	    sprintf(port_command, "EPRT |%d|%s|%s|%c%c", 2, hostbuf, portbuf,
 		    CR, LF);
@@ -1369,12 +1404,12 @@ static int get_listen_socket(void)
 
 #ifdef SOCKS
 	if (socks_flag)
-	    status = Rlisten(master_socket, 1);
+	    status = Rlisten((int) master_socket, 1);
 	else
 #endif /* SOCKS */
-	    status = listen(master_socket, 1);
+	    status = listen((int) master_socket, 1);
 	if (status < 0) {
-	    master_socket = -1;
+	    reset_master_socket();
 	    return HTInetStatus("listen");
 	}
     }
@@ -1383,7 +1418,7 @@ static int get_listen_socket(void)
     if ((master_socket + 1) > num_sockets)
 	num_sockets = master_socket + 1;
 
-    return master_socket;	/* Good */
+    return (int) master_socket;	/* Good */
 
 }				/* get_listen_socket */
 
@@ -1408,15 +1443,15 @@ static void set_years_and_date(void)
     char day[8], month[8], date[12];
     time_t NowTime;
     int i;
+    char *printable;
 
     NowTime = time(NULL);
-    strncpy(day, (char *) ctime(&NowTime) + 8, 2);
-    day[2] = '\0';
+    printable = ctime(&NowTime);
+    LYStrNCpy(day, printable + 8, 2);
     if (day[0] == ' ') {
 	day[0] = '0';
     }
-    strncpy(month, (char *) ctime(&NowTime) + 4, 3);
-    month[3] = '\0';
+    LYStrNCpy(month, printable + 4, 3);
     for (i = 0; i < 12; i++) {
 	if (!strcasecomp(month, months[i])) {
 	    break;
@@ -1425,19 +1460,24 @@ static void set_years_and_date(void)
     i++;
     sprintf(date, "9999%02d%.2s", i, day);
     TheDate = atoi(date);
-    strcpy(ThisYear, (char *) ctime(&NowTime) + 20);
-    ThisYear[4] = '\0';
+    LYStrNCpy(ThisYear, printable + 20, 4);
     sprintf(LastYear, "%d", (atoi(ThisYear) - 1));
     HaveYears = TRUE;
 }
 
 typedef struct _EntryInfo {
     char *filename;
-    char *linkname;
+    char *linkname;		/* symbolic link, if any */
     char *type;
     char *date;
-    unsigned int size;
+    off_t size;
     BOOLEAN display;		/* show this entry? */
+#ifdef LONG_LIST
+    unsigned long file_links;
+    char *file_mode;
+    char *file_user;
+    char *file_group;
+#endif
 } EntryInfo;
 
 static void free_entryinfo_struct_contents(EntryInfo *entry_info)
@@ -1467,14 +1507,12 @@ static BOOLEAN is_ls_date(char *s)
 
     /* space or HT_NON_BREAK_SPACE */
     if (!(*s == ' ' || *s == HT_NON_BREAK_SPACE)) {
-	s++;
 	return FALSE;
     }
     s++;
 
     /* space or digit */
     if (!(*s == ' ' || isdigit(UCH(*s)))) {
-	s++;
 	return FALSE;
     }
     s++;
@@ -1489,7 +1527,6 @@ static BOOLEAN is_ls_date(char *s)
 
     /* space or digit */
     if (!(*s == ' ' || isdigit(UCH(*s)))) {
-	s++;
 	return FALSE;
     }
     s++;
@@ -1500,7 +1537,6 @@ static BOOLEAN is_ls_date(char *s)
 
     /* colon or digit */
     if (!(*s == ':' || isdigit(UCH(*s)))) {
-	s++;
 	return FALSE;
     }
     s++;
@@ -1511,13 +1547,12 @@ static BOOLEAN is_ls_date(char *s)
 
     /* space or digit */
     if (!(*s == ' ' || isdigit(UCH(*s)))) {
-	s++;
 	return FALSE;
     }
     s++;
 
     /* space */
-    if (*s++ != ' ')
+    if (*s != ' ')
 	return FALSE;
 
     return TRUE;
@@ -1531,7 +1566,7 @@ static void parse_eplf_line(char *line,
 {
     char *cp = line;
     char ct[26];
-    unsigned long size;
+    off_t size;
     time_t secs;
     static time_t base;		/* time() value on this OS in 1970 */
     static int flagbase = 0;
@@ -1558,7 +1593,7 @@ static void parse_eplf_line(char *line,
 	case 's':
 	    size = 0;
 	    while (*(++cp) && (*cp != ','))
-		size = (size * 10) + (*cp - '0');
+		size = (size * 10) + (off_t) (*cp - '0');
 	    info->size = size;
 	    break;
 	case 'm':
@@ -1566,8 +1601,7 @@ static void parse_eplf_line(char *line,
 	    while (*(++cp) && (*cp != ','))
 		secs = (secs * 10) + (*cp - '0');
 	    secs += base;	/* assumes that time_t is #seconds */
-	    strcpy(ct, ctime(&secs));
-	    ct[24] = 0;
+	    LYStrNCpy(ct, ctime(&secs), 24);
 	    StrAllocCopy(info->date, ct);
 	    break;
 	case '/':
@@ -1587,37 +1621,91 @@ static void parse_eplf_line(char *line,
  * Extract the name, size, and date from an ls -l line.
  */
 static void parse_ls_line(char *line,
-			  EntryInfo *entry_info)
+			  EntryInfo *entry)
 {
+#ifdef LONG_LIST
+    char *next;
+    char *cp;
+#endif
     int i, j;
-    int base = 1;
-    int size_num = 0;
+    off_t base = 1;
+    off_t size_num = 0;
 
-    for (i = strlen(line) - 1;
+    for (i = (int) strlen(line) - 1;
 	 (i > 13) && (!isspace(UCH(line[i])) || !is_ls_date(&line[i - 12]));
-	 i--) ;			/* null body */
+	 i--) {
+	;			/* null body */
+    }
     line[i] = '\0';
     if (i > 13) {
-	StrAllocCopy(entry_info->date, &line[i - 12]);
+	StrAllocCopy(entry->date, &line[i - 12]);
 	/* replace the 4th location with nbsp if it is a space or zero */
-	if (entry_info->date[4] == ' ' || entry_info->date[4] == '0')
-	    entry_info->date[4] = HT_NON_BREAK_SPACE;
+	if (entry->date[4] == ' ' || entry->date[4] == '0')
+	    entry->date[4] = HT_NON_BREAK_SPACE;
 	/* make sure year or time is flush right */
-	if (entry_info->date[11] == ' ') {
+	if (entry->date[11] == ' ') {
 	    for (j = 11; j > 6; j--) {
-		entry_info->date[j] = entry_info->date[j - 1];
+		entry->date[j] = entry->date[j - 1];
 	    }
 	}
     }
     j = i - 14;
     while (isdigit(UCH(line[j]))) {
-	size_num += (line[j] - '0') * base;
+	size_num += ((off_t) (line[j] - '0') * base);
 	base *= 10;
 	j--;
     }
-    entry_info->size = size_num;
-    StrAllocCopy(entry_info->filename, &line[i + 1]);
-}				/* parse_ls_line() */
+    entry->size = size_num;
+    StrAllocCopy(entry->filename, &line[i + 1]);
+
+#ifdef LONG_LIST
+    line[j] = '\0';
+
+    /*
+     * Extract the file-permissions, as a string.
+     */
+    if ((cp = StrChr(line, ' ')) != 0) {
+	if ((cp - line) == 10) {
+	    *cp = '\0';
+	    StrAllocCopy(entry->file_mode, line);
+	    *cp = ' ';
+	}
+
+	/*
+	 * Next is the link-count.
+	 */
+	next = 0;
+	entry->file_links = (unsigned long) strtol(cp, &next, 10);
+	if (next == 0 || *next != ' ') {
+	    entry->file_links = 0;
+	    next = cp;
+	} else {
+	    cp = next;
+	}
+	/*
+	 * Next is the user-name.
+	 */
+	while (isspace(UCH(*cp)))
+	    ++cp;
+	if ((next = StrChr(cp, ' ')) != 0)
+	    *next = '\0';
+	if (*cp != '\0')
+	    StrAllocCopy(entry->file_user, cp);
+	/*
+	 * Next is the group-name (perhaps).
+	 */
+	if (next != NULL) {
+	    cp = (next + 1);
+	    while (isspace(UCH(*cp)))
+		++cp;
+	    if ((next = StrChr(cp, ' ')) != 0)
+		*next = '\0';
+	    if (*cp != '\0')
+		StrAllocCopy(entry->file_group, cp);
+	}
+    }
+#endif
+}
 
 /*
  * Extract the name and size info and whether it refers to a directory from a
@@ -1629,7 +1717,7 @@ static void parse_dls_line(char *line,
 {
     short j;
     int base = 1;
-    int size_num = 0;
+    off_t size_num = 0;
     int len;
     char *cps = NULL;
 
@@ -1645,7 +1733,7 @@ static void parse_dls_line(char *line,
        79215    \0
      */
 
-    len = strlen(line);
+    len = (int) strlen(line);
     if (len == 0) {
 	FREE(*pspilledname);
 	entry_info->display = FALSE;
@@ -1671,7 +1759,7 @@ static void parse_dls_line(char *line,
 		StrAllocCopy(entry_info->type, "");
 	} else {
 	    StrAllocCopy(entry_info->filename, line);
-	    if (cps && cps != line && *(cps - 1) == '/')
+	    if (cps != line && *(cps - 1) == '/')
 		StrAllocCopy(entry_info->type, ENTRY_IS_DIRECTORY);
 	    else
 		StrAllocCopy(entry_info->type, "");
@@ -1693,8 +1781,8 @@ static void parse_dls_line(char *line,
     entry_info->size = size_num;
 
     cps = LYSkipBlanks(&line[23]);
-    if (!strncmp(cps, "-> ", 3) && cps[3] != '\0' && cps[3] != ' ') {
-	StrAllocCopy(entry_info->type, gettext("Symbolic Link"));
+    if (!StrNCmp(cps, "-> ", 3) && cps[3] != '\0' && cps[3] != ' ') {
+	StrAllocCopy(entry_info->type, ENTRY_IS_SYMBOLIC_LINK);
 	StrAllocCopy(entry_info->linkname, LYSkipBlanks(cps + 3));
 	entry_info->size = 0;	/* don't display size */
     }
@@ -1704,10 +1792,10 @@ static void parse_dls_line(char *line,
 
     LYTrimTrailing(line);
 
-    len = strlen(line);
+    len = (int) strlen(line);
     if (len == 0 && *pspilledname && **pspilledname) {
 	line = *pspilledname;
-	len = strlen(*pspilledname);
+	len = (int) strlen(*pspilledname);
     }
     if (len > 0 && line[len - 1] == '/') {
 	/*
@@ -1732,14 +1820,14 @@ static void parse_vms_dir_entry(char *line,
 				EntryInfo *entry_info)
 {
     int i, j;
-    unsigned int ialloc;
+    off_t ialloc;
     char *cp, *cpd, *cps, date[16];
     const char *sp = " ";
 
     /* Get rid of blank lines, and information lines.  Valid lines have the ';'
      * version number token.
      */
-    if (!strlen(line) || (cp = strchr(line, ';')) == NULL) {
+    if (!strlen(line) || (cp = StrChr(line, ';')) == NULL) {
 	entry_info->display = FALSE;
 	return;
     }
@@ -1751,16 +1839,18 @@ static void parse_vms_dir_entry(char *line,
     /* Cast VMS non-README file and directory names to lowercase. */
     if (strstr(entry_info->filename, "READ") == NULL) {
 	LYLowerCase(entry_info->filename);
-	i = strlen(entry_info->filename);
+	i = (int) strlen(entry_info->filename);
     } else {
-	i = ((strstr(entry_info->filename, "READ") - entry_info->filename) + 4);
-	if (!strncmp(&entry_info->filename[i], "ME", 2)) {
+	i = (int) ((strstr(entry_info->filename, "READ")
+		    - entry_info->filename)
+		   + 4);
+	if (!StrNCmp(&entry_info->filename[i], "ME", 2)) {
 	    i += 2;
 	    while (entry_info->filename[i] && entry_info->filename[i] != '.') {
 		i++;
 	    }
-	} else if (!strncmp(&entry_info->filename[i], ".ME", 3)) {
-	    i = strlen(entry_info->filename);
+	} else if (!StrNCmp(&entry_info->filename[i], ".ME", 3)) {
+	    i = (int) strlen(entry_info->filename);
 	} else {
 	    i = 0;
 	}
@@ -1776,7 +1866,7 @@ static void parse_vms_dir_entry(char *line,
 
     /* Convert any tabs in rest of line to spaces. */
     cps = cp - 1;
-    while ((cps = strchr(cps + 1, '\t')) != NULL)
+    while ((cps = StrChr(cps + 1, '\t')) != NULL)
 	*cps = ' ';
 
     /* Collapse serial spaces. */
@@ -1797,7 +1887,7 @@ static void parse_vms_dir_entry(char *line,
     }
 
     /* Track down the date. */
-    if ((cpd = strchr(cp, '-')) != NULL &&
+    if ((cpd = StrChr(cp, '-')) != NULL &&
 	strlen(cpd) > 9 && isdigit(UCH(*(cpd - 1))) &&
 	isalpha(UCH(*(cpd + 1))) && *(cpd + 4) == '-') {
 
@@ -1813,7 +1903,7 @@ static void parse_vms_dir_entry(char *line,
 	    sprintf(date + 4, "%c%.1s ", HT_NON_BREAK_SPACE, cpd - 1);
 
 	/* Time or Year */
-	if (!strncmp(ThisYear, cpd + 5, 4) &&
+	if (!StrNCmp(ThisYear, cpd + 5, 4) &&
 	    strlen(cpd) > 15 && *(cpd + 12) == ':') {
 	    sprintf(date + 7, "%.5s", cpd + 10);
 	} else {
@@ -1824,24 +1914,24 @@ static void parse_vms_dir_entry(char *line,
     }
 
     /* Track down the size */
-    if ((cpd = strchr(cp, '/')) != NULL) {
+    if ((cpd = StrChr(cp, '/')) != NULL) {
 	/* Appears be in used/allocated format */
 	cps = cpd;
 	while (isdigit(UCH(*(cps - 1))))
 	    cps--;
 	if (cps < cpd)
 	    *cpd = '\0';
-	entry_info->size = atoi(cps);
+	entry_info->size = LYatoll(cps);
 	cps = cpd + 1;
 	while (isdigit(UCH(*cps)))
 	    cps++;
 	*cps = '\0';
-	ialloc = atoi(cpd + 1);
+	ialloc = LYatoll(cpd + 1);
 	/* Check if used is in blocks or bytes */
 	if (entry_info->size <= ialloc)
 	    entry_info->size *= 512;
 
-    } else if ((cps = strtok(cp, sp)) != NULL) {
+    } else if (strtok(cp, sp) != NULL) {
 	/* We just initialized on the version number */
 	/* Now let's hunt for a lone, size number    */
 	while ((cps = strtok(NULL, sp)) != NULL) {
@@ -1850,17 +1940,13 @@ static void parse_vms_dir_entry(char *line,
 		cpd++;
 	    if (*cpd == '\0') {
 		/* Assume it's blocks */
-		entry_info->size = atoi(cps) * 512;
+		entry_info->size = (LYatoll(cps) * 512);
 		break;
 	    }
 	}
     }
 
-    /* Wrap it up */
-    CTRACE((tfp, "HTFTP: VMS filename: %s  date: %s  size: %u\n",
-	    entry_info->filename,
-	    NonNull(entry_info->date),
-	    entry_info->size));
+    TRACE_ENTRY("VMS", entry_info);
     return;
 }				/* parse_vms_dir_entry() */
 
@@ -1895,7 +1981,7 @@ static void parse_ms_windows_dir_entry(char *line,
 	cpd = LYSkipNonBlanks(cps);
 	*cpd++ = '\0';
 	if (isdigit(UCH(*cps))) {
-	    entry_info->size = atoi(cps);
+	    entry_info->size = LYatoll(cps);
 	} else {
 	    StrAllocCopy(entry_info->type, ENTRY_IS_DIRECTORY);
 	}
@@ -1928,11 +2014,7 @@ static void parse_ms_windows_dir_entry(char *line,
 	}
     }
 
-    /* Wrap it up */
-    CTRACE((tfp, "HTFTP: MS Windows filename: %s  date: %s  size: %u\n",
-	    entry_info->filename,
-	    NonNull(entry_info->date),
-	    entry_info->size));
+    TRACE_ENTRY("MS Windows", entry_info);
     return;
 }				/* parse_ms_windows_dir_entry */
 
@@ -2028,7 +2110,7 @@ static void parse_windows_nt_dir_entry(char *line,
 	cpd = LYSkipNonBlanks(cps);
 	*cpd = '\0';
 	if (isdigit(*cps)) {
-	    entry_info->size = atoi(cps);
+	    entry_info->size = LYatoll(cps);
 	} else {
 	    StrAllocCopy(entry_info->type, ENTRY_IS_DIRECTORY);
 	}
@@ -2071,7 +2153,7 @@ static void parse_cms_dir_entry(char *line,
     cps = LYSkipNonBlanks(cp);
     *cps++ = '\0';
     StrAllocCopy(entry_info->filename, cp);
-    if (strchr(entry_info->filename, '.') != NULL)
+    if (StrChr(entry_info->filename, '.') != NULL)
 	/* If we already have a dot, we did an NLST. */
 	return;
     cp = LYSkipBlanks(cps);
@@ -2126,7 +2208,7 @@ static void parse_cms_dir_entry(char *line,
 	}
 	if (Records > 0 && RecordLength > 0) {
 	    /* Compute an approximate size. */
-	    entry_info->size = (Records * RecordLength);
+	    entry_info->size = ((off_t) Records * (off_t) RecordLength);
 	}
     }
 
@@ -2138,7 +2220,7 @@ static void parse_cms_dir_entry(char *line,
     /* Track down the date. */
     cpd = cps;
     if (((cps < end) &&
-	 (cps = strchr(cpd, ':')) != NULL) &&
+	 (cps = StrChr(cpd, ':')) != NULL) &&
 	(cps < (end - 3) &&
 	 isdigit(UCH(*(cps + 1))) && isdigit(UCH(*(cps + 2))) && *(cps + 3) == ':')) {
 	cps += 3;
@@ -2176,11 +2258,7 @@ static void parse_cms_dir_entry(char *line,
 	}
     }
 
-    /* Wrap it up. */
-    CTRACE((tfp, "HTFTP: VM/CMS filename: %s  date: %s  size: %u\n",
-	    entry_info->filename,
-	    NonNull(entry_info->date),
-	    entry_info->size));
+    TRACE_ENTRY("VM/CMS", entry_info);
     return;
 }				/* parse_cms_dir_entry */
 
@@ -2200,15 +2278,13 @@ static EntryInfo *parse_dir_entry(char *entry,
     BOOLEAN remove_size = FALSE;
     char *cp;
 
-    entry_info = (EntryInfo *) malloc(sizeof(EntryInfo));
+    entry_info = typecalloc(EntryInfo);
 
     if (entry_info == NULL)
 	outofmem(__FILE__, "parse_dir_entry");
-    entry_info->filename = NULL;
-    entry_info->linkname = NULL;
-    entry_info->type = NULL;
-    entry_info->date = NULL;
-    entry_info->size = 0;
+
+    assert(entry_info != NULL);
+
     entry_info->display = TRUE;
 
     switch (server_type) {
@@ -2222,10 +2298,10 @@ static EntryInfo *parse_dir_entry(char *entry,
 	 */
 
 	if (*first) {
-	    len = strlen(entry);
+	    len = (int) strlen(entry);
 	    if (!len || entry[0] == ' ' ||
 		(len >= 24 && entry[23] != ' ') ||
-		(len < 24 && strchr(entry, ' '))) {
+		(len < 24 && StrChr(entry, ' '))) {
 		server_type = UNIX_SERVER;
 		CTRACE((tfp,
 			"HTFTP: Falling back to treating as Unix server.\n"));
@@ -2238,7 +2314,7 @@ static EntryInfo *parse_dir_entry(char *entry,
 	    /* if still unchanged... */
 	    parse_dls_line(entry, entry_info, pspilledname);
 
-	    if (!entry_info->filename || *entry_info->filename == '\0') {
+	    if (isEmpty(entry_info->filename)) {
 		entry_info->display = FALSE;
 		return (entry_info);
 	    }
@@ -2274,7 +2350,7 @@ static EntryInfo *parse_dir_entry(char *entry,
 	/*
 	 * Interpret and edit LIST output from Unix server.
 	 */
-	len = strlen(entry);
+	len = (int) strlen(entry);
 	if (*first) {
 	    /* don't gettext() this -- incoming text: */
 	    if (!strcmp(entry, "can not access directory .")) {
@@ -2285,7 +2361,7 @@ static EntryInfo *parse_dir_entry(char *entry,
 		return (entry_info);
 	    }
 	    *first = FALSE;
-	    if (!strncmp(entry, "total ", 6) ||
+	    if (!StrNCmp(entry, "total ", 6) ||
 		strstr(entry, "not available") != NULL) {
 		entry_info->display = FALSE;
 		return (entry_info);
@@ -2311,7 +2387,7 @@ static EntryInfo *parse_dir_entry(char *entry,
 	     * It's a symbolic link, does the user care about knowing if it is
 	     * symbolic?  I think so since it might be a directory.
 	     */
-	    StrAllocCopy(entry_info->type, gettext("Symbolic Link"));
+	    StrAllocCopy(entry_info->type, ENTRY_IS_SYMBOLIC_LINK);
 	    remove_size = TRUE;	/* size is not useful */
 
 	    /*
@@ -2324,7 +2400,6 @@ static EntryInfo *parse_dir_entry(char *entry,
 		  (entry[i - 3] != ' ')); i--) ;	/* null body */
 	    if (i > 3) {
 		entry[i - 3] = '\0';
-		len = i - 3;
 		StrAllocCopy(entry_info->linkname, LYSkipBlanks(entry + i));
 	    }
 	}
@@ -2355,7 +2430,7 @@ static EntryInfo *parse_dir_entry(char *entry,
 	/*
 	 * Trim off VMS directory extensions.
 	 */
-	len = strlen(entry_info->filename);
+	len = (int) strlen(entry_info->filename);
 	if ((len > 4) && !strcmp(&entry_info->filename[len - 4], ".dir")) {
 	    entry_info->filename[len - 4] = '\0';
 	    StrAllocCopy(entry_info->type, ENTRY_IS_DIRECTORY);
@@ -2439,7 +2514,7 @@ static EntryInfo *parse_dir_entry(char *entry,
 	 * Directories identified by trailing "/" characters.
 	 */
 	StrAllocCopy(entry_info->filename, entry);
-	len = strlen(entry);
+	len = (int) strlen(entry);
 	if (entry[len - 1] == '/') {
 	    /*
 	     * It's a dir, remove / and mark it as such.
@@ -2463,11 +2538,19 @@ static EntryInfo *parse_dir_entry(char *entry,
 
     }				/* switch (server_type) */
 
+#ifdef LONG_LIST
+    (void) remove_size;
+#else
     if (remove_size && entry_info->size) {
 	entry_info->size = 0;
     }
+#endif
 
-    if (entry_info->filename && strlen(entry_info->filename) > 3) {
+    if (isEmpty(entry_info->filename)) {
+	entry_info->display = FALSE;
+	return (entry_info);
+    }
+    if (strlen(entry_info->filename) > 3) {
 	if (((cp = strrchr(entry_info->filename, '.')) != NULL &&
 	     0 == strncasecomp(cp, ".me", 3)) &&
 	    (cp[3] == '\0' || cp[3] == ';')) {
@@ -2495,9 +2578,9 @@ static EntryInfo *parse_dir_entry(char *entry,
 	format = HTFileFormat(entry_info->filename, &encoding, &cp2);
 
 	if (cp2 == NULL) {
-	    if (!strncmp(HTAtom_name(format), "application", 11)) {
+	    if (!StrNCmp(HTAtom_name(format), "application", 11)) {
 		cp2 = HTAtom_name(format) + 12;
-		if (!strncmp(cp2, "x-", 2))
+		if (!StrNCmp(cp2, "x-", 2))
 		    cp2 += 2;
 	    } else {
 		cp2 = HTAtom_name(format);
@@ -2508,136 +2591,335 @@ static EntryInfo *parse_dir_entry(char *entry,
     }
 
     return (entry_info);
-}				/* parse_dir_entry */
+}
+
+static void formatDate(char target[16], EntryInfo *entry)
+{
+    char temp[8], month[4];
+    int i;
+
+    /*
+     * Set up for sorting in reverse chronological order. - FM
+     */
+    if (entry->date[9] == ':') {
+	strcpy(target, "9999");
+	LYStrNCpy(temp, &entry->date[7], 5);
+	if (temp[0] == ' ') {
+	    temp[0] = '0';
+	}
+    } else {
+	LYStrNCpy(target, &entry->date[8], 4);
+	strcpy(temp, "00:00");
+    }
+    LYStrNCpy(month, entry->date, 3);
+    for (i = 0; i < 12; i++) {
+	if (!strcasecomp(month, months[i])) {
+	    break;
+	}
+    }
+    i++;
+    sprintf(month, "%02d", i);
+    strcat(target, month);
+    StrNCat(target, &entry->date[4], 2);
+    if (target[6] == ' ' || target[6] == HT_NON_BREAK_SPACE) {
+	target[6] = '0';
+    }
+
+    /* If no year given, assume last year if it would otherwise be in the
+     * future by more than one day.  The one day tolerance is to account for a
+     * possible timezone difference. - kw
+     */
+    if (target[0] == '9' && atoi(target) > TheDate + 1) {
+	for (i = 0; i < 4; i++) {
+	    target[i] = LastYear[i];
+	}
+    }
+    strcat(target, temp);
+}
 
 static int compare_EntryInfo_structs(EntryInfo *entry1, EntryInfo *entry2)
 {
-    int i, status;
-    char date1[16], date2[16], time1[8], time2[8], month[4];
+    int status;
+    char date1[16], date2[16];
+    int result = strcmp(entry1->filename, entry2->filename);
 
     switch (HTfileSortMethod) {
     case FILE_BY_SIZE:
 	/* both equal or both 0 */
-	if (entry1->size == entry2->size)
-	    return (strcmp(entry1->filename, entry2->filename));
-	else if (entry1->size > entry2->size)
-	    return (1);
-	else
-	    return (-1);
+	if (entry1->size > entry2->size)
+	    result = 1;
+	else if (entry1->size < entry2->size)
+	    result = -1;
+	break;
 
     case FILE_BY_TYPE:
 	if (entry1->type && entry2->type) {
 	    status = strcasecomp(entry1->type, entry2->type);
 	    if (status)
-		return (status);
-	    /* else fall to filename comparison */
+		result = status;
 	}
-	return (strcmp(entry1->filename, entry2->filename));
+	break;
 
     case FILE_BY_DATE:
-	if (entry1->date && entry2->date) {
+	if (entry1->date && entry2->date &&
+	    strlen(entry1->date) == 12 &&
+	    strlen(entry2->date) == 12) {
 	    /*
-	     * Make sure we have the correct length. - FM
-	     */
-	    if (strlen(entry1->date) != 12 || strlen(entry2->date) != 12) {
-		return (strcmp(entry1->filename, entry2->filename));
-	    }
-	    /*
-	     * Set the years and date,
-	     * if we don't have them yet.
+	     * Set the years and date, if we don't have them yet.
 	     */
 	    if (!HaveYears) {
 		set_years_and_date();
 	    }
-	    /*
-	     * Set up for sorting in reverse
-	     * chronological order. - FM
-	     */
-	    if (entry1->date[9] == ':') {
-		strcpy(date1, "9999");
-		strcpy(time1, &entry1->date[7]);
-		if (time1[0] == ' ') {
-		    time1[0] = '0';
-		}
-	    } else {
-		strcpy(date1, &entry1->date[8]);
-		strcpy(time1, "00:00");
-	    }
-	    strncpy(month, entry1->date, 3);
-	    month[3] = '\0';
-	    for (i = 0; i < 12; i++) {
-		if (!strcasecomp(month, months[i])) {
-		    break;
-		}
-	    }
-	    i++;
-	    sprintf(month, "%02d", i);
-	    strcat(date1, month);
-	    strncat(date1, &entry1->date[4], 2);
-	    date1[8] = '\0';
-	    if (date1[6] == ' ' || date1[6] == HT_NON_BREAK_SPACE) {
-		date1[6] = '0';
-	    }
-	    /* If no year given, assume last year if it would otherwise be in
-	     * the future by more than one day.  The one day tolerance is to
-	     * account for a possible timezone difference.  - kw
-	     */
-	    if (date1[0] == '9' && atoi(date1) > TheDate + 1) {
-		for (i = 0; i < 4; i++) {
-		    date1[i] = LastYear[i];
-		}
-	    }
-	    strcat(date1, time1);
-	    if (entry2->date[9] == ':') {
-		strcpy(date2, "9999");
-		strcpy(time2, &entry2->date[7]);
-		if (time2[0] == ' ') {
-		    time2[0] = '0';
-		}
-	    } else {
-		strcpy(date2, &entry2->date[8]);
-		strcpy(time2, "00:00");
-	    }
-	    strncpy(month, entry2->date, 3);
-	    month[3] = '\0';
-	    for (i = 0; i < 12; i++) {
-		if (!strcasecomp(month, months[i])) {
-		    break;
-		}
-	    }
-	    i++;
-	    sprintf(month, "%02d", i);
-	    strcat(date2, month);
-	    strncat(date2, &entry2->date[4], 2);
-	    date2[8] = '\0';
-	    if (date2[6] == ' ' || date2[6] == HT_NON_BREAK_SPACE) {
-		date2[6] = '0';
-	    }
-	    /* If no year given, assume last year if it would otherwise be in
-	     * the future by more than one day.  The one day tolerance is to
-	     * account for a possible timezone difference.  - kw
-	     */
-	    if (date2[0] == '9' && atoi(date2) > TheDate + 1) {
-		for (i = 0; i < 4; i++) {
-		    date2[i] = LastYear[i];
-		}
-	    }
-	    strcat(date2, time2);
+	    formatDate(date1, entry1);
+	    formatDate(date2, entry2);
 	    /*
 	     * Do the comparison. - FM
 	     */
 	    status = strcasecomp(date2, date1);
 	    if (status)
-		return (status);
-	    /* else fall to filename comparison */
+		result = status;
 	}
-	return (strcmp(entry1->filename, entry2->filename));
+	break;
 
     case FILE_BY_NAME:
     default:
-	return (strcmp(entry1->filename, entry2->filename));
+	break;
+    }
+    return result;
+}
+
+#ifdef LONG_LIST
+static char *FormatStr(char **bufp,
+		       char *start,
+		       const char *value)
+{
+    char fmt[512];
+
+    if (*start) {
+	sprintf(fmt, "%%%.*ss", (int) sizeof(fmt) - 3, start);
+	HTSprintf(bufp, fmt, value);
+    } else if (*bufp && !(value && *value)) {
+	;
+    } else if (value) {
+	StrAllocCat(*bufp, value);
+    }
+    return *bufp;
+}
+
+static char *FormatSize(char **bufp,
+			char *start,
+			off_t value)
+{
+    char fmt[512];
+
+    if (*start) {
+	sprintf(fmt, "%%%.*s" PRI_off_t, (int) sizeof(fmt) - 3, start);
+
+	HTSprintf(bufp, fmt, value);
+    } else {
+	sprintf(fmt, "%" PRI_off_t, value);
+
+	StrAllocCat(*bufp, fmt);
+    }
+    return *bufp;
+}
+
+static char *FormatNum(char **bufp,
+		       char *start,
+		       unsigned long value)
+{
+    char fmt[512];
+
+    if (*start) {
+	sprintf(fmt, "%%%.*sld", (int) sizeof(fmt) - 3, start);
+	HTSprintf(bufp, fmt, value);
+    } else {
+	sprintf(fmt, "%lu", value);
+	StrAllocCat(*bufp, fmt);
+    }
+    return *bufp;
+}
+
+static void FlushParse(HTStructured * target, char **buf)
+{
+    if (*buf && **buf) {
+	PUTS(*buf);
+	**buf = '\0';
     }
 }
+
+static void LYListFmtParse(const char *fmtstr,
+			   EntryInfo *data,
+			   HTStructured * target,
+			   char *tail)
+{
+    char c;
+    char *s;
+    char *end;
+    char *start;
+    char *str = NULL;
+    char *buf = NULL;
+    BOOL is_directory = (BOOL) (data->file_mode != 0 &&
+				(TOUPPER(data->file_mode[0]) == 'D'));
+    BOOL is_symlinked = (BOOL) (data->file_mode != 0 &&
+				(TOUPPER(data->file_mode[0]) == 'L'));
+    BOOL remove_size = (BOOL) (is_directory || is_symlinked);
+
+    StrAllocCopy(str, fmtstr);
+    s = str;
+    end = str + strlen(str);
+    while (*s) {
+	start = s;
+	while (*s) {
+	    if (*s == '%') {
+		if (*(s + 1) == '%')	/* literal % */
+		    s++;
+		else
+		    break;
+	    }
+	    s++;
+	}
+	/* s is positioned either at a % or at \0 */
+	*s = '\0';
+	if (s > start) {	/* some literal chars. */
+	    StrAllocCat(buf, start);
+	}
+	if (s == end)
+	    break;
+	start = ++s;
+	while (isdigit(UCH(*s)) || *s == '.' || *s == '-' || *s == ' ' ||
+	       *s == '#' || *s == '+' || *s == '\'')
+	    s++;
+	c = *s;			/* the format char. or \0 */
+	*s = '\0';
+
+	switch (c) {
+	case '\0':
+	    StrAllocCat(buf, start);
+	    continue;
+
+	case 'A':
+	case 'a':		/* anchor */
+	    FlushParse(target, &buf);
+	    HTDirEntry(target, tail, data->filename);
+	    FormatStr(&buf, start, data->filename);
+	    PUTS(buf);
+	    END(HTML_A);
+	    if (buf != 0)
+		*buf = '\0';
+	    if (c != 'A' && data->linkname != 0) {
+		PUTS(" -> ");
+		PUTS(data->linkname);
+	    }
+	    break;
+
+	case 'T':		/* MIME type */
+	case 't':		/* MIME type description */
+	    if (is_directory) {
+		if (c != 'T') {
+		    FormatStr(&buf, start, ENTRY_IS_DIRECTORY);
+		} else {
+		    FormatStr(&buf, start, "");
+		}
+	    } else if (is_symlinked) {
+		if (c != 'T') {
+		    FormatStr(&buf, start, ENTRY_IS_SYMBOLIC_LINK);
+		} else {
+		    FormatStr(&buf, start, "");
+		}
+	    } else {
+		const char *cp2;
+		HTFormat format;
+
+		format = HTFileFormat(data->filename, NULL, &cp2);
+
+		if (c != 'T') {
+		    if (cp2 == NULL) {
+			if (!StrNCmp(HTAtom_name(format),
+				     "application", 11)) {
+			    cp2 = HTAtom_name(format) + 12;
+			    if (!StrNCmp(cp2, "x-", 2))
+				cp2 += 2;
+			} else {
+			    cp2 = HTAtom_name(format);
+			}
+		    }
+		    FormatStr(&buf, start, cp2);
+		} else {
+		    FormatStr(&buf, start, HTAtom_name(format));
+		}
+	    }
+	    break;
+
+	case 'd':		/* date */
+	    if (data->date) {
+		FormatStr(&buf, start, data->date);
+	    } else {
+		FormatStr(&buf, start, " * ");
+	    }
+	    break;
+
+	case 's':		/* size in bytes */
+	    FormatSize(&buf, start, data->size);
+	    break;
+
+	case 'K':		/* size in Kilobytes but not for directories */
+	    if (remove_size) {
+		FormatStr(&buf, start, "");
+		StrAllocCat(buf, " ");
+		break;
+	    }
+	    /* FALL THROUGH */
+	case 'k':		/* size in Kilobytes */
+	    /* FIXME - this is inconsistent with HTFile.c, but historical */
+	    if (data->size < 1024) {
+		FormatSize(&buf, start, data->size);
+		StrAllocCat(buf, " bytes");
+	    } else {
+		FormatSize(&buf, start, data->size / 1024);
+		StrAllocCat(buf, "Kb");
+	    }
+	    break;
+
+#ifdef LONG_LIST
+	case 'p':		/* unix-style permission bits */
+	    FormatStr(&buf, start, NonNull(data->file_mode));
+	    break;
+
+	case 'o':		/* owner */
+	    FormatStr(&buf, start, NonNull(data->file_user));
+	    break;
+
+	case 'g':		/* group */
+	    FormatStr(&buf, start, NonNull(data->file_group));
+	    break;
+
+	case 'l':		/* link count */
+	    FormatNum(&buf, start, data->file_links);
+	    break;
+#endif
+
+	case '%':		/* literal % with flags/width */
+	    FormatStr(&buf, start, "%");
+	    break;
+
+	default:
+	    fprintf(stderr,
+		    "Unknown format character `%c' in list format\n", c);
+	    break;
+	}
+
+	s++;
+    }
+    if (buf) {
+	LYTrimTrailing(buf);
+	FlushParse(target, &buf);
+	FREE(buf);
+    }
+    PUTC('\n');
+    FREE(str);
+}
+#endif /* LONG_LIST */
 
 /*	Read a directory into an hypertext object from the data socket
  *	--------------------------------------------------------------
@@ -2657,16 +2939,15 @@ static int read_directory(HTParentAnchor *parent,
     int status;
     BOOLEAN WasInterrupted = FALSE;
     HTStructured *target = HTML_new(parent, format_out, sink);
-    HTStructuredClass targetClass;
     char *filename = HTParse(address, "", PARSE_PATH + PARSE_PUNCTUATION);
     EntryInfo *entry_info;
     BOOLEAN first = TRUE;
-    char string_buffer[64];
     char *lastpath = NULL;	/* prefix for link, either "" (for root) or xxx  */
-    BOOL need_parent_link = FALSE;
     BOOL tildeIsTop = FALSE;
 
-    targetClass = *(target->isa);
+#ifndef LONG_LIST
+    char string_buffer[64];
+#endif
 
     _HTProgress(gettext("Receiving FTP directory."));
 
@@ -2688,7 +2969,7 @@ static int read_directory(HTParentAnchor *parent,
      * directory listings if LONG_LIST was defined on compilation, but we could
      * someday set up an equivalent listing for Unix ftp servers.  - FM
      */
-    need_parent_link = HTDirTitles(target, parent, format_out, tildeIsTop);
+    (void) HTDirTitles(target, parent, format_out, tildeIsTop);
 
     data_read_pointer = data_write_pointer = data_buffer;
 
@@ -2740,6 +3021,7 @@ static int read_directory(HTParentAnchor *parent,
 		    ABORT_TARGET;
 		    HTBTreeAndObject_free(bt);
 		    FREE(spilledname);
+		    HTChunkFree(chunk);
 		    return HT_INTERRUPTED;
 		}
 	    }
@@ -2761,6 +3043,7 @@ static int read_directory(HTParentAnchor *parent,
 			ABORT_TARGET;
 			HTBTreeAndObject_free(bt);
 			FREE(spilledname);
+			HTChunkFree(chunk);
 			return HT_INTERRUPTED;
 		    }
 		} else if ((char) ic == CR || (char) ic == LF) {	/* Terminator? */
@@ -2796,7 +3079,7 @@ static int read_directory(HTParentAnchor *parent,
 		} else if (ic == EOF) {
 		    break;	/* End of file */
 		} else {
-		    HTChunkPutc(chunk, (char) ic);
+		    HTChunkPutc(chunk, UCH(ic));
 		}
 	    }
 	    HTChunkTerminate(chunk);
@@ -2851,14 +3134,10 @@ static int read_directory(HTParentAnchor *parent,
 	    PUTC('\n');
 	}
 
-	/* Put up header
-	 */
-	/* PUTS("    Date        Type             Size     Filename\n");
-	 */
-
 	/* Run through tree printing out in order
 	 */
 	{
+#ifndef LONG_LIST
 #ifdef SH_EX			/* 1997/10/18 (Sat) 14:14:28 */
 	    char *p, name_buff[256];
 	    int name_len, dot_len;
@@ -2867,14 +3146,21 @@ static int read_directory(HTParentAnchor *parent,
 #define	FILE_GAP	1
 
 #endif
-	    HTBTElement *ele;
 	    int i;
+#endif
+	    HTBTElement *ele;
 
 	    for (ele = HTBTree_next(bt, NULL);
 		 ele != NULL;
 		 ele = HTBTree_next(bt, ele)) {
 		entry_info = (EntryInfo *) HTBTree_object(ele);
 
+#ifdef LONG_LIST
+		LYListFmtParse(ftp_format,
+			       entry_info,
+			       target,
+			       lastpath);
+#else
 		if (entry_info->date) {
 		    PUTS(entry_info->date);
 		    PUTS("  ");
@@ -2888,7 +3174,6 @@ static int read_directory(HTParentAnchor *parent,
 		    for (; i < 17; i++)
 			PUTC(' ');
 		}
-
 		/* start the anchor */
 		HTDirEntry(target, lastpath, entry_info->filename);
 #ifdef SH_EX			/* 1997/10/18 (Sat) 16:00 */
@@ -2916,17 +3201,17 @@ static int read_directory(HTParentAnchor *parent,
 		if (entry_info->size) {
 #ifdef SH_EX			/* 1998/02/02 (Mon) 16:34:52 */
 		    if (entry_info->size < 1024)
-			sprintf(string_buffer, "%6d bytes",
+			sprintf(string_buffer, "%6ld bytes",
 				entry_info->size);
 		    else
-			sprintf(string_buffer, "%6d Kb",
+			sprintf(string_buffer, "%6ld Kb",
 				entry_info->size / 1024);
 #else
 		    if (entry_info->size < 1024)
-			sprintf(string_buffer, "  %u bytes",
+			sprintf(string_buffer, "  %lu bytes",
 				entry_info->size);
 		    else
-			sprintf(string_buffer, "  %uKb",
+			sprintf(string_buffer, "  %luKb",
 				entry_info->size / 1024);
 #endif
 		    PUTS(string_buffer);
@@ -2936,6 +3221,7 @@ static int read_directory(HTParentAnchor *parent,
 		}
 
 		PUTC('\n');	/* end of this entry */
+#endif
 
 		free_entryinfo_struct_contents(entry_info);
 	    }
@@ -2984,8 +3270,11 @@ static int setup_connection(const char *name,
      */
     use_list = FALSE;
     server_type = GENERIC_SERVER;
-    ProFTPD_bugs = FALSE;
-    WU_FTPD_bugs = FALSE;
+    Broken_RETR = FALSE;
+
+#ifdef INET6
+    Broken_EPSV = FALSE;
+#endif
 
     for (retry = 0; retry < 2; retry++) {	/* For timed out/broken connections */
 	status = get_connection(name, anchor);
@@ -2999,7 +3288,7 @@ static int setup_connection(const char *name,
 		NETCLOSE(control->socket);
 		control->socket = -1;
 #ifdef INET6
-		if (master_socket >= 0)
+		if (have_socket)
 		    (void) close_master_socket();
 #else
 		close_master_socket();
@@ -3042,7 +3331,7 @@ static int setup_connection(const char *name,
 
 #ifdef INET6
 	    /* see RFC 2428 */
-	    if (WU_FTPD_bugs)
+	    if (Broken_EPSV)
 		status = 1;
 	    else
 		status = send_cmd_1(p = "EPSV");
@@ -3073,7 +3362,7 @@ static int setup_connection(const char *name,
 		    status = HT_NO_CONNECTION;
 		    break;
 		}
-		passive_port = (p0 << 8) + p1;
+		passive_port = (PortNumber) ((p0 << 8) + p1);
 		sprintf(dst, "%d.%d.%d.%d", h0, h1, h2, h3);
 	    } else if (strcmp(p, "EPSV") == 0) {
 		char c0, c1, c2, c3;
@@ -3083,30 +3372,34 @@ static int setup_connection(const char *name,
 		/*
 		 * EPSV bla (|||port|)
 		 */
-		for (p = response_text; *p && !isspace(*p); p++) {
+		for (p = response_text; *p && !isspace(UCH(*p)); p++) {
 		    ;		/* null body */
 		}
 		for ( /*nothing */ ;
-		     *p && *p && *p != '(';
-		     p++)	/*) */
+		     *p && *p != '(';
+		     p++) {	/*) */
 		    ;		/* null body */
+		}
 		status = sscanf(p, "(%c%c%c%d%c)", &c0, &c1, &c2, &p0, &c3);
 		if (status != 5) {
 		    fprintf(tfp, "HTFTP: EPSV reply has invalid format!\n");
 		    status = HT_NO_CONNECTION;
 		    break;
 		}
-		passive_port = p0;
+		passive_port = (PortNumber) p0;
 
-		sslen = sizeof(ss);
+		sslen = (LY_SOCKLEN) sizeof(ss);
 		if (getpeername(control->socket, (struct sockaddr *) &ss,
 				&sslen) < 0) {
 		    fprintf(tfp, "HTFTP: getpeername(control) failed\n");
 		    status = HT_NO_CONNECTION;
 		    break;
 		}
-		if (getnameinfo((struct sockaddr *) &ss, sslen, dst,
-				sizeof(dst), NULL, 0, NI_NUMERICHOST)) {
+		if (getnameinfo((struct sockaddr *) &ss,
+				sslen,
+				dst,
+				(socklen_t) sizeof(dst),
+				NULL, 0, NI_NUMERICHOST)) {
 		    fprintf(tfp, "HTFTP: getnameinfo failed\n");
 		    status = HT_NO_CONNECTION;
 		    break;
@@ -3196,7 +3489,7 @@ int HTFTPLoad(const char *name,
 	     ? "passive"
 	     : "normal")));
 
-    HTReadProgress(0, 0);
+    HTReadProgress((off_t) 0, (off_t) 0);
 
     status = setup_connection(name, anchor);
     if (status < 0)
@@ -3271,7 +3564,7 @@ int HTFTPLoad(const char *name,
 	    char *cp2 = NULL;
 	    char *fn = NULL;
 
-	    if ((cp2 = strchr((filename + 1), '/')) != NULL) {
+	    if ((cp2 = StrChr((filename + 1), '/')) != NULL) {
 		*cp2 = '\0';
 	    }
 	    status = send_cmd_1("PWD");
@@ -3348,7 +3641,7 @@ int HTFTPLoad(const char *name,
 	     */
 	    binary = FALSE;
 	}
-	if (binary != control->binary) {
+	if (binary != control->is_binary) {
 	    /*
 	     * Act on our setting if not already set.  - FM
 	     */
@@ -3359,7 +3652,7 @@ int HTFTPLoad(const char *name,
 		init_help_message_cache();	/* to free memory */
 		return ((status < 0) ? status : -status);
 	    }
-	    control->binary = binary;
+	    control->is_binary = binary;
 	}
 	switch (server_type) {
 	    /*
@@ -3374,8 +3667,8 @@ int HTFTPLoad(const char *name,
 		BOOL found_tilde = FALSE;
 
 		/* Accept only Unix-style filename */
-		if (strchr(filename, ':') != NULL ||
-		    strchr(filename, '[') != NULL) {
+		if (StrChr(filename, ':') != NULL ||
+		    StrChr(filename, '[') != NULL) {
 		    FREE(fname);
 		    init_help_message_cache();	/* to free memory */
 		    NETCLOSE(control->socket);
@@ -3385,7 +3678,7 @@ int HTFTPLoad(const char *name,
 		    return -1;
 		}
 		/* Handle any unescaped "/%2F" path */
-		if (!strncmp(filename, "//", 2)) {
+		if (!StrNCmp(filename, "//", 2)) {
 		    int i;
 
 		    included_device = TRUE;
@@ -3403,7 +3696,7 @@ int HTFTPLoad(const char *name,
 			if (status != 2) {
 			    char *dotslash = 0;
 
-			    if ((cp1 = strchr(cp, '[')) != NULL) {
+			    if ((cp1 = StrChr(cp, '[')) != NULL) {
 				*cp1++ = '\0';
 				status = send_cwd(cp);
 				if (status != 2) {
@@ -3431,9 +3724,9 @@ int HTFTPLoad(const char *name,
 				return ((status < 0) ? status : -status);
 			    }
 			}
-		    } else if ((cp1 = strchr(cp, ':')) != NULL &&
-			       strchr(cp, '[') == NULL &&
-			       strchr(cp, ']') == NULL) {
+		    } else if ((cp1 = StrChr(cp, ':')) != NULL &&
+			       StrChr(cp, '[') == NULL &&
+			       StrChr(cp, ']') == NULL) {
 			cp1++;
 			if (*cp1 != '\0') {
 			    int cplen = (int) (cp1 - cp);
@@ -3494,13 +3787,13 @@ int HTFTPLoad(const char *name,
 			return ((status < 0) ? status : -status);
 		    }
 		    /* Go to the VMS account's top directory */
-		    if ((cp = strchr(response_text, '[')) != NULL &&
+		    if ((cp = StrChr(response_text, '[')) != NULL &&
 			(cp1 = strrchr(response_text, ']')) != NULL) {
 			char *tmp = 0;
 			unsigned len = 4;
 
 			StrAllocCopy(tmp, cp);
-			if ((cp2 = strchr(cp, '.')) != NULL && cp2 < cp1) {
+			if ((cp2 = StrChr(cp, '.')) != NULL && cp2 < cp1) {
 			    len += (cp2 - cp);
 			} else {
 			    len += (cp1 - cp);
@@ -3540,13 +3833,13 @@ int HTFTPLoad(const char *name,
 		    goto listen;
 		}
 		/* Otherwise, go to appropriate directory and doctor filename */
-		if (!strncmp(filename, "/~", 2)) {
+		if (!StrNCmp(filename, "/~", 2)) {
 		    filename += 2;
 		    found_tilde = TRUE;
 		}
 		CTRACE((tfp, "check '%s' to translate x/y/ to [.x.y]\n", filename));
 		if (!included_device &&
-		    (cp = strchr(filename, '/')) != NULL &&
+		    (cp = StrChr(filename, '/')) != NULL &&
 		    (cp1 = strrchr(cp, '/')) != NULL &&
 		    (cp1 - cp) > 1) {
 		    char *tmp = 0;
@@ -3585,10 +3878,10 @@ int HTFTPLoad(const char *name,
 		 */
 		if ((strlen(filename) == 1 && *filename == '/') ||
 		    ((0 == strncasecomp((filename + 1), "vmsysu:", 7)) &&
-		     (cp = strchr((filename + 1), '.')) != NULL &&
-		     strchr(cp, '/') == NULL) ||
+		     (cp = StrChr((filename + 1), '.')) != NULL &&
+		     StrChr(cp, '/') == NULL) ||
 		    (0 == strncasecomp(filename + 1, "anonymou.", 9) &&
-		     strchr(filename + 1, '/') == NULL)) {
+		     StrChr(filename + 1, '/') == NULL)) {
 		    if (filename[1] != '\0') {
 			status = send_cwd(filename + 1);
 			if (status != 2) {
@@ -3618,7 +3911,7 @@ int HTFTPLoad(const char *name,
 		filename++;
 
 		/* Otherwise, go to appropriate directory and adjust filename */
-		while ((cp = strchr(filename, '/')) != NULL) {
+		while ((cp = StrChr(filename, '/')) != NULL) {
 		    *cp++ = '\0';
 		    status = send_cwd(filename);
 		    if (status == 2) {
@@ -3648,7 +3941,7 @@ int HTFTPLoad(const char *name,
 	    }
 	default:
 	    /* Shift for any unescaped "/%2F" path */
-	    if (!strncmp(filename, "//", 2))
+	    if (!StrNCmp(filename, "//", 2))
 		filename++;
 	    break;
 	}
@@ -3657,15 +3950,27 @@ int HTFTPLoad(const char *name,
 	 * dealing with if we don't know yet.  - FM
 	 */
 	if (!(type) || (type && *type != 'D')) {
-	    status = send_cmd_2("RETR", filename);
-#ifdef BROKEN_PROFTPD
 	    /*
-	     * ProFTPD 1.2.5rc1 gets confused when asked to RETR a directory.
+	     * If we are retrieving a file we will (except for CMS) use
+	     * binary mode, which lets us use the size command supported by
+	     * ftp servers which implement RFC 3659.  Knowing the size lets
+	     * us in turn display ETA in the progress message -TD
 	     */
+	    if (control->is_binary) {
+		int code;
+		off_t size;
+
+		status = send_cmd_2("SIZE", filename);
+		if (status == 2 &&
+		    sscanf(response_text, "%d %" PRI_off_t, &code, &size) == 2) {
+		    anchor->content_length = size;
+		}
+	    }
+	    status = send_cmd_2("RETR", filename);
 	    if (status >= 5) {
 		int check;
 
-		if (ProFTPD_bugs) {
+		if (Broken_RETR) {
 		    CTRACE((tfp, "{{reconnecting...\n"));
 		    close_connection(control);
 		    check = setup_connection(name, anchor);
@@ -3674,7 +3979,6 @@ int HTFTPLoad(const char *name,
 			return check;
 		}
 	    }
-#endif
 	} else {
 	    status = 5;		/* Failed status set as flag. - FM */
 	}
@@ -3714,16 +4018,16 @@ int HTFTPLoad(const char *name,
 #else
 	struct sockaddr_in soc_address;
 #endif /* INET6 */
-	LY_SOCKLEN soc_addrlen = sizeof(soc_address);
+	LY_SOCKLEN soc_addrlen = (LY_SOCKLEN) sizeof(soc_address);
 
 #ifdef SOCKS
 	if (socks_flag)
-	    status = Raccept(master_socket,
+	    status = Raccept((int) master_socket,
 			     (struct sockaddr *) &soc_address,
 			     &soc_addrlen);
 	else
 #endif /* SOCKS */
-	    status = accept(master_socket,
+	    status = accept((int) master_socket,
 			    (struct sockaddr *) &soc_address,
 			    &soc_addrlen);
 	if (status < 0) {
@@ -3733,11 +4037,6 @@ int HTFTPLoad(const char *name,
 	CTRACE((tfp, "TCP: Accepted new socket %d\n", status));
 	data_soc = status;
     }
-    /* !ftp_local_passive */
-#if 0				/* no - this makes the data connection go away too soon (2.8.3dev.22) */
-    if ((status = send_cmd_nowait("QUIT")) == 1)
-	outstanding++;
-#endif
 
     if (isDirectory) {
 	if (server_type == UNIX_SERVER && !unsure_type &&
@@ -3752,7 +4051,7 @@ int HTFTPLoad(const char *name,
 		if (outstanding-- > 0) {
 		    status = response(0);
 		    if (status < 0 ||
-			(status == 2 && !strncmp(response_text, "221", 3)))
+			(status == 2 && !StrNCmp(response_text, "221", 3)))
 			outstanding = 0;
 		}
 	} else {		/* HT_INTERRUPTED */
@@ -3797,23 +4096,23 @@ int HTFTPLoad(const char *name,
 		format = HTCharsetFormat(format, anchor, -1);
 		StrAllocCopy(anchor->content_type, format->name);
 		format = HTAtom_for("www/compressed");
+	    }
 
-		switch (cft) {
-		case cftCompress:
-		    StrAllocCopy(anchor->content_encoding, "x-compress");
-		    break;
-		case cftGzip:
-		    StrAllocCopy(anchor->content_encoding, "x-gzip");
-		    break;
-		case cftDeflate:
-		    StrAllocCopy(anchor->content_encoding, "x-deflate");
-		    break;
-		case cftBzip2:
-		    StrAllocCopy(anchor->content_encoding, "x-bzip2");
-		    break;
-		case cftNone:
-		    break;
-		}
+	    switch (cft) {
+	    case cftCompress:
+		StrAllocCopy(anchor->content_encoding, "x-compress");
+		break;
+	    case cftGzip:
+		StrAllocCopy(anchor->content_encoding, "x-gzip");
+		break;
+	    case cftDeflate:
+		StrAllocCopy(anchor->content_encoding, "x-deflate");
+		break;
+	    case cftBzip2:
+		StrAllocCopy(anchor->content_encoding, "x-bzip2");
+		break;
+	    case cftNone:
+		break;
 	    }
 	}
 	FREE(FileName);
@@ -3825,13 +4124,6 @@ int HTFTPLoad(const char *name,
 	/* Reset buffering to control connection DD 921208 */
 
 	if (rv < 0) {
-#if 0				/* any known servers where ABOR would work this way? */
-	    if (rv == HT_INTERRUPTED || rv == -501)
-		if (send_cmd_nowait("ABOR") == 1) {
-		    outstanding++;
-		    CTRACE((tfp, "HTFTP: outstanding responses: %d\n", outstanding));
-		}
-#endif
 	    if (rv == -2)	/* weird error, don't expect much response */
 		outstanding--;
 	    else if (rv == HT_INTERRUPTED || rv == -1)
@@ -3841,8 +4133,9 @@ int HTFTPLoad(const char *name,
 		outstanding = 0;
 	    CTRACE((tfp, "HTFTP: Closing data socket %d\n", data_soc));
 	    status = NETCLOSE(data_soc);
-	} else
+	} else {
 	    status = 2;		/* data_soc already closed in HTCopy - kw */
+	}
 
 	if (status < 0 && rv != HT_INTERRUPTED && rv != -1) {
 	    (void) HTInetStatus("close");	/* Comment only */
@@ -3853,10 +4146,9 @@ int HTFTPLoad(const char *name,
 		    data_soc = -1;	/* invalidate it */
 		    init_help_message_cache();	/* to free memory */
 		    return HTLoadError(sink, 500, response_text);
-		} else if (status <= 0) {
+		} else if (status == 2 && !StrNCmp(response_text, "221", 3)) {
 		    outstanding = 0;
-		} else if (status == 2 && !strncmp(response_text, "221", 3))
-		    outstanding = 0;
+		}
 	    }
 	}
 	final_status = HT_LOADED;
@@ -3864,7 +4156,7 @@ int HTFTPLoad(const char *name,
     while (outstanding-- > 0 &&
 	   (status > 0)) {
 	status = response(0);
-	if (status == 2 && !strncmp(response_text, "221", 3))
+	if (status == 2 && !StrNCmp(response_text, "221", 3))
 	    break;
     }
     data_soc = -1;		/* invalidate it */

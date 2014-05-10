@@ -1,4 +1,7 @@
-/*		Structured stream to Rich hypertext converter
+/*
+ * $LynxId: HTML.c,v 1.164 2013/11/28 11:17:39 tom Exp $
+ *
+ *		Structured stream to Rich hypertext converter
  *		============================================
  *
  *	This generates a hypertext object.  It converts from the
@@ -11,6 +14,8 @@
  *   Being Overidden
  *
  */
+
+#define HTSTREAM_INTERNAL 1
 
 #include <HTUtils.h>
 
@@ -43,6 +48,7 @@
 #include <LYMap.h>
 #include <LYList.h>
 #include <LYBookmark.h>
+#include <LYHistory.h>
 
 #ifdef VMS
 #include <LYCurses.h>
@@ -134,7 +140,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 
 static int HTML_start_element(HTStructured * me, int element_number,
 			      const BOOL *present,
-			      const char **value,
+			      STRING2PTR value,
 			      int tag_charset,
 			      char **include);
 
@@ -144,9 +150,9 @@ static int HTML_start_element(HTStructured * me, int element_number,
 #define VERBOSE_IMG(value,src_type,string) \
       ((verbose_img) ? (newtitle = MakeNewTitle(value,src_type)): string)
 
-static char *MakeNewTitle(const char **value, int src_type);
-static char *MakeNewImageValue(const char **value);
-static char *MakeNewMapValue(const char **value, const char *mapstr);
+static char *MakeNewTitle(STRING2PTR value, int src_type);
+static char *MakeNewImageValue(STRING2PTR value);
+static char *MakeNewMapValue(STRING2PTR value, const char *mapstr);
 
 /*	Set an internal flag that the next call to a stack-affecting method
  *	is only internal and the stack manipulation should be skipped. - kw
@@ -211,14 +217,64 @@ static void change_paragraph_style(HTStructured * me, HTStyle *style)
     me->in_word = NO;
 }
 
+/*
+ * Return true if we should write a message (to LYNXMESSAGES, or the trace
+ * file) telling about some bad HTML that we've found.
+ */
 BOOL LYBadHTML(HTStructured * me)
 {
-    if (!TRACE && !me->inBadHTML) {
-	HTUserMsg(BAD_HTML_USE_TRACE);
-	me->inBadHTML = TRUE;
-	return FALSE;
+    BOOL code = FALSE;
+
+    switch ((enumBadHtml) cfg_bad_html) {
+    case BAD_HTML_IGNORE:
+	break;
+    case BAD_HTML_TRACE:
+	code = TRUE;
+	break;
+    case BAD_HTML_MESSAGE:
+	code = TRUE;
+	break;
+    case BAD_HTML_WARN:
+	/*
+	 * If we're already tracing, do not add a warning.
+	 */
+	if (!TRACE && !me->inBadHTML) {
+	    HTUserMsg(BAD_HTML_USE_TRACE);
+	    me->inBadHTML = TRUE;
+	}
+	code = TRACE;
+	break;
     }
-    return TRUE;
+    return code;
+}
+
+/*
+ * Handle the formatted message.
+ */
+void LYShowBadHTML(const char *message)
+{
+    if (dump_output_immediately && dump_to_stderr)
+	fprintf(stderr, "%s", message);
+
+    switch ((enumBadHtml) cfg_bad_html) {
+    case BAD_HTML_IGNORE:
+	break;
+    case BAD_HTML_TRACE:
+    case BAD_HTML_MESSAGE:
+    case BAD_HTML_WARN:
+	CTRACE((tfp, "%s", message));
+	break;
+    }
+
+    switch ((enumBadHtml) cfg_bad_html) {
+    case BAD_HTML_IGNORE:
+    case BAD_HTML_TRACE:
+    case BAD_HTML_WARN:
+	break;
+    case BAD_HTML_MESSAGE:
+	LYstore_message(message);
+	break;
+    }
 }
 
 /*_________________________________________________________________________
@@ -241,13 +297,17 @@ BOOL LYBadHTML(HTStructured * me)
 /*	Character handling
  *	------------------
  */
-void HTML_put_character(HTStructured * me, char c)
+void HTML_put_character(HTStructured * me, int c)
 {
+    unsigned uc = UCH(c);
+
     /*
      * Ignore all non-MAP content when just scanning a document for MAPs.  - FM
      */
     if (LYMapsOnly && me->sp[0].tag_number != HTML_OBJECT)
 	return;
+
+    c = (int) uc;
 
     /*
      * Do EOL conversion if needed.  - FM
@@ -262,8 +322,10 @@ void HTML_put_character(HTStructured * me, char c)
 	return;
     }
     me->lastraw = c;
-    if (c == '\r')
+    if (c == '\r') {
 	c = '\n';
+	uc = UCH(c);
+    }
 
     /*
      * Handle SGML_LITTERAL tags that have HTChunk elements.  - FM
@@ -277,7 +339,7 @@ void HTML_put_character(HTStructured * me, char c)
 	if (c == LY_SOFT_HYPHEN)
 	    return;
 	if (c != '\n' && c != '\t' && c != '\r') {
-	    HTChunkPutc(&me->title, c);
+	    HTChunkPutc(&me->title, uc);
 	} else if (FIX_JAPANESE_SPACES) {
 	    if (c == '\t') {
 		HTChunkPutc(&me->title, ' ');
@@ -290,28 +352,28 @@ void HTML_put_character(HTStructured * me, char c)
 	return;
 
     case HTML_STYLE:
-	HTChunkPutc(&me->style_block, c);
+	HTChunkPutc(&me->style_block, uc);
 	return;
 
     case HTML_SCRIPT:
-	HTChunkPutc(&me->script, c);
+	HTChunkPutc(&me->script, uc);
 	return;
 
     case HTML_OBJECT:
-	HTChunkPutc(&me->object, c);
+	HTChunkPutc(&me->object, uc);
 	return;
 
     case HTML_TEXTAREA:
-	HTChunkPutc(&me->textarea, c);
+	HTChunkPutc(&me->textarea, uc);
 	return;
 
     case HTML_SELECT:
     case HTML_OPTION:
-	HTChunkPutc(&me->option, c);
+	HTChunkPutc(&me->option, uc);
 	return;
 
     case HTML_MATH:
-	HTChunkPutc(&me->math, c);
+	HTChunkPutc(&me->math, uc);
 	return;
 
     default:
@@ -329,7 +391,7 @@ void HTML_put_character(HTStructured * me, char c)
 	     */
 	    if (me->sp[0].tag_number == HTML_A)
 		break;
-	    HTChunkPutc(&me->option, c);
+	    HTChunkPutc(&me->option, uc);
 	    return;
 	}
 	break;
@@ -429,13 +491,6 @@ void HTML_put_character(HTStructured * me, char c)
     }				/* end second switch */
 
     if (c == '\n' || c == '\t') {
-	HText_setLastChar(me->text, ' ');	/* set it to a generic separator */
-
-	/*
-	 * \r's are ignored.  In order to keep collapsing spaces correctly we
-	 * must default back to the previous separator if there was one.
-	 */
-    } else if (c == '\r' && HText_getLastChar(me->text) == ' ') {
 	HText_setLastChar(me->text, ' ');	/* set it to a generic separator */
     } else {
 	HText_setLastChar(me->text, c);
@@ -635,7 +690,7 @@ void HTML_write(HTStructured * me, const char *s, int l)
  *	request (doesn't have a URL from which the document can be retrieved
  *	with GET), and can only be used from within that document.
  *
- * *If DONT_TRACK_INTERNAL_LINKS is not defined, we keep track of whether a
+ * *If track_internal_links is true, we keep track of whether a
  *  link destination was given as an internal link.  This information is
  *  recorded in the type of the link between anchor objects, and is available
  *  to the HText object and the mainloop from there.  URL References to
@@ -651,7 +706,7 @@ void HTML_write(HTStructured * me, const char *s, int l)
  *  e. HREF=""		      -> [...]/mypath/mydoc.htm      (marked internal)
  *  f. HREF="#frag"	      -> [...]/mypath/mydoc.htm#frag (marked internal)
  *
- * *If DONT_TRACK_INTERNAL_LINKS is defined, URL-less URL-References are
+ * *If track_internal_links is false, URL-less URL-References are
  *  resolved differently from URL-References with a non-empty URL (using the
  *  current stream's retrieval address instead of the base), but we make no
  *  further distinction.  Resolution is then as in the examples above, execept
@@ -669,16 +724,18 @@ void HTML_write(HTStructured * me, const char *s, int l)
    string (resolution of relative URLs etc.).  This variable only used
    locally here, don't confuse with LYinternal_flag which is for
    overriding non-caching similar to LYoverride_no_cache. - kw */
-#define CHECK_FOR_INTERN(flag,s) flag = (s && (*s=='#' || *s=='\0')) ? TRUE : FALSE
+#define CHECK_FOR_INTERN(flag,s) \
+   	flag = (BOOLEAN) (((s) && (*(s)=='#' || *(s)=='\0')) ? TRUE : FALSE)
 
 /* Last argument to pass to HTAnchor_findChildAndLink() calls,
    just an abbreviation. - kw */
-#define INTERN_LT (HTLinkType *)(intern_flag ? HTInternalLink : NULL)
+#define INTERN_CHK(flag) (HTLinkType *)((flag) ? HTInternalLink : NULL)
+#define INTERN_LT         INTERN_CHK(intern_flag)
 
 #ifdef USE_COLOR_STYLE
 static char *Style_className = 0;
 static char *Style_className_end = 0;
-static unsigned Style_className_len = 0;
+static size_t Style_className_len = 0;
 static int hcode;
 
 #ifdef LY_FIND_LEAKS
@@ -690,11 +747,11 @@ static void free_Style_className(void)
 
 static void addClassName(const char *prefix,
 			 const char *actual,
-			 int length)
+			 size_t length)
 {
-    int offset = strlen(prefix);
-    unsigned have = (Style_className_end - Style_className);
-    unsigned need = (offset + length + 1);
+    size_t offset = strlen(prefix);
+    size_t have = (unsigned) (Style_className_end - Style_className);
+    size_t need = (offset + length + 1);
 
     if ((have + need) >= Style_className_len) {
 	Style_className_len += 1024 + 2 * (have + need);
@@ -705,6 +762,7 @@ static void addClassName(const char *prefix,
 	}
 	if (Style_className == NULL)
 	    outofmem(__FILE__, "addClassName");
+	assert(Style_className != NULL);
 	Style_className_end = Style_className + have;
     }
     if (offset)
@@ -722,7 +780,7 @@ static void addClassName(const char *prefix,
 
 #ifdef USE_PRETTYSRC
 
-static void HTMLSRC_apply_markup(HTStructured * context, HTlexeme lexeme, BOOL start,
+static void HTMLSRC_apply_markup(HTStructured * context, HTlexeme lexeme, int start,
 				 int tag_charset)
 {
     HT_tagspec *ts = *((start ? lexeme_start : lexeme_end) + lexeme);
@@ -739,18 +797,19 @@ static void HTMLSRC_apply_markup(HTStructured * context, HTlexeme lexeme, BOOL s
 	CTRACE((tfp, ts->start ? "SRCSTART %d\n" : "SRCSTOP %d\n", (int) lexeme));
 	if (ts->start)
 	    HTML_start_element(context,
-			       ts->element,
+			       (int) ts->element,
 			       ts->present,
-			       (const char **) ts->value,
+			       (STRING2PTR) ts->value,
 			       tag_charset,
 			       NULL);
 	else
 	    HTML_end_element(context,
-			     ts->element,
+			     (int) ts->element,
 			     NULL);
 	ts = ts->next;
     }
 }
+
 #  define START TRUE
 #  define STOP FALSE
 
@@ -792,13 +851,13 @@ static void LYStartArea(HTStructured * obj, const char *href,
 }
 
 static void LYHandleFIG(HTStructured * me, const BOOL *present,
-			const char **value,
-			BOOL isobject,
-			BOOL imagemap,
+			STRING2PTR value,
+			int isobject,
+			int imagemap,
 			const char *id,
 			const char *src,
-			BOOL convert,
-			BOOL start,
+			int convert,
+			int start,
 			BOOL *intern_flag GCC_UNUSED)
 {
     if (start == TRUE) {
@@ -834,7 +893,7 @@ static void LYHandleFIG(HTStructured * me, const BOOL *present,
 		me->CurrentA = HTAnchor_findChildAndLink(me->node_anchor,	/* Parent */
 							 NULL,	/* Tag */
 							 href,	/* Addresss */
-							 INTERN_LT);	/* Type */
+							 INTERN_CHK(*intern_flag));	/* Type */
 		HText_beginAnchor(me->text, me->inUnderline, me->CurrentA);
 		if (me->inBoldH == FALSE)
 		    HText_appendCharacter(me->text, LY_BOLD_START_CHAR);
@@ -900,7 +959,7 @@ static void clear_objectdata(HTStructured * me)
  */
 static int HTML_start_element(HTStructured * me, int element_number,
 			      const BOOL *present,
-			      const char **value,
+			      STRING2PTR value,
 			      int tag_charset,
 			      char **include)
 {
@@ -961,7 +1020,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	    if (tagname_transform != 0)
 		PUTS(tag->name);
 	    else {
-		LYstrncpy(buf, tag->name, sizeof(buf) - 1);
+		LYStrNCpy(buf, tag->name, sizeof(buf) - 1);
 		LYLowerCase(buf);
 		PUTS(buf);
 	    }
@@ -973,7 +1032,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 			if (attrname_transform != 0)
 			    PUTS(tag->attributes[i].name);
 			else {
-			    LYstrncpy(buf,
+			    LYStrNCpy(buf,
 				      tag->attributes[i].name,
 				      sizeof(buf) - 1);
 			    LYLowerCase(buf);
@@ -983,9 +1042,9 @@ static int HTML_start_element(HTStructured * me, int element_number,
 			    char q = '"';
 
 			    /*0 in dquotes, 1 - in quotes, 2 mixed */
-			    char kind = (char) (!strchr(value[i], '"') ?
+			    char kind = (char) (!StrChr(value[i], '"') ?
 						0 :
-						!strchr(value[i], '\'') ?
+						!StrChr(value[i], '\'') ?
 						q = '\'', 1 :
 						2);
 
@@ -1055,15 +1114,15 @@ static int HTML_start_element(HTStructured * me, int element_number,
 
     addClassName(";",
 		 HTML_dtd.tags[element_number].name,
-		 HTML_dtd.tags[element_number].name_len);
+		 (size_t) HTML_dtd.tags[element_number].name_len);
 
     class_name = (force_classname ? forced_classname : class_string);
     force_classname = FALSE;
 
     if (force_current_tag_style == FALSE) {
-	current_tag_style = class_name[0]
-	    ? -1
-	    : cached_tag_styles[element_number];
+	current_tag_style = (class_name[0]
+			     ? -1
+			     : cached_tag_styles[element_number]);
     } else {
 	force_current_tag_style = FALSE;
     }
@@ -1132,7 +1191,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
     }
 #endif /* !OMIT_SCN_KEEPING */
 
-    HText_characterStyle(me->text, hcode, 1);
+    HText_characterStyle(me->text, hcode, STACK_ON);
 #endif /* USE_COLOR_STYLE */
 
     /*
@@ -1192,7 +1251,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	     * Create the host[:port] field.
 	     */
 	    temp = HTParse(base, "", PARSE_HOST + PARSE_PUNCTUATION);
-	    if (!strncmp(temp, "//", 2)) {
+	    if (!StrNCmp(temp, "//", 2)) {
 		StrAllocCat(me->base_href, temp);
 		if (!strcmp(me->base_href, "file://")) {
 		    StrAllocCat(me->base_href, "localhost");
@@ -1213,7 +1272,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	     */
 	    temp = HTParse(base, "", PARSE_PATH + PARSE_PUNCTUATION);
 	    if (*temp != '\0') {
-		char *p = strchr(temp, '?');
+		char *p = StrChr(temp, '?');
 
 		if (p)
 		    *p = '\0';
@@ -1266,7 +1325,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		StrAllocCopy(href, Base);
 	    } else {
 		StrAllocCopy(href, value[HTML_LINK_HREF]);
-		url_type = LYLegitimizeHREF(me, &href, TRUE, TRUE);
+		(void) LYLegitimizeHREF(me, &href, TRUE, TRUE);
 
 		Base = (me->inBASE && *href != '\0' && *href != '#')
 		    ? me->base_href
@@ -1276,38 +1335,40 @@ static int HTML_start_element(HTStructured * me, int element_number,
 
 	    /*
 	     * Handle links with a REV attribute.  - FM
+	     * Handle REV="made" or REV="owner".  - LM & FM
+	     * Handle REL="author" -TD
 	     */
 	    if (present &&
-		present[HTML_LINK_REV] && value[HTML_LINK_REV]) {
+		((present[HTML_LINK_REV] &&
+		  value[HTML_LINK_REV] &&
+		  (!strcasecomp("made", value[HTML_LINK_REV]) ||
+		   !strcasecomp("owner", value[HTML_LINK_REV]))) ||
+		 (present[HTML_LINK_REL] &&
+		  value[HTML_LINK_REL] &&
+		  (!strcasecomp("author", value[HTML_LINK_REL]))))) {
 		/*
-		 * Handle REV="made" or REV="owner".  - LM & FM
+		 * Load the owner element.  - FM
 		 */
-		if (!strcasecomp("made", value[HTML_LINK_REV]) ||
-		    !strcasecomp("owner", value[HTML_LINK_REV])) {
-		    /*
-		     * Load the owner element.  - FM
-		     */
-		    HTAnchor_setOwner(me->node_anchor, href);
-		    CTRACE((tfp, "HTML: DOC OWNER '%s' found\n", href));
-		    FREE(href);
+		HTAnchor_setOwner(me->node_anchor, href);
+		CTRACE((tfp, "HTML: DOC OWNER '%s' found\n", href));
+		FREE(href);
 
-		    /*
-		     * Load the RevTitle element if a TITLE attribute and value
-		     * are present.  - FM
-		     */
-		    if (present && present[HTML_LINK_TITLE] &&
-			value[HTML_LINK_TITLE] &&
-			*value[HTML_LINK_TITLE] != '\0') {
-			StrAllocCopy(title, value[HTML_LINK_TITLE]);
-			TRANSLATE_AND_UNESCAPE_ENTITIES(&title, TRUE, FALSE);
-			LYTrimHead(title);
-			LYTrimTail(title);
-			if (*title != '\0')
-			    HTAnchor_setRevTitle(me->node_anchor, title);
-			FREE(title);
-		    }
-		    break;
+		/*
+		 * Load the RevTitle element if a TITLE attribute and value
+		 * are present.  - FM
+		 */
+		if (present && present[HTML_LINK_TITLE] &&
+		    value[HTML_LINK_TITLE] &&
+		    *value[HTML_LINK_TITLE] != '\0') {
+		    StrAllocCopy(title, value[HTML_LINK_TITLE]);
+		    TRANSLATE_AND_UNESCAPE_ENTITIES(&title, TRUE, FALSE);
+		    LYTrimHead(title);
+		    LYTrimTail(title);
+		    if (*title != '\0')
+			HTAnchor_setRevTitle(me->node_anchor, title);
+		    FREE(title);
 		}
+		break;
 	    }
 
 	    /*
@@ -1527,12 +1588,12 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		CTRACE2(TRACE_STYLE,
 			(tfp, "STYLE.link: using style <%s>\n", tmp));
 
-		HText_characterStyle(me->text, hash_code(tmp), 1);
+		HText_characterStyle(me->text, hash_code(tmp), STACK_ON);
 		HTML_put_string(me, title);
 		HTML_put_string(me, " (");
 		HTML_put_string(me, value[HTML_LINK_CLASS]);
 		HTML_put_string(me, ")");
-		HText_characterStyle(me->text, hash_code(tmp), 0);
+		HText_characterStyle(me->text, hash_code(tmp), STACK_OFF);
 		FREE(tmp);
 	    } else
 #endif
@@ -2194,7 +2255,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	}
 	break;
 
-    case HTML_ABBREV:		/* Miscellaneous character containers */
+    case HTML_ABBR:		/* Miscellaneous character containers */
     case HTML_ACRONYM:
     case HTML_AU:
     case HTML_AUTHOR:
@@ -2333,10 +2394,14 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	break;
 
     case HTML_ADDRESS:
-	change_paragraph_style(me, styles[ElementNumber]);
-	UPDATE_STYLE;
-	if (me->sp->tag_number == (int) ElementNumber)
-	    LYEnsureDoubleSpace(me);
+	if (me->List_Nesting_Level < 0) {
+	    change_paragraph_style(me, styles[ElementNumber]);
+	    UPDATE_STYLE;
+	    if (me->sp->tag_number == (int) ElementNumber)
+		LYEnsureDoubleSpace(me);
+	} else {
+	    LYHandlePlike(me, present, value, include, -1, TRUE);
+	}
 	CHECK_ID(HTML_ADDRESS_ID);
 	break;
 
@@ -2667,13 +2732,13 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		    }
 		}
 		if (seqtype == 'A') {
-		    sprintf(number_string, LYUppercaseA_OL_String(seqnum));
+		    strcpy(number_string, LYUppercaseA_OL_String(seqnum));
 		} else if (seqtype == 'a') {
-		    sprintf(number_string, LYLowercaseA_OL_String(seqnum));
+		    strcpy(number_string, LYLowercaseA_OL_String(seqnum));
 		} else if (seqtype == 'I') {
-		    sprintf(number_string, LYUppercaseI_OL_String(seqnum));
+		    strcpy(number_string, LYUppercaseI_OL_String(seqnum));
 		} else if (seqtype == 'i') {
-		    sprintf(number_string, LYLowercaseI_OL_String(seqnum));
+		    strcpy(number_string, LYLowercaseI_OL_String(seqnum));
 		} else {
 		    sprintf(number_string, "%2d.", seqnum);
 		}
@@ -2779,7 +2844,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	UPDATE_STYLE;
 	if (me->sp->tag_number == (int) ElementNumber)
 	    LYEnsureDoubleSpace(me);
-	CHECK_ID(HTML_FN_ID);
+	CHECK_ID(HTML_GEN_ID);
 	if (me->inUnderline == FALSE)
 	    HText_appendCharacter(me->text, LY_UNDERLINE_START_CHAR);
 	HTML_put_string(me, "FOOTNOTE:");
@@ -2864,7 +2929,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		/*
 		 * Deal with our ftp gateway kludge.  - FM
 		 */
-		if (!url_type && !strncmp(href, "/foo/..", 7) &&
+		if (!url_type && !StrNCmp(href, "/foo/..", 7) &&
 		    (isFTP_URL(me->node_anchor->address) ||
 		     isFILE_URL(me->node_anchor->address))) {
 		    for (i = 0; (href[i] = href[i + 7]) != 0; i++) ;
@@ -2958,7 +3023,6 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	    }
 	    FREE(temp);
 	    dest = NULL;
-	    dest_ismap = FALSE;
 	    FREE(title);
 	}
 	me->CurrentANum = HText_beginAnchor(me->text,
@@ -3016,7 +3080,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	    non_empty(value[HTML_IMG_USEMAP])) {
 	    StrAllocCopy(map_href, value[HTML_IMG_USEMAP]);
 	    CHECK_FOR_INTERN(intern_flag, map_href);
-	    url_type = LYLegitimizeHREF(me, &map_href, TRUE, TRUE);
+	    (void) LYLegitimizeHREF(me, &map_href, TRUE, TRUE);
 	    /*
 	     * If map_href ended up zero-length or otherwise doesn't have a
 	     * hash, it can't be valid, so ignore it.  - FM
@@ -3435,7 +3499,6 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	FREE(title);
 	FREE(newtitle);
 	dest = NULL;
-	dest_ismap = FALSE;
 	break;
 
     case HTML_MAP:
@@ -3477,7 +3540,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	     * LYSeekFragAREAinCur is set.  - FM && KW
 	     */
 	    StrAllocCopy(me->map_address, me->node_anchor->address);
-	    if ((cp = strchr(me->map_address, '#')) != NULL)
+	    if ((cp = StrChr(me->map_address, '#')) != NULL)
 		*cp = '\0';
 	    StrAllocCat(me->map_address, "#");
 	    StrAllocCat(me->map_address, id_string);
@@ -3506,7 +3569,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	     */
 	    StrAllocCopy(href, value[HTML_AREA_HREF]);
 	    CHECK_FOR_INTERN(intern_flag, href);
-	    url_type = LYLegitimizeHREF(me, &href, TRUE, TRUE);
+	    (void) LYLegitimizeHREF(me, &href, TRUE, TRUE);
 
 	    /*
 	     * Check whether a BASE tag is in effect, and use it for resolving,
@@ -4083,7 +4146,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	LYEnsureDoubleSpace(me);
 	LYResetParagraphAlignment(me);
 	me->inCREDIT = TRUE;
-	CHECK_ID(HTML_CREDIT_ID);
+	CHECK_ID(HTML_GEN_ID);
 	if (me->inUnderline == FALSE)
 	    HText_appendCharacter(me->text, LY_UNDERLINE_START_CHAR);
 	HTML_put_string(me, "CREDIT:");
@@ -4170,7 +4233,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	     * Set to know we are in a new form.
 	     */
 	    me->inFORM = TRUE;
-	    EMIT_IFDEF_EXP_JUSTIFY_ELTS(form_in_htext = TRUE);
+	    EMIT_IFDEF_USE_JUSTIFY_ELTS(form_in_htext = TRUE);
 
 	    if (present && present[HTML_FORM_ACCEPT_CHARSET]) {
 		accept_cs = (value[HTML_FORM_ACCEPT_CHARSET]
@@ -4263,13 +4326,13 @@ static int HTML_start_element(HTStructured * me, int element_number,
     case HTML_FIELDSET:
 	LYEnsureDoubleSpace(me);
 	LYResetParagraphAlignment(me);
-	CHECK_ID(HTML_FIELDSET_ID);
+	CHECK_ID(HTML_GEN_ID);
 	break;
 
     case HTML_LEGEND:
 	LYEnsureDoubleSpace(me);
 	LYResetParagraphAlignment(me);
-	CHECK_ID(HTML_LEGEND_ID);
+	CHECK_ID(HTML_CAPTION_ID);
 	break;
 
     case HTML_LABEL:
@@ -4286,59 +4349,29 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	    int chars;
 
 	    /* init */
-	    I.align = NULL;
-	    I.accept = NULL;
-	    I.checked = NO;
-	    I.iclass = NULL;
-	    I.disabled = NO;
-	    I.error = NULL;
-	    I.height = NULL;
-	    I.id = NULL;
-	    I.lang = NULL;
-	    I.max = NULL;
-	    I.maxlength = NULL;
-	    I.md = NULL;
-	    I.min = NULL;
-	    I.name = NULL;
-	    I.size = 0;
-	    I.src = NULL;
-	    I.type = NULL;
-	    I.value = NULL;
-	    I.width = NULL;
-	    I.accept_cs = NULL;
+	    memset(&I, 0, sizeof(I));
 	    I.name_cs = ATTR_CS_IN;
 	    I.value_cs = ATTR_CS_IN;
 
 	    UPDATE_STYLE;
-	    if ((present && present[HTML_BUTTON_TYPE] &&
-		 value[HTML_BUTTON_TYPE]) &&
-		(!strcasecomp(value[HTML_BUTTON_TYPE], "submit") ||
-		 !strcasecomp(value[HTML_BUTTON_TYPE], "reset"))) {
-		/*
-		 * It's a button for submitting or resetting a form.  - FM
-		 */
-		I.type = value[HTML_BUTTON_TYPE];
+	    if (present &&
+		present[HTML_BUTTON_TYPE] &&
+		value[HTML_BUTTON_TYPE]) {
+		if (!strcasecomp(value[HTML_BUTTON_TYPE], "submit") ||
+		    !strcasecomp(value[HTML_BUTTON_TYPE], "reset")) {
+		    /*
+		     * It's a button for submitting or resetting a form.  - FM
+		     */
+		    I.type = value[HTML_BUTTON_TYPE];
+		} else {
+		    /*
+		     * Ugh, it's a button for a script.  - FM
+		     */
+		    I.type = value[HTML_BUTTON_TYPE];
+		}
 	    } else {
-		/*
-		 * Ugh, it's a button for a script.  - FM
-		 */
-		HTML_put_string(me, " [BUTTON] ");
-		break;
-	    }
-
-	    /*
-	     * Make sure we're in a form.
-	     */
-	    if (!me->inFORM) {
-		if (LYBadHTML(me))
-		    CTRACE((tfp,
-			    "Bad HTML: BUTTON tag not within FORM tag\n"));
-		/*
-		 * We'll process it, since the chances of a crash are small,
-		 * and we probably do have a form started.  - FM
-		 *
-		 break;
-		 */
+		/* default, if no type given, is a submit button */
+		I.type = "submit";
 	    }
 
 	    /*
@@ -4362,7 +4395,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	    if (!(present && present[HTML_BUTTON_NAME] &&
 		  value[HTML_BUTTON_NAME])) {
 		I.name = "";
-	    } else if (strchr(value[HTML_BUTTON_NAME], '&') == NULL) {
+	    } else if (StrChr(value[HTML_BUTTON_NAME], '&') == NULL) {
 		I.name = value[HTML_BUTTON_NAME];
 	    } else {
 		StrAllocCopy(I_name, value[HTML_BUTTON_NAME]);
@@ -4385,7 +4418,18 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		 * trailing spaces.  - FM
 		 */
 		LYReduceBlanks(I.value);
+	    } else if (!strcasecomp(I.type, "button")) {
+		if (non_empty(I.name)) {
+		    StrAllocCopy(I.value, I.name);
+		} else {
+		    StrAllocCopy(I.value, "BUTTON");
+		}
+	    } else if (I.value == 0) {
+		StrAllocCopy(I.value, "BUTTON");
 	    }
+
+	    if (present && present[HTML_BUTTON_READONLY])
+		I.readonly = YES;
 
 	    if (present && present[HTML_BUTTON_DISABLED])
 		I.disabled = YES;
@@ -4444,9 +4488,9 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		 */
 		for (i = 0; I.value[i]; i++) {
 		    HTML_put_character(me,
-				       (I.value[i] == ' ')
-				       ? HT_NON_BREAK_SPACE
-				       : I.value[i]);
+				       (char) ((I.value[i] == ' ')
+					       ? HT_NON_BREAK_SPACE
+					       : I.value[i]));
 		}
 		while (i++ < chars) {
 		    HTML_put_character(me, HT_NON_BREAK_SPACE);
@@ -4475,26 +4519,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	    HTkcode specified_kcode = NOKANJI;
 
 	    /* init */
-	    I.align = NULL;
-	    I.accept = NULL;
-	    I.checked = NO;
-	    I.iclass = NULL;
-	    I.disabled = NO;
-	    I.error = NULL;
-	    I.height = NULL;
-	    I.id = NULL;
-	    I.lang = NULL;
-	    I.max = NULL;
-	    I.maxlength = NULL;
-	    I.md = NULL;
-	    I.min = NULL;
-	    I.name = NULL;
-	    I.size = 0;
-	    I.src = NULL;
-	    I.type = NULL;
-	    I.value = NULL;
-	    I.width = NULL;
-	    I.accept_cs = NULL;
+	    memset(&I, 0, sizeof(I));
 	    I.name_cs = ATTR_CS_IN;
 	    I.value_cs = ATTR_CS_IN;
 
@@ -4537,8 +4562,8 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		    /*
 		     * Not yet implemented.
 		     */
-		    not_impl = "[RANGE Input]";
 #ifdef NOTDEFINED
+		    not_impl = "[RANGE Input]";
 		    if (me->inFORM)
 			HText_DisableCurrentForm();
 #endif /* NOTDEFINED */
@@ -4563,8 +4588,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		    /*
 		     * Ugh, a button for a script.
 		     */
-		    HTML_put_string(me, "[BUTTON] ");
-		    break;
+		    not_impl = "[BUTTON Input]";
 		}
 		if (not_impl != NULL) {
 		    if (me->inUnderline == FALSE) {
@@ -4585,29 +4609,15 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		}
 	    }
 
-	    /*
-	     * Check if we're in a form.  - FM
-	     */
-	    if (!me->inFORM) {
-		if (LYBadHTML(me))
-		    CTRACE((tfp,
-			    "Bad HTML: INPUT tag not within FORM tag\n"));
-		/*
-		 * We'll process it, since the chances of a crash are small,
-		 * and we probably do have a form started.  - FM
-		 *
-		 break;
-		 */
-	    }
-
 	    CTRACE((tfp, "Ok, we're trying type=[%s]\n", NONNULL(I.type)));
 
 	    /*
 	     * Check for an unclosed TEXTAREA.
 	     */
 	    if (me->inTEXTAREA) {
-		if (LYBadHTML(me))
-		    CTRACE((tfp, "Bad HTML: Missing TEXTAREA end tag.\n"));
+		if (LYBadHTML(me)) {
+		    LYShowBadHTML("Bad HTML: Missing TEXTAREA end tag.\n");
+		}
 	    }
 
 	    /*
@@ -4627,7 +4637,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	    if (!(present && present[HTML_INPUT_NAME] &&
 		  non_empty(value[HTML_INPUT_NAME]))) {
 		I.name = "";
-	    } else if (strchr(value[HTML_INPUT_NAME], '&') == NULL) {
+	    } else if (StrChr(value[HTML_INPUT_NAME], '&') == NULL) {
 		I.name = value[HTML_INPUT_NAME];
 	    } else {
 		StrAllocCopy(I_name, value[HTML_INPUT_NAME]);
@@ -4777,6 +4787,8 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		 */
 		I.value = ImageSrc;
 	    }
+	    if (present && present[HTML_INPUT_READONLY])
+		I.readonly = YES;
 	    if (present && present[HTML_INPUT_CHECKED])
 		I.checked = YES;
 	    if (present && present[HTML_INPUT_SIZE] &&
@@ -4893,7 +4905,6 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		    HTML_put_character(me, '_');
 		    chars--;
 		}
-		HText_setIgnoreExcess(me->text, TRUE);
 	    }
 	    CTRACE((tfp, "I.%s, %d\n", NONNULL(I.type), IsSubmitOrReset));
 	    if (IsSubmitOrReset == FALSE) {
@@ -4958,7 +4969,6 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	    if (chars != 0) {
 		HText_endInput(me->text);
 	    }
-	    HText_setIgnoreExcess(me->text, FALSE);
 	    FREE(ImageSrc);
 	    FREE(I_value);
 	    FREE(I_name);
@@ -4966,19 +4976,6 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	break;
 
     case HTML_TEXTAREA:
-	/*
-	 * Make sure we're in a form.
-	 */
-	if (!me->inFORM) {
-	    if (LYBadHTML(me))
-		CTRACE((tfp,
-			"Bad HTML: TEXTAREA start tag not within FORM tag\n"));
-	    /*
-	     * Too likely to cause a crash, so we'll ignore it.  - FM
-	     */
-	    break;
-	}
-
 	/*
 	 * Set to know we are in a textarea.
 	 */
@@ -4992,7 +4989,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	    value[HTML_TEXTAREA_NAME]) {
 	    StrAllocCopy(me->textarea_name, value[HTML_TEXTAREA_NAME]);
 	    me->textarea_name_cs = ATTR_CS_IN;
-	    if (strchr(value[HTML_TEXTAREA_NAME], '&') != NULL) {
+	    if (StrChr(value[HTML_TEXTAREA_NAME], '&') != NULL) {
 		UNESCAPE_FIELDNAME_TO_STD(&me->textarea_name);
 	    }
 	} else {
@@ -5012,9 +5009,9 @@ static int HTML_start_element(HTStructured * me, int element_number,
 
 	if (present && present[HTML_TEXTAREA_COLS] &&
 	    value[HTML_TEXTAREA_COLS] &&
-	    isdigit(UCH(*value[HTML_TEXTAREA_COLS])))
+	    isdigit(UCH(*value[HTML_TEXTAREA_COLS]))) {
 	    me->textarea_cols = atoi(value[HTML_TEXTAREA_COLS]);
-	else {
+	} else {
 	    int width;
 
 	    width = LYcolLimit -
@@ -5031,16 +5028,24 @@ static int HTML_start_element(HTStructured * me, int element_number,
 
 	if (present && present[HTML_TEXTAREA_ROWS] &&
 	    value[HTML_TEXTAREA_ROWS] &&
-	    isdigit(UCH(*value[HTML_TEXTAREA_ROWS])))
+	    isdigit(UCH(*value[HTML_TEXTAREA_ROWS]))) {
 	    me->textarea_rows = atoi(value[HTML_TEXTAREA_ROWS]);
-	else
+	} else {
 	    me->textarea_rows = DFT_TEXTAREA_ROWS;
+	}
 	LimitValue(me->textarea_rows, MAX_TEXTAREA_ROWS);
 
+	/*
+	 * Lynx treats disabled and readonly textarea's the same -
+	 * unmodifiable in either case.
+	 */
+	me->textarea_readonly = NO;
+	if (present && present[HTML_TEXTAREA_READONLY])
+	    me->textarea_readonly = YES;
+
+	me->textarea_disabled = NO;
 	if (present && present[HTML_TEXTAREA_DISABLED])
 	    me->textarea_disabled = YES;
-	else
-	    me->textarea_disabled = NO;
 
 	if (present && present[HTML_TEXTAREA_ID]
 	    && non_empty(value[HTML_TEXTAREA_ID])) {
@@ -5068,9 +5073,9 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	 * Check for an already open SELECT block.  - FM
 	 */
 	if (me->inSELECT) {
-	    if (LYBadHTML(me))
-		CTRACE((tfp,
-			"Bad HTML: SELECT start tag in SELECT element.  Faking SELECT end tag. *****\n"));
+	    if (LYBadHTML(me)) {
+		LYShowBadHTML("Bad HTML: SELECT start tag in SELECT element.  Faking SELECT end tag. *****\n");
+	    }
 	    if (me->sp->tag_number != HTML_SELECT) {
 		SET_SKIP_STACK(HTML_SELECT);
 	    }
@@ -5081,7 +5086,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	 * Start a new SELECT block. - FM
 	 */
 	LYHandleSELECT(me,
-		       present, (const char **) value,
+		       present, (STRING2PTR) value,
 		       include,
 		       TRUE);
 	break;
@@ -5097,9 +5102,9 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	     * Make sure we're in a select tag.
 	     */
 	    if (!me->inSELECT) {
-		if (LYBadHTML(me))
-		    CTRACE((tfp,
-			    "Bad HTML: OPTION tag not within SELECT tag\n"));
+		if (LYBadHTML(me)) {
+		    LYShowBadHTML("Bad HTML: OPTION tag not within SELECT tag\n");
+		}
 
 		/*
 		 * Too likely to cause a crash, so we'll ignore it.  - FM
@@ -5150,26 +5155,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		/*
 		 * Inititialize.
 		 */
-		I.align = NULL;
-		I.accept = NULL;
-		I.checked = NO;
-		I.iclass = NULL;
-		I.disabled = NO;
-		I.error = NULL;
-		I.height = NULL;
-		I.id = NULL;
-		I.lang = NULL;
-		I.max = NULL;
-		I.maxlength = NULL;
-		I.md = NULL;
-		I.min = NULL;
-		I.name = NULL;
-		I.size = 0;
-		I.src = NULL;
-		I.type = NULL;
-		I.value = NULL;
-		I.width = NULL;
-		I.accept_cs = NULL;
+		memset(&I, 0, sizeof(I));
 		I.name_cs = -1;
 		I.value_cs = current_char_set;
 
@@ -5199,8 +5185,12 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		}
 
 		if (me->select_disabled ||
-		    (present && present[HTML_OPTION_DISABLED]))
+		    (0 && present && present[HTML_OPTION_DISABLED])) {
+		    /* 2009/5/25 - suppress check for "disabled" attribute
+		     * for Debian #525934 -TD
+		     */
 		    I.disabled = YES;
+		}
 
 		if (present && present[HTML_OPTION_ID]
 		    && non_empty(value[HTML_OPTION_ID])) {
@@ -5286,7 +5276,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 		if (opnum > 0 && opnum < 100000) {
 		    sprintf(marker, "(%d)", opnum);
 		    HTML_put_string(me, marker);
-		    for (i = strlen(marker); i < 5; ++i) {
+		    for (i = (int) strlen(marker); i < 5; ++i) {
 			HTML_put_character(me, '_');
 		    }
 		}
@@ -5572,7 +5562,7 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	if (me->skip_stack > 0) {
 	    CTRACE((tfp,
 		    "HTML:begin_element: internal call (level %d), leaving on stack - `%s'\n",
-		    me->skip_stack, NONNULL(me->sp->style->name)));
+		    me->skip_stack, NONNULL(GetHTStyleName(me->sp->style))));
 	    me->skip_stack--;
 	    return status;
 	}
@@ -5590,18 +5580,18 @@ static int HTML_start_element(HTStructured * me, int element_number,
 	CTRACE((tfp,
 		"HTML:begin_element[%d]: adding style to stack - %s (%s)\n",
 		(int) STACKLEVEL(me),
-		NONNULL(me->new_style->name),
+		NONNULL(GetHTStyleName(me->new_style)),
 		HTML_dtd.tags[ElementNumber].name));
 	(me->sp)--;
 	me->sp[0].style = me->new_style;	/* Stack new style */
 	me->sp[0].tag_number = ElementNumber;
-#ifdef EXP_JUSTIFY_ELTS
+#ifdef USE_JUSTIFY_ELTS
 	if (wait_for_this_stacked_elt < 0 &&
 	    HTML_dtd.tags[ElementNumber].can_justify == FALSE)
-	    wait_for_this_stacked_elt = me->stack - me->sp + MAX_NESTING;
+	    wait_for_this_stacked_elt = (int) (me->stack - me->sp) + MAX_NESTING;
 #endif
     }
-#ifdef EXP_JUSTIFY_ELTS
+#ifdef USE_JUSTIFY_ELTS
     if (in_DT && ElementNumber == HTML_DD)
 	in_DT = FALSE;
     else if (ElementNumber == HTML_DT)
@@ -5636,21 +5626,22 @@ static int HTML_start_element(HTStructured * me, int element_number,
  *	stack for an element with a defined style. (In fact, the styles
  *	should be linked to the whole stack not just the top one.)
  *	TBL 921119
- *
- *	We don't turn on "CAREFUL" check because the parser produces
- *	(internal code errors apart) good nesting.  The parser checks
- *	incoming code errors, not this module.
  */
 static int HTML_end_element(HTStructured * me, int element_number,
 			    char **include)
 {
+    static char empty[1];
+
     int i = 0;
     int status = HT_OK;
     char *temp = NULL, *cp = NULL;
     BOOL BreakFlag = FALSE;
     BOOL intern_flag = FALSE;
+
+#ifdef USE_COLOR_STYLE
     BOOL skip_stack_requested = FALSE;
-    EMIT_IFDEF_EXP_JUSTIFY_ELTS(BOOL reached_awaited_stacked_elt = FALSE);
+#endif
+    EMIT_IFDEF_USE_JUSTIFY_ELTS(BOOL reached_awaited_stacked_elt = FALSE);
 
 #ifdef USE_PRETTYSRC
     if (psrc_view && !sgml_in_psrc_was_initialized) {
@@ -5667,7 +5658,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	    if (tagname_transform != 0)
 		PUTS(tag->name);
 	    else {
-		LYstrncpy(buf, tag->name, sizeof(buf) - 1);
+		LYStrNCpy(buf, tag->name, sizeof(buf) - 1);
 		LYLowerCase(buf);
 		PUTS(buf);
 	    }
@@ -5692,9 +5683,6 @@ static int HTML_end_element(HTStructured * me, int element_number,
 		(me->sp->tag_number < 0) ? "*invalid tag*" :
 		(me->sp->tag_number >= HTML_ELEMENTS) ? "special tag" :
 		HTML_dtd.tags[me->sp->tag_number].name));
-#ifdef CAREFUL			/* parser assumed to produce good nesting */
-	/* panic */
-#endif /* CAREFUL */
     }
 
     /*
@@ -5713,7 +5701,9 @@ static int HTML_end_element(HTStructured * me, int element_number,
      * HTMLDTD.c.  - FM & KW
      */
     if (HTML_dtd.tags[element_number].contents != SGML_EMPTY) {
+#ifdef USE_COLOR_STYLE
 	skip_stack_requested = (BOOL) (me->skip_stack > 0);
+#endif
 	if ((element_number != me->sp[0].tag_number) &&
 	    me->skip_stack <= 0 &&
 	    HTML_dtd.tags[HTML_LH].contents != SGML_EMPTY &&
@@ -5726,7 +5716,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	     element_number == HTML_H2 ||
 	     element_number == HTML_H3 ||
 	     element_number == HTML_H4 ||
-	     element_number == HTML_H6 ||
+	     element_number == HTML_H5 ||
 	     element_number == HTML_H6)) {
 	    /*
 	     * Set the break flag if we're popping a dummy HTML_LH substituted
@@ -5742,7 +5732,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	    CTRACE2(TRACE_STYLE,
 		    (tfp,
 		     "HTML:end_element: Internal call (level %d), leaving on stack - %s\n",
-		     me->skip_stack, NONNULL(me->sp->style->name)));
+		     me->skip_stack, NONNULL(GetHTStyleName(me->sp->style))));
 	    me->skip_stack--;
 	} else if (element_number == HTML_OBJECT &&
 		   me->sp[0].tag_number != HTML_OBJECT &&
@@ -5760,7 +5750,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 		     (int) STACKLEVEL(me),
 		     "Special OBJECT handling", me->objects_mixed_open,
 		     "leaving on stack",
-		     NONNULL(me->sp->style->name)));
+		     NONNULL(GetHTStyleName(me->sp->style))));
 	    me->objects_mixed_open--;
 	} else if (me->stack_overrun == TRUE &&
 		   element_number != me->sp[0].tag_number) {
@@ -5792,7 +5782,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 		    element_number == HTML_H2 ||
 		    element_number == HTML_H3 ||
 		    element_number == HTML_H4 ||
-		    element_number == HTML_H6 ||
+		    element_number == HTML_H5 ||
 		    element_number == HTML_H6)) {
 	    /*
 	     * It's an H# for which we substituted an HTML_LH, which we've
@@ -5800,7 +5790,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	     */
 	    return HT_OK;
 	} else if (me->sp < (me->stack + MAX_NESTING - 1)) {
-#ifdef EXP_JUSTIFY_ELTS
+#ifdef USE_JUSTIFY_ELTS
 	    if (wait_for_this_stacked_elt == me->stack - me->sp + MAX_NESTING)
 		reached_awaited_stacked_elt = TRUE;
 #endif
@@ -5819,7 +5809,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 			     "Special OBJECT->FIG handling",
 			     me->objects_figged_open,
 			     "treating as end FIG",
-			     NONNULL(me->sp->style->name)));
+			     NONNULL(GetHTStyleName(me->sp->style))));
 		    me->objects_figged_open--;
 		    element_number = HTML_FIG;
 		}
@@ -5829,14 +5819,14 @@ static int HTML_end_element(HTStructured * me, int element_number,
 		    (tfp,
 		     "HTML:end_element[%d]: Popped style off stack - %s\n",
 		     (int) STACKLEVEL(me),
-		     NONNULL(me->sp->style->name)));
+		     NONNULL(GetHTStyleName(me->sp->style))));
 	} else {
 	    CTRACE2(TRACE_STYLE, (tfp,
 				  "Stack underflow error!  Tried to pop off more styles than exist in stack\n"));
 	}
     }
     if (BreakFlag == TRUE) {
-#ifdef EXP_JUSTIFY_ELTS
+#ifdef USE_JUSTIFY_ELTS
 	if (reached_awaited_stacked_elt)
 	    wait_for_this_stacked_elt = -1;
 #endif
@@ -5847,8 +5837,9 @@ static int HTML_end_element(HTStructured * me, int element_number,
      * Check for unclosed TEXTAREA.  - FM
      */
     if (me->inTEXTAREA && element_number != HTML_TEXTAREA) {
-	if (LYBadHTML(me))
-	    CTRACE((tfp, "Bad HTML: Missing TEXTAREA end tag\n"));
+	if (LYBadHTML(me)) {
+	    LYShowBadHTML("Bad HTML: Missing TEXTAREA end tag\n");
+	}
     }
 
     if (!me->text && !LYMapsOnly) {
@@ -5862,16 +5853,21 @@ static int HTML_end_element(HTStructured * me, int element_number,
 
     case HTML_HTML:
 	if (me->inA || me->inSELECT || me->inTEXTAREA) {
-	    if (LYBadHTML(me))
-		CTRACE((tfp,
-			"Bad HTML: %s%s%s%s%s not closed before HTML end tag *****\n",
-			me->inSELECT ? "SELECT" : "",
-			(me->inSELECT && me->inTEXTAREA) ? ", " : "",
-			me->inTEXTAREA ? "TEXTAREA" : "",
-			(((me->inSELECT || me->inTEXTAREA) && me->inA)
-			 ? ", "
-			 : ""),
-			me->inA ? "A" : ""));
+	    if (LYBadHTML(me)) {
+		char *msg = NULL;
+
+		HTSprintf0(&msg,
+			   "Bad HTML: %s%s%s%s%s not closed before HTML end tag *****\n",
+			   me->inSELECT ? "SELECT" : "",
+			   (me->inSELECT && me->inTEXTAREA) ? ", " : "",
+			   me->inTEXTAREA ? "TEXTAREA" : "",
+			   (((me->inSELECT || me->inTEXTAREA) && me->inA)
+			    ? ", "
+			    : ""),
+			   me->inA ? "A" : "");
+		LYShowBadHTML(msg);
+		FREE(msg);
+	    }
 	}
 	break;
 
@@ -5967,16 +5963,21 @@ static int HTML_end_element(HTStructured * me, int element_number,
 
     case HTML_BODY:
 	if (me->inA || me->inSELECT || me->inTEXTAREA) {
-	    if (LYBadHTML(me))
-		CTRACE((tfp,
-			"Bad HTML: %s%s%s%s%s not closed before BODY end tag *****\n",
-			me->inSELECT ? "SELECT" : "",
-			(me->inSELECT && me->inTEXTAREA) ? ", " : "",
-			me->inTEXTAREA ? "TEXTAREA" : "",
-			(((me->inSELECT || me->inTEXTAREA) && me->inA)
-			 ? ", "
-			 : ""),
-			me->inA ? "A" : ""));
+	    if (LYBadHTML(me)) {
+		char *msg = NULL;
+
+		HTSprintf0(&msg,
+			   "Bad HTML: %s%s%s%s%s not closed before BODY end tag *****\n",
+			   me->inSELECT ? "SELECT" : "",
+			   (me->inSELECT && me->inTEXTAREA) ? ", " : "",
+			   me->inTEXTAREA ? "TEXTAREA" : "",
+			   (((me->inSELECT || me->inTEXTAREA) && me->inA)
+			    ? ", "
+			    : ""),
+			   me->inA ? "A" : "");
+		LYShowBadHTML(msg);
+		FREE(msg);
+	    }
 	}
 	break;
 
@@ -6066,7 +6067,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 
     case HTML_P:
 	LYHandlePlike(me,
-		      (const BOOL *) 0, (const char **) 0,
+		      (const BOOL *) 0, (STRING2PTR) 0,
 		      include, 0,
 		      FALSE);
 	break;
@@ -6104,7 +6105,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	}
 	break;
 
-    case HTML_ABBREV:		/* Miscellaneous character containers */
+    case HTML_ABBR:		/* Miscellaneous character containers */
     case HTML_ACRONYM:
     case HTML_AU:
     case HTML_AUTHOR:
@@ -6208,7 +6209,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	me->List_Nesting_Level--;
 	CTRACE((tfp, "HTML_end_element: Reducing List Nesting Level to %d\n",
 		me->List_Nesting_Level));
-#ifdef EXP_JUSTIFY_ELTS
+#ifdef USE_JUSTIFY_ELTS
 	if (element_number == HTML_DL)
 	    in_DT = FALSE;	/*close the term that was without definition. */
 #endif
@@ -6303,13 +6304,13 @@ static int HTML_end_element(HTStructured * me, int element_number,
 
 	    HTChunkTerminate(&me->object);
 	    data = me->object.data;
-	    while ((cp = strchr(data, '<')) != NULL) {
+	    while ((cp = StrChr(data, '<')) != NULL) {
 		/*
 		 * Look for nested OBJECTs.  This procedure could get tripped
 		 * up if invalid comments are present in the content, or if an
 		 * OBJECT end tag is present in a quoted attribute.  - FM
 		 */
-		if (!strncmp(cp, "<!--", 4)) {
+		if (!StrNCmp(cp, "<!--", 4)) {
 		    data = LYFindEndOfComment(cp);
 		    cp = data;
 		} else if (s == 0 && !strncasecomp(cp, "<PARAM", 6) &&
@@ -6342,10 +6343,15 @@ static int HTML_end_element(HTStructured * me, int element_number,
 		 * We had more end tags than start tags, so we have bad HTML or
 		 * otherwise misparsed.  - FM
 		 */
-		if (LYBadHTML(me))
-		    CTRACE((tfp,
-			    "Bad HTML: Unmatched OBJECT start and end tags.  Discarding content:\n%s\n",
-			    me->object.data));
+		if (LYBadHTML(me)) {
+		    char *msg = NULL;
+
+		    HTSprintf0(&msg,
+			       "Bad HTML: Unmatched OBJECT start and end tags.  Discarding content:\n%s\n",
+			       me->object.data);
+		    LYShowBadHTML(msg);
+		    FREE(msg);
+		}
 		goto End_Object;
 	    }
 	    if (s > e) {
@@ -6379,7 +6385,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 		    HTChunkPuts(&me->object, "</OBJECT>");
 		    if (!include)	/* error, should not happen */
 			include = &me->xinclude;
-		    StrnAllocCat(*include, me->object.data, me->object.size);
+		    StrnAllocCat(*include, me->object.data, (size_t) me->object.size);
 		    clear_objectdata(me);
 		    /* an internal fake call to keep our stack happy: */
 		    HTML_start_element(me, HTML_OBJECT, NULL, NULL,
@@ -6477,9 +6483,9 @@ static int HTML_end_element(HTStructured * me, int element_number,
 			goto End_Object;
 		    }
 		} else {
-		    if (LYBadHTML(me))
-			CTRACE((tfp,
-				"Bad HTML: Unmatched OBJECT start and end tags.  Discarding content.\n"));
+		    if (LYBadHTML(me)) {
+			LYShowBadHTML("Bad HTML: Unmatched OBJECT start and end tags.  Discarding content.\n");
+		    }
 		    goto End_Object;
 		}
 	    }
@@ -6716,10 +6722,11 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	 * FORM-related globals in GridText.c are initialized.  - FM
 	 */
 	if (!me->inFORM) {
-	    if (LYBadHTML(me))
-		CTRACE((tfp, "Bad HTML: Unmatched FORM end tag\n"));
+	    if (LYBadHTML(me)) {
+		LYShowBadHTML("Bad HTML: Unmatched FORM end tag\n");
+	    }
 	}
-	EMIT_IFDEF_EXP_JUSTIFY_ELTS(form_in_htext = FALSE);
+	EMIT_IFDEF_USE_JUSTIFY_ELTS(form_in_htext = FALSE);
 
 	/*
 	 * Check if we still have a SELECT element open.  FORM may have been
@@ -6731,9 +6738,9 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	 * SELECT.  - kw
 	 */
 	if (me->inSELECT) {
-	    if (LYBadHTML(me))
-		CTRACE((tfp,
-			"Bad HTML: Open SELECT at FORM end. Faking SELECT end tag. *****\n"));
+	    if (LYBadHTML(me)) {
+		LYShowBadHTML("Bad HTML: Open SELECT at FORM end. Faking SELECT end tag. *****\n");
+	    }
 	    if (me->sp->tag_number != HTML_SELECT) {
 		SET_SKIP_STACK(HTML_SELECT);
 	    }
@@ -6784,8 +6791,9 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	     * Make sure we had a textarea start tag.
 	     */
 	    if (!me->inTEXTAREA) {
-		if (LYBadHTML(me))
-		    CTRACE((tfp, "Bad HTML: Unmatched TEXTAREA end tag\n"));
+		if (LYBadHTML(me)) {
+		    LYShowBadHTML("Bad HTML: Unmatched TEXTAREA end tag\n");
+		}
 		break;
 	    }
 
@@ -6797,25 +6805,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	    /*
 	     * Initialize.
 	     */
-	    I.align = NULL;
-	    I.accept = NULL;
-	    I.checked = NO;
-	    I.iclass = NULL;
-	    I.disabled = NO;
-	    I.error = NULL;
-	    I.height = NULL;
-	    I.id = NULL;
-	    I.lang = NULL;
-	    I.max = NULL;
-	    I.maxlength = NULL;
-	    I.md = NULL;
-	    I.min = NULL;
-	    I.name = NULL;
-	    I.size = 0;
-	    I.src = NULL;
-	    I.type = NULL;
-	    I.value = NULL;
-	    I.width = NULL;
+	    memset(&I, 0, sizeof(I));
 	    I.value_cs = current_char_set;
 
 	    UPDATE_STYLE;
@@ -6842,6 +6832,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	    I.accept_cs = me->textarea_accept_cs;
 	    me->textarea_accept_cs = NULL;
 	    I.disabled = me->textarea_disabled;
+	    I.readonly = me->textarea_readonly;
 	    I.id = me->textarea_id;
 
 	    /*
@@ -6901,7 +6892,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	    /*
 	     * Load the first text line, or set up for all blank rows.  - FM
 	     */
-	    if ((cp = strchr(data, '\n')) != NULL) {
+	    if ((cp = StrChr(data, '\n')) != NULL) {
 		*cp = '\0';
 		StrAllocCopy(temp, data);
 		*cp = '\n';
@@ -6912,7 +6903,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 		} else {
 		    FREE(temp);
 		}
-		data = "";
+		data = empty;
 	    }
 	    /*
 	     * Display at least the requested number of text lines and/or blank
@@ -6934,14 +6925,14 @@ static int HTML_end_element(HTStructured * me, int element_number,
 		    if (*data == '\n') {
 			FREE(temp);
 			data++;
-		    } else if ((cp = strchr(data, '\n')) != NULL) {
+		    } else if ((cp = StrChr(data, '\n')) != NULL) {
 			*cp = '\0';
 			StrAllocCopy(temp, data);
 			*cp = '\n';
 			data = (cp + 1);
 		    } else {
 			StrAllocCopy(temp, data);
-			data = "";
+			data = empty;
 		    }
 		} else {
 		    FREE(temp);
@@ -6960,21 +6951,21 @@ static int HTML_end_element(HTStructured * me, int element_number,
 			temp[j] = (char) (temp[j + 1] ? ' ' : '\0');
 		}
 		I.value = temp;
-		chars = HText_beginInput(me->text, me->inUnderline, &I);
+		(void) HText_beginInput(me->text, me->inUnderline, &I);
 		for (chars = me->textarea_cols; chars > 0; chars--)
 		    HTML_put_character(me, '_');
 		HText_appendCharacter(me->text, '\r');
 		if (*data == '\n') {
 		    FREE(temp);
 		    data++;
-		} else if ((cp = strchr(data, '\n')) != NULL) {
+		} else if ((cp = StrChr(data, '\n')) != NULL) {
 		    *cp = '\0';
 		    StrAllocCopy(temp, data);
 		    *cp = '\n';
 		    data = (cp + 1);
 		} else if (*data != '\0') {
 		    StrAllocCopy(temp, data);
-		    data = "";
+		    data = empty;
 		} else {
 		    FREE(temp);
 		}
@@ -6992,14 +6983,15 @@ static int HTML_end_element(HTStructured * me, int element_number,
 
     case HTML_SELECT:
 	{
-	    char *ptr;
+	    char *ptr = NULL;
 
 	    /*
 	     * Make sure we had a select start tag.
 	     */
 	    if (!me->inSELECT) {
-		if (LYBadHTML(me))
-		    CTRACE((tfp, "Bad HTML: Unmatched SELECT end tag *****\n"));
+		if (LYBadHTML(me)) {
+		    LYShowBadHTML("Bad HTML: Unmatched SELECT end tag *****\n");
+		}
 		break;
 	    }
 
@@ -7017,9 +7009,9 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	     * Make sure we're in a form.
 	     */
 	    if (!me->inFORM) {
-		if (LYBadHTML(me))
-		    CTRACE((tfp,
-			    "Bad HTML: SELECT end tag not within FORM element *****\n"));
+		if (LYBadHTML(me)) {
+		    LYShowBadHTML("Bad HTML: SELECT end tag not within FORM element *****\n");
+		}
 		/*
 		 * Hopefully won't crash, so we'll ignore it.  - kw
 		 */
@@ -7032,13 +7024,14 @@ static int HTML_end_element(HTStructured * me, int element_number,
 	    /*
 	     * Finish the previous option.
 	     */
-	    ptr = HText_setLastOptionValue(me->text,
-					   me->option.data,
-					   me->LastOptionValue,
-					   LAST_ORDER,
-					   me->LastOptionChecked,
-					   me->UCLYhndl,
-					   ATTR_CS_IN);
+	    if (!me->first_option)
+		ptr = HText_setLastOptionValue(me->text,
+					       me->option.data,
+					       me->LastOptionValue,
+					       LAST_ORDER,
+					       me->LastOptionChecked,
+					       me->UCLYhndl,
+					       ATTR_CS_IN);
 	    FREE(me->LastOptionValue);
 
 	    me->LastOptionChecked = FALSE;
@@ -7070,7 +7063,6 @@ static int HTML_end_element(HTStructured * me, int element_number,
 			    HText_appendCharacter(me->text, *ptr);
 			ptr++;
 		    }
-		    HText_setIgnoreExcess(me->text, TRUE);
 		}
 		for (; non_empty(ptr); ptr++) {
 		    if (*ptr == ' ')
@@ -7101,7 +7093,6 @@ static int HTML_end_element(HTStructured * me, int element_number,
 		    HText_setLastChar(me->text, ']');
 		    me->in_word = YES;
 		}
-		HText_setIgnoreExcess(me->text, FALSE);
 	    }
 	    HTChunkClear(&me->option);
 
@@ -7212,7 +7203,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 
     }				/* switch */
 
-#ifdef EXP_JUSTIFY_ELTS
+#ifdef USE_JUSTIFY_ELTS
     if (reached_awaited_stacked_elt)
 	wait_for_this_stacked_elt = -1;
 #endif
@@ -7250,7 +7241,7 @@ static int HTML_end_element(HTStructured * me, int element_number,
 */
 int HTML_put_entity(HTStructured * me, int entity_number)
 {
-    int nent = HTML_dtd.number_of_entities;
+    int nent = (int) HTML_dtd.number_of_entities;
 
     if (entity_number < nent) {
 	HTML_put_string(me, p_entity_values[entity_number]);
@@ -7331,9 +7322,9 @@ static void HTML_free(HTStructured * me)
 	     * close of a still-open form, something must have gone very wrong. 
 	     * - kw
 	     */
-	    if (LYBadHTML(me))
-		CTRACE((tfp,
-			"Bad HTML: SELECT or OPTION not ended properly *****\n"));
+	    if (LYBadHTML(me)) {
+		LYShowBadHTML("Bad HTML: SELECT or OPTION not ended properly *****\n");
+	    }
 	    HTChunkTerminate(&me->option);
 	    /*
 	     * Output the left-over data as text, maybe it was invalid markup
@@ -7350,9 +7341,9 @@ static void HTML_free(HTStructured * me)
 	     * close of a still-open form, something must have gone very wrong. 
 	     * - kw
 	     */
-	    if (LYBadHTML(me))
-		CTRACE((tfp,
-			"Bad HTML: TEXTAREA not used properly *****\n"));
+	    if (LYBadHTML(me)) {
+		LYShowBadHTML("Bad HTML: TEXTAREA not used properly *****\n");
+	    }
 	    HTChunkTerminate(&me->textarea);
 	    /*
 	     * Output the left-over data as text, maybe it was invalid markup
@@ -7396,9 +7387,9 @@ static void HTML_free(HTStructured * me)
 	 * If we still have data in the me->option chunk after forcing a close
 	 * of a still-open form, something must have gone very wrong.  - kw
 	 */
-	if (LYBadHTML(me))
-	    CTRACE((tfp,
-		    "Bad HTML: SELECT or OPTION not ended properly *****\n"));
+	if (LYBadHTML(me)) {
+	    LYShowBadHTML("Bad HTML: SELECT or OPTION not ended properly *****\n");
+	}
 	if (TRACE) {
 	    HTChunkTerminate(&me->option);
 	    CTRACE((tfp, "HTML_free: ***** leftover option data: %s\n",
@@ -7412,9 +7403,9 @@ static void HTML_free(HTStructured * me)
 	 * close of a still-open form, something must have gone very wrong.  -
 	 * kw
 	 */
-	if (LYBadHTML(me))
-	    CTRACE((tfp,
-		    "Bad HTML: TEXTAREA not used properly *****\n"));
+	if (LYBadHTML(me)) {
+	    LYShowBadHTML("Bad HTML: TEXTAREA not used properly *****\n");
+	}
 	if (TRACE) {
 	    HTChunkTerminate(&me->textarea);
 	    CTRACE((tfp, "HTML_free: ***** leftover textarea data: %s\n",
@@ -7426,7 +7417,7 @@ static void HTML_free(HTStructured * me)
     if (me->target) {
 	(*me->targetClass._free) (me->target);
     }
-    if (me->sp && me->sp->style && me->sp->style->name) {
+    if (me->sp && me->sp->style && GetHTStyleName(me->sp->style)) {
 	if (me->sp->style->id == ST_DivCenter ||
 	    me->sp->style->id == ST_HeadingCenter ||
 	    me->sp->style->id == ST_Heading1) {
@@ -7511,7 +7502,7 @@ static void HTML_abort(HTStructured * me, HTError e)
     if (me->target) {
 	(*me->targetClass._abort) (me->target, e);
     }
-    if (me->sp && me->sp->style && me->sp->style->name) {
+    if (me->sp && me->sp->style && GetHTStyleName(me->sp->style)) {
 	if (me->sp->style->id == ST_DivCenter ||
 	    me->sp->style->id == ST_HeadingCenter ||
 	    me->sp->style->id == ST_Heading1) {
@@ -7666,6 +7657,7 @@ HTStructured *HTML_new(HTParentAnchor *anchor,
     me = typecalloc(HTStructured);
     if (me == NULL)
 	outofmem(__FILE__, "HTML_new");
+    assert(me != NULL);
 
     /*
      * This used to call 'get_styles()' only on the first time through this
@@ -7712,7 +7704,6 @@ HTStructured *HTML_new(HTParentAnchor *anchor,
     me->textarea_accept_cs = NULL;
     me->textarea_cols = 0;
     me->textarea_rows = 4;
-    me->textarea_disabled = NO;
     me->textarea_id = NULL;
 
     HTChunkInit(&me->math, 128);
@@ -7783,7 +7774,7 @@ HTStructured *HTML_new(HTParentAnchor *anchor,
 	atexit(free_Style_className);
     }
 #endif
-    addClassName("", "", 0);
+    addClassName("", "", (size_t) 0);
     class_string[0] = '\0';
 #endif
 
@@ -7849,7 +7840,7 @@ static void CacheThru_do_free(HTStream *me)
     if (me->anchor->source_cache_file) {
 	CTRACE((tfp, "SourceCacheWriter: Removing previous file %s\n",
 		me->anchor->source_cache_file));
-	LYRemoveTemp(me->anchor->source_cache_file);
+	(void) LYRemoveTemp(me->anchor->source_cache_file);
 	FREE(me->anchor->source_cache_file);
     }
     if (me->anchor->source_cache_chunk) {
@@ -7877,13 +7868,13 @@ static void CacheThru_do_free(HTStream *me)
 		HTAlert(gettext("Source cache error - disk full?"));
 		source_cache_file_error = TRUE;
 	    }
-	    LYRemoveTemp(me->filename);
+	    (void) LYRemoveTemp(me->filename);
 	    me->anchor->source_cache_file = NULL;
 	}
     } else if (me->status != HT_OK) {
 	if (me->chunk) {
 	    CTRACE((tfp, "SourceCacheWriter: memory chunk %p had errors.\n",
-		    me->chunk));
+		    (void *) me->chunk));
 	    HTChunkFree(me->chunk);
 	    me->chunk = me->last_chunk = NULL;
 	}
@@ -7916,7 +7907,7 @@ static void CacheThru_abort(HTStream *me, HTError e)
 	if (me->filename) {
 	    CTRACE((tfp, "SourceCacheWriter: Removing active file %s\n",
 		    me->filename));
-	    LYRemoveTemp(me->filename);
+	    (void) LYRemoveTemp(me->filename);
 	    FREE(me->filename);
 	}
 	if (me->chunk) {
@@ -7936,7 +7927,7 @@ static void CacheThru_abort(HTStream *me, HTError e)
 /*
  * FIXME: never used!
  */
-static void CacheThru_put_character(HTStream *me, char c_in)
+static void CacheThru_put_character(HTStream *me, int c_in)
 {
     if (me->status == HT_OK) {
 	if (me->fp) {
@@ -7971,9 +7962,10 @@ static void CacheThru_write(HTStream *me, const char *str, int l)
 {
     if (me->status == HT_OK && l != 0) {
 	if (me->fp) {
-	    fwrite(str, 1, l, me->fp);
-	    if (ferror(me->fp))
+	    if (fwrite(str, (size_t) 1, (size_t) l, me->fp) < (size_t) l
+		|| ferror(me->fp)) {
 		me->status = HT_ERROR;
+	    }
 	} else if (me->chunk) {
 	    me->last_chunk = HTChunkPutb2(me->last_chunk, str, l);
 	    if (me->last_chunk == NULL || me->last_chunk->allocated == 0)
@@ -8024,6 +8016,8 @@ static HTStream *CacheThru_new(HTParentAnchor *anchor,
     stream = (HTStream *) malloc(sizeof(*stream));
     if (!stream)
 	outofmem(__FILE__, "CacheThru_new");
+
+    assert(stream != NULL);
 
     stream->isa = &PassThruCache;
     stream->anchor = anchor;
@@ -8248,20 +8242,21 @@ int HTLoadError(HTStream *sink GCC_UNUSED, int number,
     return -number;
 }
 
-static char *MakeNewTitle(const char **value, int src_type)
+static char *MakeNewTitle(STRING2PTR value, int src_type)
 {
     char *ptr;
     char *newtitle = NULL;
 
     StrAllocCopy(newtitle, "[");
-    if (value != 0 && value[src_type] != 0)
+    if (value != 0 && value[src_type] != 0) {
 	ptr = strrchr(value[src_type], '/');
-    else
-	ptr = 0;
-    if (!ptr) {
-	StrAllocCat(newtitle, value[src_type]);
+	if (!ptr) {
+	    StrAllocCat(newtitle, value[src_type]);
+	} else {
+	    StrAllocCat(newtitle, ptr + 1);
+	}
     } else {
-	StrAllocCat(newtitle, ptr + 1);
+	ptr = 0;
     }
 #ifdef SH_EX			/* 1998/04/02 (Thu) 16:02:00 */
 
@@ -8289,7 +8284,7 @@ static char *MakeNewTitle(const char **value, int src_type)
     return newtitle;
 }
 
-static char *MakeNewImageValue(const char **value)
+static char *MakeNewImageValue(STRING2PTR value)
 {
     char *ptr;
     char *newtitle = NULL;
@@ -8307,7 +8302,7 @@ static char *MakeNewImageValue(const char **value)
     return newtitle;
 }
 
-static char *MakeNewMapValue(const char **value, const char *mapstr)
+static char *MakeNewMapValue(STRING2PTR value, const char *mapstr)
 {
     char *ptr;
     char *newtitle = NULL;

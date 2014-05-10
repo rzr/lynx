@@ -1,4 +1,7 @@
-/*		Configuration-specific Initialization		HTInit.c
+/*
+ * $LynxId: HTInit.c,v 1.88 2014/02/13 21:39:04 tom Exp $
+ *
+ *		Configuration-specific Initialization		HTInit.c
  *		----------------------------------------
  */
 
@@ -28,6 +31,8 @@
 #include <LYexit.h>
 #include <LYLeaks.h>
 
+#define CTrace(p) CTRACE2(TRACE_CFG, p)
+
 static int HTLoadTypesConfigFile(char *fn, AcceptMedia media);
 static int HTLoadExtensionsConfigFile(char *fn);
 
@@ -38,18 +43,19 @@ static int HTLoadExtensionsConfigFile(char *fn);
        HTSetSuffix5(suffix, mimetype, type, description, 1.0)
 
 #define SET_PRESENT(mimetype, command, quality, delay) \
-  HTSetPresentation(mimetype, command, 0, quality, delay, 0.0, 0, media)
+  HTSetPresentation(mimetype, command, 0, quality, delay, 0.0, 0L, media)
 
 #define SET_EXTERNL(rep_in, rep_out, command, quality) \
-    HTSetConversion(rep_in, rep_out, command, quality, 3.0, 0.0, 0, mediaEXT)
+    HTSetConversion(rep_in, rep_out, command, quality, 3.0, 0.0, 0L, mediaEXT)
 
 #define SET_INTERNL(rep_in, rep_out, command, quality) \
-    HTSetConversion(rep_in, rep_out, command, quality, 0.0, 0.0, 0, mediaINT)
+    HTSetConversion(rep_in, rep_out, command, quality, 0.0, 0.0, 0L, mediaINT)
 
 void HTFormatInit(void)
 {
     AcceptMedia media = mediaEXT;
 
+    CTrace((tfp, "HTFormatInit\n"));
 #ifdef NeXT
     SET_PRESENT("application/postscript", "open %s", 1.0, 2.0);
     SET_PRESENT("image/x-tiff", "open %s", 2.0, 2.0);
@@ -92,7 +98,6 @@ void HTFormatInit(void)
     /*
      * Add our header handlers.
      */
-    media = mediaINT;
     SET_INTERNL("message/x-http-redirection", "*", HTMIMERedirect, 2.0);
     SET_INTERNL("message/x-http-redirection", "www/present", HTMIMERedirect, 2.0);
     SET_INTERNL("message/x-http-redirection", "www/debug", HTMIMERedirect, 1.0);
@@ -110,15 +115,13 @@ void HTFormatInit(void)
     SET_INTERNL("www/compressed", "www/dump", HTCompressed, 1.0);
 
     /*
-     * Added the following to support some content types beginning to surface.
+     * The following support some content types seen here/there:
      */
     SET_INTERNL("application/html", "text/x-c", HTMLToC, 0.5);
     SET_INTERNL("application/html", "text/plain", HTMLToPlain, 0.5);
-    SET_INTERNL("text/css", "text/plain", HTMLToPlain, 0.5);
     SET_INTERNL("application/html", "www/present", HTMLPresent, 2.0);
-    SET_INTERNL("application/xhtml+xml", "www/present", HTMLPresent, 2.0);
-    SET_INTERNL("application/xml", "www/present", HTMLPresent, 2.0);
     SET_INTERNL("application/html", "www/source", HTPlainPresent, 1.0);
+    SET_INTERNL("application/xml", "www/present", HTMLPresent, 2.0);
     SET_INTERNL("application/x-wais-source", "www/source", HTPlainPresent, 1.0);
     SET_INTERNL("application/x-wais-source", "www/present", HTWSRCConvert, 2.0);
     SET_INTERNL("application/x-wais-source", "www/download", HTWSRCConvert, 1.0);
@@ -138,19 +141,49 @@ void HTFormatInit(void)
     SET_EXTERNL("www/source", "www/dump", HTDumpToStdout, 1.0);
 
     /*
-     * Now add our basic conversions.
+     * Other internal types, which must precede the "www/present" entries
+     * below (otherwise, they will be filtered out in HTFilterPresentations()).
      */
-    SET_INTERNL("text/x-sgml", "www/source", HTPlainPresent, 1.0);
-    SET_INTERNL("text/x-sgml", "www/present", HTMLPresent, 2.0);
-    SET_INTERNL("text/sgml", "www/source", HTPlainPresent, 1.0);
-    SET_INTERNL("text/sgml", "www/present", HTMLPresent, 1.0);
-    SET_INTERNL("text/css", "www/present", HTPlainPresent, 1.0);
-    SET_INTERNL("text/plain", "www/present", HTPlainPresent, 1.0);
-    SET_INTERNL("text/plain", "www/source", HTPlainPresent, 1.0);
-    SET_INTERNL("text/html", "www/source", HTPlainPresent, 1.0);
-    SET_INTERNL("text/html", "text/x-c", HTMLToC, 0.5);
+    SET_INTERNL("text/css", "text/plain", HTMLToPlain, 0.5);
     SET_INTERNL("text/html", "text/plain", HTMLToPlain, 0.5);
+    SET_INTERNL("text/html", "text/x-c", HTMLToC, 0.5);
+    SET_INTERNL("text/html", "www/source", HTPlainPresent, 1.0);
+    SET_INTERNL("text/plain", "www/source", HTPlainPresent, 1.0);
+    SET_INTERNL("text/sgml", "www/source", HTPlainPresent, 1.0);
+    SET_INTERNL("text/x-sgml", "www/source", HTPlainPresent, 1.0);
+
+    /*
+     * Now add our basic conversions.  These include the types which will
+     * be listed in a "Accept:" line sent to a server.  These criteria are
+     * used in HTFilterPresentations() to select acceptable types:
+     *
+     * a) input is not "www/mime" or "www/compressed"
+     * b) output is "www/present"
+     * c) quality is in the range 0.0 to 1.0, i.e., excludes the 2.0's.
+     *
+     * For reference:
+     * RFC 1874 - text/sgml
+     * RFC 2046 - text/plain
+     * RFC 2318 - text/css
+     * RFC 3023 - text/xml
+     * obsolete - text/x-sgml
+     *
+     * as well as
+     * http://www.iana.org/assignments/media-types/media-types.xhtml
+     *
+     * and
+     * http://www.w3.org/TR/xhtml-media-types/
+     *
+     * which describes
+     * application/xhtml+xml
+     * text/html
+     */
+    SET_INTERNL("application/xhtml+xml", "www/present", HTMLPresent, 1.0);
+    SET_INTERNL("text/css", "www/present", HTPlainPresent, 1.0);
     SET_INTERNL("text/html", "www/present", HTMLPresent, 1.0);
+    SET_INTERNL("text/plain", "www/present", HTPlainPresent, 1.0);
+    SET_INTERNL("text/sgml", "www/present", HTMLPresent, 1.0);
+    SET_INTERNL("text/x-sgml", "www/present", HTMLPresent, 2.0);
     SET_INTERNL("text/xml", "www/present", HTMLPresent, 2.0);
 
     if (LYisAbsPath(global_type_map)) {
@@ -161,13 +194,10 @@ void HTFormatInit(void)
     /*
      * Load the local maps.
      */
-    {
-	char buffer[LY_MAXPATH];
-
-	LYAddPathToHome(buffer, sizeof(buffer), personal_type_map);
-	if (IsOurFile(buffer)
-	    && LYCanReadFile(buffer))
-	    HTLoadTypesConfigFile(buffer, mediaUSR);
+    if (IsOurFile(LYAbsOrHomePath(&personal_type_map))
+	&& LYCanReadFile(personal_type_map)) {
+	/* These should override everything else. */
+	HTLoadTypesConfigFile(personal_type_map, mediaUSR);
     }
 
     /*
@@ -185,6 +215,7 @@ void HTFormatInit(void)
 
 void HTPreparsedFormatInit(void)
 {
+    CTrace((tfp, "HTPreparsedFormatInit\n"));
     if (LYPreparsedSource) {
 	SET_INTERNL("text/html", "www/source", HTMLParsedPresent, 1.0);
 	SET_INTERNL("text/html", "www/dump", HTMLParsedPresent, 1.0);
@@ -244,6 +275,8 @@ static char *GetCommand(char *s, char **t)
     if (!s2)
 	ExitWithError(MEMORY_EXHAUSTED_ABORT);
 
+    assert(s2 != NULL);
+
     *t = s2;
     while (non_empty(s)) {
 	if (quoted) {
@@ -257,7 +290,7 @@ static char *GetCommand(char *s, char **t)
 		*s2 = '\0';
 		return (++s);
 	    }
-	    if (*s == '\\') {
+	    if (*s == ESCAPE) {
 		quoted = 1;
 		++s;
 	    } else {
@@ -296,22 +329,24 @@ static void TrimCommand(char *command)
 	    if (escape) {
 		escape = FALSE;
 	    } else if (squote) {
-		if (ch == '\'')
+		if (ch == SQUOTE)
 		    squote = FALSE;
 	    } else if (dquote) {
-		if (ch == '"')
+		switch (ch) {
+		case DQUOTE:
 		    dquote = FALSE;
+		    break;
+		case ESCAPE:
+		    escape = TRUE;
+		    break;
+		}
 	    } else {
 		switch (ch) {
-		case '"':
+		case DQUOTE:
 		    dquote = TRUE;
 		    break;
-		case '\'':
+		case SQUOTE:
 		    squote = TRUE;
-		    break;
-		case '\\':
-		    if (dquote)
-			escape = TRUE;
 		    break;
 		}
 	    }
@@ -323,7 +358,7 @@ static void TrimCommand(char *command)
 			continue;
 		}
 	    }
-	    *d++ = ch;
+	    *d++ = (char) ch;
 	    c0 = ch;
 	}
 	*d = '\0';
@@ -340,6 +375,9 @@ static int ProcessMailcapEntry(FILE *fp, struct MailcapEntry *mc, AcceptMedia me
     rawentry = (char *) malloc(rawentryalloc);
     if (!rawentry)
 	ExitWithError(MEMORY_EXHAUSTED_ABORT);
+
+    assert(rawentry != NULL);
+
     *rawentry = '\0';
     while (LYSafeGets(&LineBuf, fp) != 0) {
 	LYTrimNewline(LineBuf);
@@ -353,8 +391,10 @@ static int ProcessMailcapEntry(FILE *fp, struct MailcapEntry *mc, AcceptMedia me
 
 	    if (!rawentry)
 		ExitWithError(MEMORY_EXHAUSTED_ABORT);
+
+	    assert(rawentry != NULL);
 	}
-	if (len > 0 && LineBuf[len - 1] == '\\') {
+	if (len > 0 && LineBuf[len - 1] == ESCAPE) {
 	    LineBuf[len - 1] = '\0';
 	    strcat(rawentry, LineBuf);
 	} else {
@@ -370,9 +410,9 @@ static int ProcessMailcapEntry(FILE *fp, struct MailcapEntry *mc, AcceptMedia me
 	FREE(rawentry);
 	return (0);
     }
-    s = strchr(rawentry, ';');
+    s = StrChr(rawentry, ';');
     if (s == NULL) {
-	CTRACE((tfp,
+	CTrace((tfp,
 		"ProcessMailcapEntry: Ignoring invalid mailcap entry: %s\n",
 		rawentry));
 	FREE(rawentry);
@@ -383,7 +423,7 @@ static int ProcessMailcapEntry(FILE *fp, struct MailcapEntry *mc, AcceptMedia me
 	!strncasecomp(t, "text/plain", 10)) {
 	--s;
 	*s = ';';
-	CTRACE((tfp, "ProcessMailcapEntry: Ignoring mailcap entry: %s\n",
+	CTrace((tfp, "ProcessMailcapEntry: Ignoring mailcap entry: %s\n",
 		rawentry));
 	FREE(rawentry);
 	return (0);
@@ -411,7 +451,7 @@ static int ProcessMailcapEntry(FILE *fp, struct MailcapEntry *mc, AcceptMedia me
 
 	t = GetCommand(s, &mallocd_string);
 	arg = mallocd_string;
-	eq = strchr(arg, '=');
+	eq = StrChr(arg, '=');
 	if (eq) {
 	    *eq++ = '\0';
 	    eq = LYSkipBlanks(eq);
@@ -426,7 +466,7 @@ static int ProcessMailcapEntry(FILE *fp, struct MailcapEntry *mc, AcceptMedia me
 		mc->testcommand = NULL;
 		StrAllocCopy(mc->testcommand, eq);
 		TrimCommand(mc->testcommand);
-		CTRACE((tfp, "ProcessMailcapEntry: Found testcommand:%s\n",
+		CTrace((tfp, "ProcessMailcapEntry: Found testcommand:%s\n",
 			mc->testcommand));
 	    } else if (eq && !strcmp(arg, "description")) {
 		mc->label = eq;	/* ignored */
@@ -447,7 +487,7 @@ static int ProcessMailcapEntry(FILE *fp, struct MailcapEntry *mc, AcceptMedia me
 		    mc->maxbytes = 0;
 	    } else if (strcmp(arg, "notes")) {	/* IGNORE notes field */
 		if (*arg)
-		    CTRACE((tfp,
+		    CTrace((tfp,
 			    "ProcessMailcapEntry: Ignoring mailcap flag '%s'.\n",
 			    arg));
 	    }
@@ -461,7 +501,7 @@ static int ProcessMailcapEntry(FILE *fp, struct MailcapEntry *mc, AcceptMedia me
     FREE(rawentry);
 
     if (PassesTest(mc)) {
-	CTRACE((tfp, "ProcessMailcapEntry Setting up conversion %s : %s\n",
+	CTrace((tfp, "ProcessMailcapEntry Setting up conversion %s : %s\n",
 		mc->contenttype, mc->command));
 	HTSetPresentation(mc->contenttype,
 			  mc->command,
@@ -487,9 +527,9 @@ static const char *LYSkipQuoted(const char *s)
     while (*s != 0) {
 	if (escaped) {
 	    escaped = 0;
-	} else if (*s == '\\') {
+	} else if (*s == ESCAPE) {
 	    escaped = 1;
-	} else if (*s == '"') {
+	} else if (*s == DQUOTE) {
 	    ++s;
 	    break;
 	}
@@ -506,7 +546,7 @@ static const char *LYSkipToken(const char *s)
 {
     static const char tspecials[] = "\"()<>@,;:\\/[]?.=";
 
-    while (*s != '\0' && !WHITE(*s) && strchr(tspecials, *s) == 0) {
+    while (*s != '\0' && !WHITE(*s) && StrChr(tspecials, *s) == 0) {
 	++s;
     }
     return s;
@@ -514,7 +554,7 @@ static const char *LYSkipToken(const char *s)
 
 static const char *LYSkipValue(const char *s)
 {
-    if (*s == '"')
+    if (*s == DQUOTE)
 	s = LYSkipQuoted(s);
     else
 	s = LYSkipToken(s);
@@ -530,12 +570,12 @@ static char *LYCopyValue(const char *s)
     char *result = 0;
     int j, k;
 
-    if (*s == '"') {
+    if (*s == DQUOTE) {
 	t = LYSkipQuoted(s);
 	StrAllocCopy(result, s + 1);
 	result[t - s - 2] = '\0';
 	for (j = k = 0;; ++j, ++k) {
-	    if (result[j] == '\\') {
+	    if (result[j] == ESCAPE) {
 		++j;
 	    }
 	    if ((result[k] = result[j]) == '\0')
@@ -561,7 +601,7 @@ static char *LYGetContentType(const char *name,
     if (params != 0) {
 	if (name != 0) {
 	    size_t length = strlen(name);
-	    const char *test = strchr(params, ';');	/* skip type/subtype */
+	    const char *test = StrChr(params, ';');	/* skip type/subtype */
 	    const char *next;
 
 	    while (test != 0) {
@@ -571,7 +611,7 @@ static char *LYGetContentType(const char *name,
 		test = LYSkipCBlanks(test);
 		next = LYSkipToken(test);
 		if ((next - test) == (int) length
-		    && !strncmp(test, name, length)) {
+		    && !StrNCmp(test, name, length)) {
 		    found = TRUE;
 		}
 		test = LYSkipCBlanks(next);
@@ -604,7 +644,7 @@ static char *LYGetContentType(const char *name,
  */
 BOOL LYMailcapUsesPctS(const char *controlstring)
 {
-    int result = FALSE;
+    BOOL result = FALSE;
     const char *from;
     const char *next;
     int prefixed = 0;
@@ -613,7 +653,7 @@ BOOL LYMailcapUsesPctS(const char *controlstring)
     for (from = controlstring; *from != '\0'; from++) {
 	if (escaped) {
 	    escaped = 0;
-	} else if (*from == '\\') {
+	} else if (*from == ESCAPE) {
 	    escaped = 1;
 	} else if (prefixed) {
 	    prefixed = 0;
@@ -627,7 +667,7 @@ BOOL LYMailcapUsesPctS(const char *controlstring)
 		result = TRUE;
 		break;
 	    case L_CURL:
-		next = strchr(from, R_CURL);
+		next = StrChr(from, R_CURL);
 		if (next != 0) {
 		    from = next;
 		    break;
@@ -666,19 +706,19 @@ static int BuildCommand(HTChunk *cmd,
     for (from = controlstring; *from != '\0'; from++) {
 	if (escaped) {
 	    escaped = 0;
-	    HTChunkPutc(cmd, *from);
-	} else if (*from == '\\') {
+	    HTChunkPutc(cmd, UCH(*from));
+	} else if (*from == ESCAPE) {
 	    escaped = 1;
 	} else if (prefixed) {
 	    prefixed = 0;
 	    switch (*from) {
 	    case '%':		/* not defined */
-		HTChunkPutc(cmd, *from);
+		HTChunkPutc(cmd, UCH(*from));
 		break;
 	    case 'n':
 		/* FALLTHRU */
 	    case 'F':
-		CTRACE((tfp, "BuildCommand: Bad mailcap \"test\" clause: %s\n",
+		CTrace((tfp, "BuildCommand: Bad mailcap \"test\" clause: %s\n",
 			controlstring));
 		break;
 	    case 't':
@@ -688,12 +728,12 @@ static int BuildCommand(HTChunk *cmd,
 		}
 		break;
 	    case 's':
-		if (TmpFileLen && TmpFileName) {
+		if (TmpFileLen) {
 		    HTChunkPuts(cmd, TmpFileName);
 		}
 		break;
 	    case L_CURL:
-		next = strchr(from, R_CURL);
+		next = StrChr(from, R_CURL);
 		if (next != 0) {
 		    if (params != 0) {
 			++from;
@@ -702,11 +742,11 @@ static int BuildCommand(HTChunk *cmd,
 			if ((value = LYGetContentType(name, params)) != 0) {
 			    HTChunkPuts(cmd, value);
 			    FREE(value);
-			} else {
+			} else if (name) {
 			    if (!strcmp(name, "charset")) {
 				HTChunkPuts(cmd, "ISO-8859-1");
 			    } else {
-				CTRACE((tfp, "BuildCommand no value for %s\n", name));
+				CTrace((tfp, "BuildCommand no value for %s\n", name));
 			    }
 			}
 			FREE(name);
@@ -718,7 +758,7 @@ static int BuildCommand(HTChunk *cmd,
 		}
 		/* FALLTHRU */
 	    default:
-		CTRACE((tfp,
+		CTrace((tfp,
 			"BuildCommand: Ignoring unrecognized format code in mailcap file '%%%c'.\n",
 			*from));
 		break;
@@ -726,7 +766,7 @@ static int BuildCommand(HTChunk *cmd,
 	} else if (*from == '%') {
 	    prefixed = 1;
 	} else {
-	    HTChunkPutc(cmd, *from);
+	    HTChunkPutc(cmd, UCH(*from));
 	}
     }
     HTChunkTerminate(cmd);
@@ -755,21 +795,21 @@ int LYTestMailcapCommand(const char *testcommand,
 	TmpFileName[0] = '\0';
     }
     expanded = HTChunkCreate(1024);
-    if ((result = BuildCommand(expanded, testcommand, TmpFileName, params)) != 0) {
+    if (BuildCommand(expanded, testcommand, TmpFileName, params) != 0) {
 	result = 1;
-	CTRACE((tfp, "PassesTest: Deferring test command: %s\n", expanded->data));
+	CTrace((tfp, "PassesTest: Deferring test command: %s\n", expanded->data));
     } else {
-	CTRACE((tfp, "PassesTest: Executing test command: %s\n", expanded->data));
+	CTrace((tfp, "PassesTest: Executing test command: %s\n", expanded->data));
 	if ((result = LYSystem(expanded->data)) != 0) {
 	    result = -1;
-	    CTRACE((tfp, "PassesTest: Test failed!\n"));
+	    CTrace((tfp, "PassesTest: Test failed!\n"));
 	} else {
-	    CTRACE((tfp, "PassesTest: Test passed!\n"));
+	    CTrace((tfp, "PassesTest: Test passed!\n"));
 	}
     }
 
     HTChunkFree(expanded);
-    LYRemoveTemp(TmpFileName);
+    (void) LYRemoveTemp(TmpFileName);
 
     return result;
 }
@@ -821,6 +861,9 @@ static int RememberTestResult(int mode, char *cmd, int result)
 
 	if (cur == NULL)
 	    outofmem(__FILE__, "RememberTestResult");
+
+	assert(cur != NULL);
+
 	cur->next = cmdlist;
 	StrAllocCopy(cur->cmd, cmd);
 	cur->result = result;
@@ -850,23 +893,23 @@ static int PassesTest(struct MailcapEntry *mc)
 	SameCommand(mc->testcommand, "test \"$DISPLAY\" != \"\"") ||
 	SameCommand(mc->testcommand, "test -n \"$DISPLAY\"")) {
 	FREE(mc->testcommand);
-	CTRACE((tfp, "PassesTest: Testing for XWINDOWS environment.\n"));
+	CTrace((tfp, "PassesTest: Testing for XWINDOWS environment.\n"));
 	if (LYgetXDisplay() != NULL) {
-	    CTRACE((tfp, "PassesTest: Test passed!\n"));
+	    CTrace((tfp, "PassesTest: Test passed!\n"));
 	    return (0 == 0);
 	} else {
-	    CTRACE((tfp, "PassesTest: Test failed!\n"));
+	    CTrace((tfp, "PassesTest: Test failed!\n"));
 	    return (-1 == 0);
 	}
     }
     if (SameCommand(mc->testcommand, "test -z \"$DISPLAY\"")) {
 	FREE(mc->testcommand);
-	CTRACE((tfp, "PassesTest: Testing for NON_XWINDOWS environment.\n"));
+	CTrace((tfp, "PassesTest: Testing for NON_XWINDOWS environment.\n"));
 	if (LYgetXDisplay() == NULL) {
-	    CTRACE((tfp, "PassesTest: Test passed!\n"));
+	    CTrace((tfp, "PassesTest: Test passed!\n"));
 	    return (0 == 0);
 	} else {
-	    CTRACE((tfp, "PassesTest: Test failed!\n"));
+	    CTrace((tfp, "PassesTest: Test failed!\n"));
 	    return (-1 == 0);
 	}
     }
@@ -876,8 +919,8 @@ static int PassesTest(struct MailcapEntry *mc)
      */
     if (SameCommand(mc->testcommand, "test -n \"$LYNX_VERSION\"")) {
 	FREE(mc->testcommand);
-	CTRACE((tfp, "PassesTest: Testing for LYNX environment.\n"));
-	CTRACE((tfp, "PassesTest: Test passed!\n"));
+	CTrace((tfp, "PassesTest: Testing for LYNX environment.\n"));
+	CTrace((tfp, "PassesTest: Test passed!\n"));
 	return (0 == 0);
     } else
 	/*
@@ -885,8 +928,8 @@ static int PassesTest(struct MailcapEntry *mc)
 	 */
     if (SameCommand(mc->testcommand, "test -z \"$LYNX_VERSION\"")) {
 	FREE(mc->testcommand);
-	CTRACE((tfp, "PassesTest: Testing for non-LYNX environment.\n"));
-	CTRACE((tfp, "PassesTest: Test failed!\n"));
+	CTrace((tfp, "PassesTest: Testing for non-LYNX environment.\n"));
+	CTrace((tfp, "PassesTest: Test failed!\n"));
 	return (-1 == 0);
     }
 
@@ -904,9 +947,9 @@ static int PassesTest(struct MailcapEntry *mc)
 	FREE(mc->testcommand);
 
     if (result < 0) {
-	CTRACE((tfp, "PassesTest: Test failed!\n"));
+	CTrace((tfp, "PassesTest: Test failed!\n"));
     } else if (result == 0) {
-	CTRACE((tfp, "PassesTest: Test passed!\n"));
+	CTrace((tfp, "PassesTest: Test passed!\n"));
     }
 
     return (result >= 0);
@@ -917,10 +960,10 @@ static int ProcessMailcapFile(char *file, AcceptMedia media)
     struct MailcapEntry mc;
     FILE *fp;
 
-    CTRACE((tfp, "ProcessMailcapFile: Loading file '%s'.\n",
+    CTrace((tfp, "ProcessMailcapFile: Loading file '%s'.\n",
 	    file));
     if ((fp = fopen(file, TXT_R)) == NULL) {
-	CTRACE((tfp, "ProcessMailcapFile: Could not open '%s'.\n",
+	CTrace((tfp, "ProcessMailcapFile: Could not open '%s'.\n",
 		file));
 	return (-1 == 0);
     }
@@ -1014,7 +1057,7 @@ void HTFileInit(void)
 {
 #ifdef BUILTIN_SUFFIX_MAPS
     if (LYUseBuiltinSuffixes) {
-	CTRACE((tfp, "HTFileInit: Loading default (HTInit) extension maps.\n"));
+	CTrace((tfp, "HTFileInit: Loading default (HTInit) extension maps.\n"));
 
 	/* default suffix interpretation */
 	SET_SUFFIX1("*", "text/plain", "8bit");
@@ -1313,13 +1356,13 @@ void HTFileInit(void)
 	 * configuration file directive.  Whoever changes the config file in
 	 * this way can easily also add the SUFFIX rules there.  - kw
 	 */
-	CTRACE((tfp,
+	CTrace((tfp,
 		"HTFileInit: Skipping all default (HTInit) extension maps!\n"));
     }				/* LYSuffixRules */
 
 #else /* BUILTIN_SUFFIX_MAPS */
 
-    CTRACE((tfp,
+    CTrace((tfp,
 	    "HTFileInit: Default (HTInit) extension maps not compiled in.\n"));
     /*
      * The following two are still used if BUILTIN_SUFFIX_MAPS was undefined. 
@@ -1339,13 +1382,10 @@ void HTFileInit(void)
     /*
      * Load the local maps.
      */
-    {
-	char buffer[LY_MAXPATH];
-
-	LYAddPathToHome(buffer, sizeof(buffer), personal_extension_map);
-	if (IsOurFile(buffer)
-	    && LYCanReadFile(buffer))
-	    HTLoadExtensionsConfigFile(buffer);
+    if (IsOurFile(LYAbsOrHomePath(&personal_extension_map))
+	&& LYCanReadFile(personal_extension_map)) {
+	/* These should override everything else. */
+	HTLoadExtensionsConfigFile(personal_extension_map);
     }
 }
 
@@ -1387,11 +1427,13 @@ static int HTGetLine(char *s, int n, FILE *f)
     }
 }
 
-static void HTGetWord(char *word, char *line, char stop, char stop2)
+static void HTGetWord(char *word, char *line, int stop, int stop2)
 {
     int x = 0, y;
 
-    for (x = 0; line[x] && line[x] != stop && line[x] != stop2; x++) {
+    for (x = 0; (line[x]
+		 && UCH(line[x]) != UCH(stop)
+		 && UCH(line[x]) != UCH(stop2)); x++) {
 	word[x] = line[x];
     }
 
@@ -1400,7 +1442,9 @@ static void HTGetWord(char *word, char *line, char stop, char stop2)
 	++x;
     y = 0;
 
-    while ((line[y++] = line[x++])) ;
+    while ((line[y++] = line[x++])) {
+	;
+    }
 
     return;
 }
@@ -1413,14 +1457,14 @@ static int HTLoadExtensionsConfigFile(char *fn)
     FILE *f;
     int count = 0;
 
-    CTRACE((tfp, "HTLoadExtensionsConfigFile: Loading file '%s'.\n", fn));
+    CTrace((tfp, "HTLoadExtensionsConfigFile: Loading file '%s'.\n", fn));
 
     if ((f = fopen(fn, TXT_R)) == NULL) {
-	CTRACE((tfp, "HTLoadExtensionsConfigFile: Could not open '%s'.\n", fn));
+	CTrace((tfp, "HTLoadExtensionsConfigFile: Could not open '%s'.\n", fn));
 	return count;
     }
 
-    while (!(HTGetLine(line, sizeof(line), f))) {
+    while (!(HTGetLine(line, (int) sizeof(line), f))) {
 	HTGetWord(word, line, ' ', '\t');
 	if (line[0] == '\0' || word[0] == '#')
 	    continue;
@@ -1436,7 +1480,7 @@ static int HTLoadExtensionsConfigFile(char *fn)
 		HTSprintf0(&ext, ".%s", word);
 		LYLowerCase(ext);
 
-		CTRACE((tfp, "SETTING SUFFIX '%s' to '%s'.\n", ext, ct));
+		CTrace((tfp, "setting suffix '%s' to '%s'.\n", ext, ct));
 
 		if (strstr(ct, "tex") != NULL ||
 		    strstr(ct, "postscript") != NULL ||

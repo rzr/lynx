@@ -1,6 +1,8 @@
-/*                     /Net/dxcern/userd/timbl/hypertext/WWW/Library/Implementation/HTTP.html
-                                HYPERTEXT TRANFER PROTOCOL
-
+/*
+ * $LynxId: HTTP.h,v 1.11 2012/02/23 00:41:07 tom Exp $
+ *
+ * /Net/dxcern/userd/timbl/hypertext/WWW/Library/Implementation/HTTP.html
+ *                                HYPERTEXT TRANFER PROTOCOL
  */
 #ifndef HTTP_H
 #define HTTP_H
@@ -23,8 +25,14 @@ extern "C" {
 #define URL_POST_METHOD 2
 #define URL_MAIL_METHOD 3
 
+    /*
+     * Special value for 'reloading' used to tell HTLoadDocument() that the
+     * user asked for a reload, versus Lynx doing a reload for other reasons.
+     */
+#define REAL_RELOAD (TRUE + 1)
+
     extern int ws_read_per_sec;
-    extern BOOL reloading;
+    extern BOOLEAN reloading;
     extern char *redirecting_url;
     extern BOOL permanent_redirection;
     extern BOOL redirect_post_content;

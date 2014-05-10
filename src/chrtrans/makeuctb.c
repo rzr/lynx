@@ -1,4 +1,6 @@
 /*
+ * $LynxId: makeuctb.c,v 1.49 2013/11/28 11:28:53 tom Exp $
+ *
  *  makeuctb.c, derived from conmakehash.c   - kw
  *
  *    Original comments from conmakehash.c:
@@ -35,6 +37,10 @@
 #ifdef exit
 #undef exit
 #endif /* exit */
+
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 
 #define MAX_FONTLEN 256
 
@@ -84,8 +90,8 @@ static void usage(void)
     done(EX_USAGE);
 }
 
-#ifdef EXP_ASCII_CTYPES
-int ascii_tolower(int i)
+#ifdef USE_ASCII_CTYPES
+static int ascii_tolower(int i)
 {
     if (91 > i && i > 64)
 	return (i + 32);
@@ -97,8 +103,8 @@ int ascii_tolower(int i)
 /* copied from HTString.c, not everybody has strncasecmp */
 int strncasecomp(const char *a, const char *b, int n)
 {
-    const char *p = a;
-    const char *q = b;
+    const char *p;
+    const char *q;
 
     for (p = a, q = b;; p++, q++) {
 	int diff;
@@ -132,7 +138,7 @@ static int getunicode(char **p0)
 	return -1;
     }
     *p0 = p + 6;
-    return strtol((p + 2), 0, 16);
+    return (int) strtol((p + 2), 0, 16);
 }
 
 /*
@@ -150,9 +156,8 @@ static const char *hdrname;
 static int RawOrEnc = 0;
 static int Raw_found = 0;	/* whether explicit R directive found */
 static int CodePage = 0;
-static int CodePage_found = 0;	/* whether explicit C directive found */
 
-#define MAX_UNIPAIRS 2500
+#define MAX_UNIPAIRS 4500
 
 static void addpair_str(char *str, int un)
 {
@@ -192,7 +197,7 @@ static void addpair_str(char *str, int un)
 		    MAX_UNIPAIRS);
 	    done(EX_DATAERR);
 	}
-	themap_str.entries[themap_str.entry_ct].unicode = un;
+	themap_str.entries[themap_str.entry_ct].unicode = (u16) un;
 	themap_str.entries[themap_str.entry_ct].replace_str = str;
 	themap_str.entry_ct++;
     }
@@ -236,7 +241,7 @@ static void addpair(int fp, int un)
 	    fprintf(stderr, "ERROR: Only 255 unicodes/glyph permitted!\n");
 	    done(EX_DATAERR);
 	}
-	unitable[fp][unicount[fp]] = un;
+	unitable[fp][unicount[fp]] = (u16) un;
 	unicount[fp]++;
     }
     /* otherwise: ignore */
@@ -292,7 +297,7 @@ int main(int argc, char **argv)
 
     FILE *ctbl;
     char buffer[65536];
-    char outname[256];
+    char *outname = 0;
     unsigned n;
     int fontlen;
     int i, nuni, nent;
@@ -325,12 +330,15 @@ int main(int argc, char **argv)
     } else if (ctbl == stdin) {
 	chdr = stdout;
 	hdrname = "stdout";
-    } else {
+    } else if ((outname = (char *) malloc(strlen(tblname) + 3)) != 0) {
 	strcpy(outname, tblname);
 	hdrname = outname;
 	if ((p = strrchr(outname, '.')) == 0)
 	    p = outname + strlen(outname);
 	strcpy(p, ".h");
+    } else {
+	perror("malloc");
+	done(EX_NOINPUT);
     }
 
     if (chdr == 0) {
@@ -356,8 +364,8 @@ int main(int argc, char **argv)
     /*
      *  Now we comes to the tricky part.  Parse the input table.
      */
-    while (fgets(buffer, sizeof(buffer), ctbl) != NULL) {
-	if ((p = strchr(buffer, '\n')) != NULL) {
+    while (fgets(buffer, (int) sizeof(buffer), ctbl) != NULL) {
+	if ((p = StrChr(buffer, '\n')) != NULL) {
 	    *p = '\0';
 	} else {
 	    fprintf(stderr,
@@ -410,7 +418,7 @@ int main(int argc, char **argv)
 	    while (*p == ' ' || *p == '\t') {
 		p++;
 	    }
-	    RawOrEnc = strtol(p, 0, 10);
+	    RawOrEnc = (int) strtol(p, 0, 10);
 	    Raw_found = 1;
 	    continue;
 
@@ -496,8 +504,7 @@ int main(int argc, char **argv)
 	    while (*p == ' ' || *p == '\t') {
 		p++;
 	    }
-	    CodePage = strtol(p, 0, 10);
-	    CodePage_found = 1;
+	    CodePage = (int) strtol(p, 0, 10);
 	    continue;
 	}
 
@@ -539,7 +546,11 @@ int main(int argc, char **argv)
 		continue;
 	    }
 
-	    tbuf = (char *) malloc(4 * strlen(p));
+	    /*
+	     * Allocate a string large enough for the worst-case use in the
+	     * loop using sprintf.
+	     */
+	    tbuf = (char *) malloc(5 * strlen(p));
 
 	    if (!(p1 = tbuf)) {
 		fprintf(stderr, "%s: Out of memory\n", tblname);
@@ -553,7 +564,9 @@ int main(int argc, char **argv)
 		 */
 		int escaped = 0;
 
-		for (ch = *(++p); (ch = *p) != '\0'; p++) {
+		ch = 0;
+		for (++p; *p != '\0'; p++) {
+		    ch = *p;
 		    if (escaped) {
 			escaped = 0;
 		    } else if (ch == '"') {
@@ -573,7 +586,8 @@ int main(int argc, char **argv)
 		/*
 		 *  We had ':'.
 		 */
-		for (ch = *(++p); (ch = *p) != '\0'; p++, p1++) {
+		for (++p; *p != '\0'; p++, p1++) {
+		    ch = *p;
 		    if (UCH(ch) < 32 || ch == '\\' || ch == '\"' ||
 			UCH(ch) >= 127) {
 			sprintf(p1, "\\%.3o", UCH(ch));
@@ -595,7 +609,7 @@ int main(int argc, char **argv)
 	 *  of the specially recognized characters, so try to interpret
 	 *  it as starting with a fontpos.
 	 */
-	fp0 = strtol(p, &p1, 0);
+	fp0 = (int) strtol(p, &p1, 0);
 	if (p1 == p) {
 	    fprintf(stderr, "Bad input line: %s\n", buffer);
 	    done(EX_DATAERR);
@@ -607,7 +621,7 @@ int main(int argc, char **argv)
 	}
 	if (*p == '-') {
 	    p++;
-	    fp1 = strtol(p, &p1, 0);
+	    fp1 = (int) strtol(p, &p1, 0);
 	    if (p1 == p) {
 		fprintf(stderr, "Bad input line: %s\n", buffer);
 		done(EX_DATAERR);
@@ -638,7 +652,7 @@ int main(int argc, char **argv)
 	    while (*p == ' ' || *p == '\t') {
 		p++;
 	    }
-	    if (!strncmp(p, "idem", 4)) {
+	    if (!StrNCmp(p, "idem", 4)) {
 		for (i = fp0; i <= fp1; i++) {
 		    addpair(i, i);
 		}
@@ -686,7 +700,7 @@ int main(int argc, char **argv)
 	    while (*p == ' ' || *p == '\t') {
 		p++;
 	    }
-	    if (!strncmp(p, "idem", 4)) {
+	    if (!StrNCmp(p, "idem", 4)) {
 		addpair(fp0, fp0);
 		p += 4;
 	    }
@@ -732,24 +746,24 @@ int main(int argc, char **argv)
     }
 
     if (argc > 3) {
-	strncpy(this_MIMEcharset, argv[3], UC_MAXLEN_MIMECSNAME);
+	StrNCpy(this_MIMEcharset, argv[3], UC_MAXLEN_MIMECSNAME);
     } else if (this_MIMEcharset[0] == '\0') {
-	strncpy(this_MIMEcharset, tblname, UC_MAXLEN_MIMECSNAME);
-	if ((p = strchr(this_MIMEcharset, '.')) != 0) {
+	StrNCpy(this_MIMEcharset, tblname, UC_MAXLEN_MIMECSNAME);
+	if ((p = StrChr(this_MIMEcharset, '.')) != 0) {
 	    *p = '\0';
 	}
     }
     for (p = this_MIMEcharset; *p; p++) {
-	*p = TOLOWER(*p);
+	*p = (char) TOLOWER(*p);
     }
     if (argc > 4) {
-	strncpy(this_LYNXcharset, argv[4], UC_MAXLEN_LYNXCSNAME);
+	StrNCpy(this_LYNXcharset, argv[4], UC_MAXLEN_LYNXCSNAME);
     } else if (this_LYNXcharset[0] == '\0') {
-	strncpy(this_LYNXcharset, this_MIMEcharset, UC_MAXLEN_LYNXCSNAME);
+	StrNCpy(this_LYNXcharset, this_MIMEcharset, UC_MAXLEN_LYNXCSNAME);
     }
 
     if (this_isDefaultMap == -1) {
-	this_isDefaultMap = !strncmp(this_MIMEcharset, "iso-8859-1", 10);
+	this_isDefaultMap = !StrNCmp(this_MIMEcharset, "iso-8859-1", 10);
     }
     fprintf(stderr,
 	    "makeuctb: %s: %stranslation map",
@@ -760,7 +774,7 @@ int main(int argc, char **argv)
 	for (i = 0, p = this_MIMEcharset;
 	     *p && (i < UC_MAXLEN_ID_APPEND - 1);
 	     p++, i++) {
-	    id_append[i + 1] = isalnum(UCH(*p)) ? *p : '_';
+	    id_append[i + 1] = (char) (isalnum(UCH(*p)) ? *p : '_');
 	}
 	id_append[i + 1] = '\0';
     }

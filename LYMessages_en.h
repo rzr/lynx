@@ -1,8 +1,11 @@
 /*
+ * $LynxId: LYMessages_en.h,v 1.74 2013/10/19 13:02:24 tom Exp $
+ *
  * Lynx - Hypertext navigation system
  *
- *   (c) Copyright 1992, 1993, 1994 University of Kansas
- *	 1995-1999: GNU General Public License
+ *   Copyright 1997-2013 Thomas E. Dickey
+ *   Copyright 1992, 1993, 1994 University of Kansas
+ *   Released 1995 using GNU General Public License
  */
 
 #ifndef LYMESSAGES_EN_H
@@ -17,11 +20,6 @@
  * Lynx source, covering all but those messages which (a) are used for
  * debugging (CTRACE) or (b) are constants used in interaction with
  * other programs.
- *
- * Links to collections of alternate definitions, developed by the Lynx
- * User Community, are maintained in Lynx links:
- *
- *    http://www.subir.com/lynx.html
  *
  * See ABOUT-NLS and po/readme for details and location of contributed
  * translations.  When no translation is available, the English default is
@@ -128,6 +126,10 @@
  gettext("(Form reset button)   Use right-arrow or <return> to reset form to defaults.")
 #define FORM_LINK_RESET_DIS_MSG \
  gettext("DISABLED form reset button.  Use UP or DOWN arrows or tab to move off.")
+#define FORM_LINK_BUTTON_MESSAGE \
+ gettext("(Script button)   Use UP or DOWN arrows or tab to move off.")
+#define FORM_LINK_BUTTON_DIS_MSG \
+ gettext("DISABLED Script button.  Use UP or DOWN arrows or tab to move off.")
 #define FORM_LINK_OPTION_LIST_MESSAGE \
  gettext("(Option list) Hit return and use arrow keys and return to select option.")
 #define CHOICE_LIST_MESSAGE \
@@ -140,6 +142,8 @@
 #define RESETTING_FORM gettext("Resetting form...")
 #define RELOADING_FORM \
  gettext("Reloading document.  Any form entries will be lost!")
+#define LINK_NOT_IN_FORM \
+ gettext("The current link is not in a FORM")
 #define CANNOT_TRANSCODE_FORM gettext("Warning: Cannot transcode form data to charset %s!")
 
 #define NORMAL_LINK_MESSAGE \
@@ -298,6 +302,8 @@
 #define BOOKMARKS_NOT_OPEN \
  gettext("Unable to open bookmark file, use 'a' to save a link first")
 #define BOOKMARKS_NOLINKS gettext("There are no links in this bookmark file!")
+#define CACHE_D_OR_CANCEL \
+ gettext("D)elete cached document or C)ancel? (d,c): ")
 #define BOOK_D_L_OR_CANCEL \
  gettext("Save D)ocument or L)ink to bookmark file or C)ancel? (d,l,c): ")
 #define BOOK_D_OR_CANCEL gettext("Save D)ocument to bookmark file or C)ancel? (d,c): ")
@@ -361,6 +367,7 @@
 #define CURRENT_DOC_HAS_POST_DATA gettext("Current document has POST data.")
 #define EDIT_CURDOC_URL gettext("Edit this document's URL: ")
 #define EDIT_CURLINK_URL gettext("Edit the current link's URL: ")
+#define EDIT_SUBMIT_URL gettext("Edit the form's submit-URL: ")
 #define EDIT_FM_MENU_URLS_DISALLOWED gettext("You cannot edit File Management URLs")
 #define ENTER_DATABASE_QUERY gettext("Enter a database query: ")
 #define ENTER_WHEREIS_QUERY gettext("Enter a whereis query: ")
@@ -653,8 +660,6 @@
 #endif /* VMS */
 #define MAXLINKS_REACHED \
  gettext("Maximum links per page exceeded!  Use half-page or two-line scrolling.")
-#define MAXHIST_REACHED \
- gettext("History List maximum reached!  Document not pushed.")
 #define VISITED_LINKS_EMPTY gettext("No previously visited links available!")
 #define MEMORY_EXHAUSTED_ABORT gettext("Memory exhausted!  Program aborted!")
 #define MEMORY_EXHAUSTED_ABORTING gettext("Memory exhausted!  Aborting...")
@@ -700,6 +705,7 @@
 #define ALLOWING_COOKIE gettext("Allowing this cookie.")
 #define REJECTING_COOKIE gettext("Rejecting this cookie.")
 #define COOKIE_JAR_IS_EMPTY gettext("The Cookie Jar is empty.")
+#define CACHE_JAR_IS_EMPTY gettext("The Cache Jar is empty.")
 #define ACTIVATE_TO_GOBBLE \
  gettext("Activate links to gobble up cookies or entire domains,")
 #define OR_CHANGE_ALLOW gettext("or to change a domain's 'allow' setting.")
@@ -758,6 +764,9 @@
 #define SEGMENT_UP_TO           gettext("Up to ")
 #define SEGMENT_CURRENT_DIR     gettext("Current directory is ")
 
+/* HTFTP.c */
+#define ENTRY_IS_SYMBOLIC_LINK  gettext("Symbolic Link")
+
 /* HTGopher.c */
 #define FAILED_NO_RESPONSE      gettext("No response from server!")
 #define GOPHER_CSO_INDEX        gettext("CSO index")
@@ -810,10 +819,12 @@
 #define BOOKMARK_TITLE		gettext("Bookmark file")
 #define CONFIG_DEF_TITLE	gettext("Configuration Definitions")
 #define COOKIE_JAR_TITLE	gettext("Cookie Jar")
+#define CURRENT_EDITMAP_TITLE	gettext("Current Edit-Key Map")
 #define CURRENT_KEYMAP_TITLE	gettext("Current Key Map")
 #define DIRED_MENU_TITLE	gettext("File Management Options")
 #define DOWNLOAD_OPTIONS_TITLE	gettext("Download Options")
 #define HISTORY_PAGE_TITLE	gettext("History Page")
+#define CACHE_JAR_TITLE		gettext("Cache Jar")
 #define LIST_PAGE_TITLE		gettext("List Page")
 #define LYNXCFG_TITLE		gettext("Lynx.cfg Information")
 #define MOSAIC_BOOKMARK_TITLE	gettext("Converted Mosaic Hotlist")

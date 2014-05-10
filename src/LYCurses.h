@@ -1,3 +1,4 @@
+/* $LynxId: LYCurses.h,v 1.94 2013/10/22 08:10:43 tom Exp $ */
 #ifndef LYCURSES_H
 #define LYCURSES_H
 
@@ -48,7 +49,12 @@
 #endif /* FALSE */
 
 #ifdef USE_SLANG
+#define ENABLE_SLFUTURE_CONST 1
 #include <slang.h>
+#ifndef SLFUTURE_CONST
+#define SLFUTURE_CONST		/* nothing */
+#endif
+typedef unsigned long chtype;
 
 #undef WINDOW
 typedef struct {
@@ -115,7 +121,22 @@ typedef struct {
 
 #ifdef VMS
 #define FANCY_CURSES
+
 #endif /* VMS */
+
+#ifndef HAVE_TYPE_CHTYPE
+
+#ifdef __PDCURSES__
+#define HAVE_TYPE_CHTYPE 1
+#endif
+
+#if defined(_VMS_CURSES) || defined(VMS)
+typedef char chtype;
+
+#define HAVE_TYPE_CHTYPE 1
+#endif
+
+#endif /* ! HAVE_TYPE_CHTYPE */
 
 /*
  *	CR may be defined before the curses.h include occurs.
@@ -170,6 +191,10 @@ typedef struct {
 
 #ifdef ERR
 #undef ERR			/* all versions of curses define this */
+#endif
+
+#ifdef KEY_EVENT
+#undef KEY_EVENT		/* wincon.h or Cygwin's copy of it */
 #endif
 
 #ifdef MOUSE_MOVED
@@ -235,7 +260,7 @@ typedef struct {
 #  include <LYGCurses.h>
 #  else
 #   include <curses.h>		/* everything else */
-# endif				/* VMS && __GNUC__ */
+# endif	/* VMS && __GNUC__ */
 #endif /* HAVE_CONFIG_H */
 
 /*
@@ -264,7 +289,7 @@ typedef struct {
 #if defined(NCURSES_VERSION)
 #define USE_CURSES_NODELAY 1
 #endif
-#endif	/* _WINDOWS || __MINGW32__ */
+#endif /* _WINDOWS || __MINGW32__ */
 
 #if defined(NCURSES_VERSION) && defined(__BEOS__)
 #define USE_CURSES_NODELAY 1
@@ -302,6 +327,12 @@ typedef struct {
 #endif
 #endif
 
+#if defined(_WINDOWS) && defined(PDCURSES) && defined(PDC_BUILD) && PDC_BUILD >= 2401
+#define USE_MAXSCREEN_TOGGLE 1
+extern void maxmizeWindowSize(void);
+extern void recoverWindowSize(void);
+#endif
+
 #endif /* USE_SLANG */
 
 #ifdef __cplusplus
@@ -317,7 +348,7 @@ extern "C" {
 #define LYstopPopup() LYsubwindow(0)
 #endif				/* NCURSES */
 
-    extern void LYbox(WINDOW * win, BOOLEAN formfield);
+    extern void LYbox(WINDOW * win, int formfield);
     extern WINDOW *LYstartPopup(int *top_y, int *left_x, int *height, int *width);
 
 /*
@@ -361,6 +392,11 @@ extern "C" {
 #define SECS2Secs(n) (n)
 #define Secs2SECS(n) (n)
 #define SECS_FMT "%.0f"
+#endif
+
+#ifdef NCURSES_VERSION
+    extern void _nc_freeall(void);	/* HAVE__NC_FREEALL */
+    extern void _nc_free_and_exit(int);		/* HAVE__NC_FREE_AND_EXIT */
 #endif
 
 /* Both slang and curses: */
@@ -421,7 +457,7 @@ extern "C" {
     extern int LYshiftWin;
     extern int LYwideLines;
     extern int LYtableCols;
-    extern BOOL LYuseCursesPads;
+    extern BOOLEAN LYuseCursesPads;
 
 #else
 #define LYwin stdscr
@@ -435,6 +471,7 @@ extern "C" {
     extern int LYscreenWidth(void);
     extern int LYstrExtent(const char *string, int len, int maxCells);
     extern int LYstrExtent2(const char *string, int len);
+    extern int LYstrFittable(const char *string, int maxCells);
     extern int LYstrCells(const char *string);
     extern void LYclear(void);
     extern void LYclrtoeol(void);
@@ -463,12 +500,16 @@ extern "C" {
 #endif				/* VMS */
 
 #if defined(USE_COLOR_STYLE)
+    extern void add_to_lss_list(const char *source, const char *resolved);
     extern void curses_css(char *name, int dir);
     extern void curses_style(int style, int dir);
-    extern void setHashStyle(int style, int color, int cattr, int mono, char *element);
-    extern void setStyle(int style, int color, int cattr, int mono);
-    extern void wcurses_css(WINDOW * win, char *name, int dir);
     extern void curses_w_style(WINDOW * win, int style, int dir);
+    extern void init_color_styles(char **from_cmdline, const char *default_styles);
+    extern void reinit_color_styles(void);
+    extern void setHashStyle(int style, int color, int cattr, int mono, const char *element);
+    extern void setStyle(int style, int color, int cattr, int mono);
+    extern void update_color_style(void);
+    extern void wcurses_css(WINDOW * win, char *name, int dir);
 
 #  define LynxChangeStyle(style,dir) curses_style(style,dir)
 #  define LynxWChangeStyle(win,style,dir) curses_w_style(win,style,dir)
@@ -606,7 +647,7 @@ extern "C" {
 
 #else				/* Not VMS: */
 
-    extern int string_to_attr(char *name);
+    extern int string_to_attr(const char *name);
 
 /*
  *  For Unix FANCY_FANCY curses we interpose
@@ -769,6 +810,8 @@ FANCY_CURSES.  Check your config.log to see why the FANCY_CURSES test failed.
     extern void lynx_stop_reverse(void);
     extern void lynx_stop_underline(void);
 
+    extern void restart_curses(void);
+
 /*
  * To prevent corrupting binary data on DOS, MS-WINDOWS or OS/2 we open files
  * and stdout in BINARY mode by default.  Where necessary we should open and
@@ -799,7 +842,10 @@ FANCY_CURSES.  Check your config.log to see why the FANCY_CURSES test failed.
 #define LYHideCursor() LYmove((LYlines - 1), (LYcolLimit - 2))
 #endif
 
+#define LYParkCursor() LYmove((LYlines - 1), 0); LYclrtoeol()
+
     extern void LYstowCursor(WINDOW * win, int row, int col);
+    extern void LYSetDisplayLines(void);
 
 #ifdef __cplusplus
 }

@@ -1,3 +1,6 @@
+/*
+ * $LynxId: LYHistory.c,v 1.86 2013/10/19 00:46:43 tom Exp $
+ */
 #include <HTUtils.h>
 #include <HTTP.h>
 #include <GridText.h>
@@ -29,8 +32,9 @@
 #include <LYLeaks.h>
 #include <HTCJK.h>
 
-static HTList *Visited_Links = NULL;	/* List of safe popped docs. */
+HTList *Visited_Links = NULL;	/* List of safe popped docs. */
 int Visited_Links_As = VISITED_LINKS_AS_LATEST | VISITED_LINKS_REVERSE;
+
 static VisitedLink *PrevVisitedLink = NULL;	/* NULL on auxillary */
 static VisitedLink *PrevActiveVisitedLink = NULL;	/* Last non-auxillary */
 static VisitedLink Latest_first;
@@ -107,15 +111,15 @@ void LYAddVisitedLink(DocInfo *doc)
      */
     if (doc->post_data || doc->isHEAD || doc->bookmark ||
 	(			/* special url or a temp file */
-	    (!strncmp(doc->address, "LYNX", 4) ||
-	     !strncmp(doc->address, "file://localhost/", 17)))) {
+	    (!StrNCmp(doc->address, "LYNX", 4) ||
+	     !StrNCmp(doc->address, "file://localhost/", 17)))) {
 	int related = 1;	/* First approximation only */
 
 	if (LYIsUIPage(doc->address, UIP_HISTORY) ||
 	    LYIsUIPage(doc->address, UIP_VLINKS) ||
 	    LYIsUIPage(doc->address, UIP_SHOWINFO) ||
 	    isLYNXMESSAGES(doc->address) ||
-	    (related = 0) ||
+	    ((related = 0) != 0) ||
 #ifdef DIRED_SUPPORT
 	    LYIsUIPage(doc->address, UIP_DIRED_MENU) ||
 	    LYIsUIPage(doc->address, UIP_UPLOAD_OPTIONS) ||
@@ -124,9 +128,10 @@ void LYAddVisitedLink(DocInfo *doc)
 	    LYIsUIPage(doc->address, UIP_PRINT_OPTIONS) ||
 	    LYIsUIPage(doc->address, UIP_DOWNLOAD_OPTIONS) ||
 	    LYIsUIPage(doc->address, UIP_OPTIONS_MENU) ||
+	    isLYNXEDITMAP(doc->address) ||
 	    isLYNXKEYMAP(doc->address) ||
 	    LYIsUIPage(doc->address, UIP_LIST_PAGE) ||
-#ifdef EXP_ADDRLIST_PAGE
+#ifdef USE_ADDRLIST_PAGE
 	    LYIsUIPage(doc->address, UIP_ADDRLIST_PAGE) ||
 #endif
 	    LYIsUIPage(doc->address, UIP_CONFIG_DEF) ||
@@ -175,6 +180,9 @@ void LYAddVisitedLink(DocInfo *doc)
 
     if ((tmp = typecalloc(VisitedLink)) == NULL)
 	outofmem(__FILE__, "LYAddVisitedLink");
+
+    assert(tmp != NULL);
+
     StrAllocCopy(tmp->address, doc->address);
     LYformTitle(&(tmp->title), title);
 
@@ -236,7 +244,7 @@ BOOLEAN LYwouldPush(const char *title,
     if (docurl) {
 	size_t ulen;
 
-	if (strncmp(docurl, "file://localhost/", 17) != 0 ||
+	if (StrNCmp(docurl, "file://localhost/", 17) != 0 ||
 	    (ulen = strlen(docurl)) <= strlen(HTML_SUFFIX) ||
 	    strcmp(docurl + ulen - strlen(HTML_SUFFIX), HTML_SUFFIX) != 0) {
 	    /*
@@ -340,16 +348,19 @@ void LYAllocHistory(int entries)
 	int save = size_history;
 
 	size_history = (entries + 2) * 2;
-	want = size_history * sizeof(*history);
+	want = (unsigned) size_history *(unsigned) sizeof(*history);
+
 	if (history == 0) {
-	    history = (HistInfo *) malloc(want);
+	    history = typeMallocn(HistInfo, want);
 	} else {
-	    history = (HistInfo *) realloc(history, want);
+	    history = typeRealloc(HistInfo, history, want);
 	}
 	if (history == 0)
 	    outofmem(__FILE__, "LYAllocHistory");
+
+	assert(history != NULL);
+
 	while (save < size_history) {
-	    CTRACE((tfp, "...LYAllocHistory clearing %d\n", save));
 	    memset(&history[save++], 0, sizeof(history[0]));
 	}
     }
@@ -359,7 +370,7 @@ void LYAllocHistory(int entries)
 /*
  * Push the current filename, link and line number onto the history list.
  */
-int LYpush(DocInfo *doc, BOOLEAN force_push)
+int LYpush(DocInfo *doc, int force_push)
 {
     /*
      * Don't push NULL file names.
@@ -383,8 +394,10 @@ int LYpush(DocInfo *doc, BOOLEAN force_push)
 
     /*
      * If file is identical to one before it, don't push it.
+     * But do not duplicate it if there is only one on the stack,
+     * note that HDOC() starts from 0, so nhist should be > 0.
      */
-    if (nhist > 1 && are_identical(&(history[nhist - 1]), doc)) {
+    if (nhist >= 1 && are_identical(&(history[nhist - 1]), doc)) {
 	if (HDOC(nhist - 1).internal_link == doc->internal_link) {
 	    /* But it is nice to have the last position remembered!
 	       - kw */
@@ -750,12 +763,12 @@ BOOLEAN historytarget(DocInfo *newdoc)
 	     HDOC(nhist - 1).internal_link &&
 	     number == history[nhist - 1].intern_seq_start))
 	&& !(LYforce_no_cache == TRUE && LYoverride_no_cache == FALSE)) {
-#ifndef DONT_TRACK_INTERNAL_LINKS
-	LYforce_no_cache = FALSE;
-	LYinternal_flag = TRUE;
-	newdoc->internal_link = TRUE;
-	treat_as_intern = TRUE;
-#endif
+	if (track_internal_links) {
+	    LYforce_no_cache = FALSE;
+	    LYinternal_flag = TRUE;
+	    newdoc->internal_link = TRUE;
+	    treat_as_intern = TRUE;
+	}
     } else {
 	newdoc->internal_link = FALSE;
     }
@@ -945,18 +958,27 @@ int LYShowVisitedLinks(char **newfile)
 
 /*
  * Keep cycled buffer for statusline messages.
+ * But allow user to change how big it will be from userdefs.h
  */
+#ifndef STATUSBUFSIZE
 #define STATUSBUFSIZE   40
-static char *buffstack[STATUSBUFSIZE];
+#endif
+
+int status_buf_size = STATUSBUFSIZE;
+
+static char **buffstack;
 static int topOfStack = 0;
 
 #ifdef LY_FIND_LEAKS
 static void free_messages_stack(void)
 {
-    topOfStack = STATUSBUFSIZE;
+    if (buffstack != 0) {
+	topOfStack = status_buf_size;
 
-    while (--topOfStack >= 0) {
-	FREE(buffstack[topOfStack]);
+	while (--topOfStack >= 0) {
+	    FREE(buffstack[topOfStack]);
+	}
+	FREE(buffstack);
     }
 }
 #endif
@@ -966,13 +988,16 @@ static void to_stack(char *str)
     /*
      * Cycle buffer:
      */
-    if (topOfStack >= STATUSBUFSIZE) {
+    if (topOfStack >= status_buf_size) {
 	topOfStack = 0;
     }
 
     /*
      * Register string.
      */
+    if (buffstack == 0)
+	buffstack = typecallocn(char *, (size_t) status_buf_size);
+
     FREE(buffstack[topOfStack]);
     buffstack[topOfStack] = str;
     topOfStack++;
@@ -982,7 +1007,7 @@ static void to_stack(char *str)
 	atexit(free_messages_stack);
     }
 #endif
-    if (topOfStack >= STATUSBUFSIZE) {
+    if (topOfStack >= status_buf_size) {
 	topOfStack = 0;
     }
 }
@@ -998,22 +1023,24 @@ void LYstatusline_messages_on_exit(char **buf)
 {
     int i;
 
-    StrAllocCat(*buf, "\n");
-    /* print messages in chronological order:
-     * probably a single message but let's do it.
-     */
-    i = topOfStack - 1;
-    while (++i < STATUSBUFSIZE) {
-	if (buffstack[i] != NULL) {
-	    StrAllocCat(*buf, buffstack[i]);
-	    StrAllocCat(*buf, "\n");
+    if (buffstack != 0) {
+	StrAllocCat(*buf, "\n");
+	/* print messages in chronological order:
+	 * probably a single message but let's do it.
+	 */
+	i = topOfStack - 1;
+	while (++i < status_buf_size) {
+	    if (buffstack[i] != NULL) {
+		StrAllocCat(*buf, buffstack[i]);
+		StrAllocCat(*buf, "\n");
+	    }
 	}
-    }
-    i = -1;
-    while (++i < topOfStack) {
-	if (buffstack[i] != NULL) {
-	    StrAllocCat(*buf, buffstack[i]);
-	    StrAllocCat(*buf, "\n");
+	i = -1;
+	while (++i < topOfStack) {
+	    if (buffstack[i] != NULL) {
+		StrAllocCat(*buf, buffstack[i]);
+		StrAllocCat(*buf, "\n");
+	    }
 	}
     }
 }
@@ -1047,10 +1074,6 @@ void LYstore_message(const char *message)
  *     [implementation based on LYLoadKeymap()].
  */
 
-struct _HTStream {
-    HTStreamClass *isa;
-};
-
 static int LYLoadMESSAGES(const char *arg GCC_UNUSED,
 			  HTParentAnchor *anAnchor,
 			  HTFormat format_out,
@@ -1064,10 +1087,12 @@ static int LYLoadMESSAGES(const char *arg GCC_UNUSED,
     int i;
     char *temp = NULL;
 
-    i = STATUSBUFSIZE;
-    while (--i >= 0) {
-	if (buffstack[i] != NULL)
-	    nummsg++;
+    if (buffstack != 0) {
+	i = status_buf_size;
+	while (--i >= 0) {
+	    if (buffstack[i] != NULL)
+		nummsg++;
+	}
     }
 
     /*
@@ -1084,7 +1109,7 @@ static int LYLoadMESSAGES(const char *arg GCC_UNUSED,
     }
     anAnchor->no_cache = TRUE;
 
-#define PUTS(buf)    (*target->isa->put_block)(target, buf, strlen(buf))
+#define PUTS(buf)    (*target->isa->put_block)(target, buf, (int) strlen(buf))
 
     HTSprintf0(&buf, "<html>\n<head>\n");
     PUTS(buf);
@@ -1113,7 +1138,7 @@ static int LYLoadMESSAGES(const char *arg GCC_UNUSED,
 		PUTS(buf);
 	    }
 	}
-	i = STATUSBUFSIZE;
+	i = status_buf_size;
 	while (--i >= topOfStack) {
 	    if (buffstack[i] != NULL) {
 		StrAllocCopy(temp, buffstack[i]);

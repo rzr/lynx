@@ -1,3 +1,4 @@
+/* $LynxId: LYUtils.h,v 1.96 2013/11/28 11:22:53 tom Exp $ */
 #ifndef LYUTILS_H
 #define LYUTILS_H
 
@@ -7,6 +8,10 @@
 #ifndef HTLIST_H
 #include <HTList.h>
 #endif /* HTLIST_H */
+
+#ifndef HTSTREAM_H
+#include <HTStream.h>
+#endif /* HTSTREAM_H */
 
 #ifdef VMS
 #include <HTFTP.h>
@@ -24,24 +29,31 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 #ifdef VMS
 #define HTSYS_name(path)   HTVMS_name("", path)
 #define HTSYS_purge(path)  HTVMS_purge(path)
 #define HTSYS_remove(path) HTVMS_remove(path)
 #endif				/* VMS */
+
 #if defined(USE_DOS_DRIVES)
 #define HTSYS_name(path) HTDOS_name(path)
 #endif
+
 #ifndef HTSYS_name
 #define HTSYS_name(path) path
 #endif
+
 #ifndef HTSYS_purge
 #define HTSYS_purge(path)	/* nothing */
 #endif
+
 #ifndef HTSYS_remove
 #define HTSYS_remove(path) remove(path)
 #endif
+
 #define LYIsPipeCommand(s) ((s)[0] == '|')
+
 #ifdef VMS
 #define TTY_DEVICE "tt:"
 #define NUL_DEVICE "nl:"
@@ -71,24 +83,31 @@ extern "C" {
 #endif				/* __CYGWIN__ */
 #endif				/* DOSPATH */
 #endif				/* VMS */
+
 /* See definitions in src/LYCharVals.h.  The hardcoded values...
    This prohibits binding C-c and C-g.  Maybe it is better to remove this? */
 #define LYCharIsINTERRUPT_HARD(ch)	\
   ((ch) == LYCharINTERRUPT1 || ch == LYCharINTERRUPT2)
+
 #define LYCharIsINTERRUPT(ch)		\
   (LYCharIsINTERRUPT_HARD(ch) || LKC_TO_LAC(keymap,ch) == LYK_INTERRUPT)
+
 #define LYCharIsINTERRUPT_NO_letter(ch)	\
   (LYCharIsINTERRUPT(ch) && !isprint(ch))
+
 #if defined(USE_DOS_DRIVES)
-#define PATHSEP_STR "\\"
+#define PATH_SEPARATOR ";"
+#define FILE_SEPARATOR "\\"
 #define LYIsPathSep(ch) ((ch) == '/' || (ch) == '\\')
 #define LYIsDosDrive(s) (isalpha(UCH((s)[0])) && (s)[1] == ':')
 #else
-#define PATHSEP_STR "/"
+#define PATH_SEPARATOR ":"
+#define FILE_SEPARATOR "/"
 #define LYIsPathSep(ch) ((ch) == '/')
 #define LYIsDosDrive(s) FALSE	/* really nothing */
 #endif
-#ifdef EXP_ADDRLIST_PAGE
+
+#ifdef USE_ADDRLIST_PAGE
 #define LYIsListpageTitle(name) \
     (!strcmp((name), LIST_PAGE_TITLE) || \
      !strcmp((name), ADDRLIST_PAGE_TITLE))
@@ -96,9 +115,12 @@ extern "C" {
 #define LYIsListpageTitle(name) \
     (!strcmp((name), LIST_PAGE_TITLE))
 #endif
+
+#define LYIsTilde(ch)     ((ch) == '~')
 #define LYIsHtmlSep(ch) ((ch) == '/')
-#define findPoundSelector(address) strchr(address, '#')
+#define findPoundSelector(address) StrChr(address, '#')
 #define restorePoundSelector(pound) if ((pound) != NULL) *(pound) = '#'
+
     extern BOOL strn_dash_equ(const char *p1, const char *p2, int len);
     extern BOOLEAN LYAddSchemeForURL(char **AllocatedString, const char *default_scheme);
     extern BOOLEAN LYCachedTemp(char *result, char **cached);
@@ -107,11 +129,11 @@ extern "C" {
     extern BOOLEAN LYCanWriteFile(const char *name);
     extern BOOLEAN LYCloseInput(FILE *fp);
     extern BOOLEAN LYCloseOutput(FILE *fp);
-    extern BOOLEAN LYExpandHostForURL(char **AllocatedString, char
-				      *prefix_list, char *suffix_list);
+    extern BOOLEAN LYExpandHostForURL(char **AllocatedString,
+				      char *prefix_list, char *suffix_list);
     extern BOOLEAN LYFixCursesOnForAccess(const char *addr, const char *physical);
     extern BOOLEAN LYPathOffHomeOK(char *fbuffer, size_t fbuffer_size);
-    extern BOOLEAN LYValidateFilename(char *result, char *given);
+    extern BOOLEAN LYValidateFilename(bstring **result, bstring **given);
     extern BOOLEAN LYisAbsPath(const char *path);
     extern BOOLEAN LYisLocalAlias(const char *filename);
     extern BOOLEAN LYisLocalFile(const char *filename);
@@ -127,20 +149,23 @@ extern "C" {
     extern FILE *LYOpenTempRewrite(char *result, const char *suffix, const char *mode);
     extern FILE *LYReopenTemp(char *name);
     extern char *Current_Dir(char *pathname);
+    extern char *LYAbsOrHomePath(char **fname);
     extern char *LYAddPathToSave(char *fname);
+    extern char *LYFindConfigFile(const char *nominal, const char *dftfile);
     extern char *LYGetEnv(const char *name);
     extern char *LYLastPathSep(const char *path);
     extern char *LYPathLeaf(char *pathname);
+    extern char *LYTildeExpand(char **pathname, int embedded);
     extern char *LYgetXDisplay(void);
     extern char *strip_trailing_slash(char *my_dirname);
     extern char *trimPoundSelector(char *address);
     extern const char *Home_Dir(void);
     extern const char *LYGetHiliteStr(int cur, int count);
     extern const char *LYSysShell(void);
-    extern const char *index_to_restriction(int inx);
+    extern const char *index_to_restriction(unsigned inx);
     extern const char *wwwName(const char *pathname);
     extern int HTCheckForInterrupt(void);
-    extern int LYConsoleInputFD(BOOLEAN need_selectable);
+    extern int LYConsoleInputFD(int need_selectable);
     extern int LYCopyFile(char *src, char *dst);
     extern int LYGetHilitePos(int cur, int count);
     extern int LYRemoveTemp(char *name);
@@ -149,8 +174,8 @@ extern "C" {
     extern int LYValidateOutput(char *filename);
     extern int find_restriction(const char *name, int len);
     extern int number2arrows(int number);
-    extern size_t utf8_length(BOOL utf_flag, const char *data);
-    extern time_t LYmktime(char *string, BOOL absolute);
+    extern size_t utf8_length(int utf_flag, const char *data);
+    extern time_t LYmktime(char *string, int absolute);
     extern void BeginInternalPage(FILE *fp0, const char *Title, const char *HelpURL);
     extern void EndInternalPage(FILE *fp0);
     extern void HTAddSugFilename(char *fname);
@@ -170,7 +195,7 @@ extern "C" {
     extern void LYConvertToURL(char **AllocatedString, int fixit);
     extern void LYDoCSI(char *url, const char *comment, char **csi);
     extern void LYEnsureAbsoluteURL(char **href, const char *name, int fixit);
-    extern void LYFakeZap(BOOL set);
+    extern void LYFakeZap(int set);
     extern void LYFixCursesOn(const char *reason);
     extern void LYFreeHilites(int first, int last);
     extern void LYFreeStringList(HTList *list);
@@ -185,8 +210,9 @@ extern "C" {
     extern void LYmsec_delay(unsigned msec);
     extern void LYsetXDisplay(char *new_display);
     extern void WriteInternalTitle(FILE *fp0, const char *Title);
+    extern void WriteStreamTitle(HTStream *target, const char *Title);
     extern void change_sug_filename(char *fname);
-    extern void convert_to_spaces(char *string, BOOL condense);
+    extern void convert_to_spaces(char *string, int condense);
     extern void free_and_clear(char **obj);
     extern void noviceline(int more_flag);
     extern void parse_restrictions(const char *s);
@@ -202,7 +228,7 @@ extern "C" {
 #define IsOurFile(name) TRUE
 #endif
 
-#ifdef EXP_ASCII_CTYPES
+#ifdef USE_ASCII_CTYPES
     extern int ascii_tolower(int i);
     extern int ascii_toupper(int i);
     extern int ascii_isupper(int i);
@@ -212,12 +238,13 @@ extern "C" {
     extern int Cygwin_Shell(void);
 #endif
 
-#ifdef _WIN_CC
+#if defined(_WIN_CC) || defined(WIN_EX)
     extern int exec_command(char *cmd, int wait_flag);	/* xsystem.c */
+    extern char *quote_pathname(char *pathname);
     extern int xsystem(char *cmd);
 #endif
 
-/* Keeping track of User Interface Pages: */
+    /* Keeping track of User Interface Pages: */
     typedef enum {
 	UIP_UNKNOWN = -1
 	,UIP_HISTORY = 0
@@ -264,8 +291,13 @@ extern "C" {
 #endif
 
 #if defined(WIN_EX)		/* 1997/10/16 (Thu) 20:13:28 */
-    extern char *HTDOS_short_name(char *path);
+    extern char *HTDOS_short_name(const char *path);
     extern char *w32_strerror(DWORD ercode);
+#endif
+
+#if defined(WIN_EX) || defined(__CYGWIN__)	/* 2000/03/07 (Tue) 17:17:46 */
+    extern int unsafe_filename(const char *fname);
+    extern FILE *safe_fopen(const char *fname, const char *mode);
 #endif
 
 #ifdef VMS
@@ -283,18 +315,22 @@ extern "C" {
 #define LYRelaxFilePermissions(name)	/* nothing */
 #endif
 
-/*
- *  Whether or not the status line must be shown.
- */
+#if defined(_WINDOWS)
+    extern int win32_check_interrupt(void);
+#endif
+
+    /*
+     * Whether or not the status line must be shown.
+     */
     extern BOOLEAN mustshow;
 
 #define _statusline(msg)	mustshow = TRUE, statusline(msg)
 
-/*
- *  For is_url().
- *
- *  Universal document id types (see LYCheckForProxyURL)
- */
+    /*
+     * For is_url().
+     *
+     * Universal document id types (see LYCheckForProxyURL)
+     */
     typedef enum {
 	NOT_A_URL_TYPE = 0,
 	UNKNOWN_URL_TYPE = 1,	/* must be nonzero */
@@ -324,26 +360,28 @@ extern "C" {
 
 	DATA_URL_TYPE,
 
+	LYNXCGI_URL_TYPE,
 	LYNXEXEC_URL_TYPE,
 	LYNXPROG_URL_TYPE,
-	LYNXCGI_URL_TYPE,
 
 	NEWSPOST_URL_TYPE,
 	NEWSREPLY_URL_TYPE,
 	SNEWSPOST_URL_TYPE,
 	SNEWSREPLY_URL_TYPE,
 
-	LYNXPRINT_URL_TYPE,
-	LYNXHIST_URL_TYPE,
-	LYNXDOWNLOAD_URL_TYPE,
-	LYNXKEYMAP_URL_TYPE,
-	LYNXIMGMAP_URL_TYPE,
-	LYNXCOOKIE_URL_TYPE,
-	LYNXDIRED_URL_TYPE,
-	LYNXOPTIONS_URL_TYPE,
+	LYNXCACHE_URL_TYPE,
 	LYNXCFG_URL_TYPE,
 	LYNXCOMPILE_OPTS_URL_TYPE,
+	LYNXCOOKIE_URL_TYPE,
+	LYNXDIRED_URL_TYPE,
+	LYNXDOWNLOAD_URL_TYPE,
+	LYNXEDITMAP_URL_TYPE,
+	LYNXHIST_URL_TYPE,
+	LYNXIMGMAP_URL_TYPE,
+	LYNXKEYMAP_URL_TYPE,
 	LYNXMESSAGES_URL_TYPE,
+	LYNXOPTIONS_URL_TYPE,
+	LYNXPRINT_URL_TYPE,
 
 	PROXY_URL_TYPE
 
@@ -419,6 +457,14 @@ extern "C" {
 #define isWAIS_URL(addr)     !strncasecomp(addr, STR_WAIS_URL, LEN_WAIS_URL)
 
 /* internal URLs */
+#ifdef USE_CACHEJAR
+#define STR_LYNXCACHE        "LYNXCACHE:"
+#define LEN_LYNXCACHE        10
+#define isLYNXCACHE(addr)    !strncasecomp(addr, STR_LYNXCACHE, LEN_LYNXCACHE)
+#else
+#define isLYNXCACHE(addr)    FALSE
+#endif
+
 #define STR_LYNXCFG          "LYNXCFG:"
 #define LEN_LYNXCFG          8
 #define isLYNXCFG(addr)      !strncasecomp(addr, STR_LYNXCFG, LEN_LYNXCFG)
@@ -448,6 +494,10 @@ extern "C" {
 #define STR_LYNXDOWNLOAD     "LYNXDOWNLOAD:"
 #define LEN_LYNXDOWNLOAD     13
 #define isLYNXDOWNLOAD(addr) !strncasecomp(addr, STR_LYNXDOWNLOAD, LEN_LYNXDOWNLOAD)
+
+#define STR_LYNXEDITMAP      "LYNXEDITMAP:"
+#define LEN_LYNXEDITMAP      11
+#define isLYNXEDITMAP(addr)  !strncasecomp(addr, STR_LYNXEDITMAP, LEN_LYNXEDITMAP)
 
 #define STR_LYNXHIST         "LYNXHIST:"
 #define LEN_LYNXHIST         9
@@ -493,13 +543,13 @@ extern "C" {
     extern void LYCloselog(void);
 #endif				/* SYSLOG_REQUESTED_URLS */
 
+#undef STREQ			/* conflict with wais.h */
+
 /*
  *  Miscellaneous.
  */
-#define ON      1
-#define OFF     0
-#define STREQ(a,b) (strcmp(a,b) == 0)
-#define STRNEQ(a,b,c) (strncmp(a,b,c) == 0)
+#define STREQ(a,b)    (strcmp(a,b) == 0)
+#define STRNEQ(a,b,c) (StrNCmp(a,b,c) == 0)
 
 #define HIDE_CHMOD 0600
 #define HIDE_UMASK 0077

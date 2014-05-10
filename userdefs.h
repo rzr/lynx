@@ -1,8 +1,13 @@
 /*
+ * $LynxId: userdefs.h,v 1.289 2014/02/08 01:00:47 tom Exp $
+ *
  * Lynx - Hypertext navigation system
  *
  *   (c) Copyright 1992, 1993, 1994 University of Kansas
  *	 1995, 1996: GNU General Public License
+ *
+ *   Copyright 1996-2013,2014 Thomas E. Dickey and Lynx Developers Group
+ *   Note: GNU General Public License is not a copyright.
  */
 
 /*******************************************************************
@@ -102,6 +107,10 @@
 #ifndef LYNX_CFG_FILE
 #define LYNX_CFG_FILE "Lynx_Dir:lynx.cfg"
 #endif /* LYNX_CFG_FILE */
+
+#ifndef LYNX_CFG_PATH
+#define LYNX_CFG_PATH "Lynx_Dir"
+#endif /* LYNX_CFG_PATH */
 
 /**************************
  * The EXTENSION_MAP file allows you to map file suffixes to
@@ -238,11 +247,17 @@
 #define LYNX_LSS_FILE "Lynx_Dir:lynx.lss"
 #endif /* LYNX_LSS_FILE */
 
+/*
+ * FTP_FORMAT uses the same codes as LIST_FORMAT, but applies to files shown
+ * in an ftp listing.
+ */
+#define FTP_FORMAT "%d  %-16.16t %a  %K"
+
 /*******************************************************************
  * Things you must change  -  non-VMS specific
  *  Section 1b).
  */
-#else     /* non-VMS: UNIX etc. */
+#else /* non-VMS: UNIX etc. */
 
 /**************************
  * NOTE: This variable is set by the configure script; editing changes will
@@ -282,12 +297,18 @@
 #ifndef HAVE_CONFIG_H
 #ifndef LYNX_CFG_FILE
 #ifdef DOSPATH
+#define LYNX_CFG_PATH "."
 #define LYNX_CFG_FILE "./lynx.cfg"
 #else
+#define LYNX_CFG_PATH "/usr/local/lib"
 #define LYNX_CFG_FILE "/usr/local/lib/lynx.cfg"
 #endif /* DOSPATH */
 #endif /* LYNX_CFG_FILE */
 #endif /* HAVE_CONFIG_H */
+
+#ifndef MIME_LIBDIR
+#define MIME_LIBDIR "/etc/"
+#endif
 
 /**************************
  * The EXTENSION_MAP file allows you to map file suffixes to
@@ -296,8 +317,8 @@
  * Mappings in these global and personal files override any SUFFIX
  * definitions in lynx.cfg and built-in defaults from src/HTInit.c.
  */
-#define GLOBAL_EXTENSION_MAP "/usr/local/lib/mosaic/mime.types"
-#define PERSONAL_EXTENSION_MAP ".mime.types"
+#define GLOBAL_EXTENSION_MAP MIME_LIBDIR "mime.types"
+#define PERSONAL_EXTENSION_MAP "~/.mime.types"
 
 /**************************
  * The MAILCAP file allows you to map file MIME types to
@@ -306,8 +327,8 @@
  * Mappings in these global and personal files override any VIEWER
  * definitions in lynx.cfg and built-in defaults from src/HTInit.c.
  */
-#define GLOBAL_MAILCAP "/usr/local/lib/mosaic/mailcap"
-#define PERSONAL_MAILCAP ".mailcap"
+#define GLOBAL_MAILCAP MIME_LIBDIR "mailcap"
+#define PERSONAL_MAILCAP "~/.mailcap"
 
 /**************************
  * XLOADIMAGE_COMMAND will be used as a default in src/HTInit.c for
@@ -351,13 +372,13 @@
  * Comment this line out to disable code that implements command logging
  * and scripting.
  */
-#define EXP_CMD_LOGGING 1
+#define USE_CMD_LOGGING 1
 
 /********************************
  * Comment this line out to disable code that randomizes the names given to
  * temporary files.
  */
-#define EXP_RAND_TEMPNAME 1
+#define USE_RAND_TEMPNAME 1
 
 /********************************
  * Comment this line out to let the user enter his/her email address
@@ -406,6 +427,12 @@
 #endif
 
 /*
+ * FTP_FORMAT uses the same codes as LIST_FORMAT, but applies to files shown
+ * in an ftp listing.
+ */
+#define FTP_FORMAT "%d  %-16.16t %a  %K"
+
+/*
  *  If NO_FORCED_CORE_DUMP is set to TRUE, Lynx will not force
  *  core dumps via abort() calls on fatal errors or assert()
  *  calls to check potentially fatal errors.  The default defined
@@ -430,7 +457,11 @@
  * -lss command line switch will override these definitions.
  */
 #ifndef LYNX_LSS_FILE
+#ifdef DOSPATH
+#define LYNX_LSS_FILE "lynx.lss"
+#else
 #define LYNX_LSS_FILE "/usr/local/lib/lynx.lss"
+#endif
 #endif /* LYNX_LSS_FILE */
 
 #endif /* VMS OR UNIX */
@@ -471,10 +502,12 @@
  *   for this distribution (use SHELL syntax including the device
  *   on VMS systems).
  * The default HELPFILE is:
- * http://www.subir.com/lynx/lynx_help/lynx_help_main.html
+ * http://lynx.isc.org/release/breakout/lynx_help/lynx_help_main.html
  *   This should be changed here or in lynx.cfg to the local path.
+ * The definition here can be overridden at run time by defining a
+ * "LYNX_HELPFILE" environment variable.
  */
-#define HELPFILE "http://www.subir.com/lynx/lynx_help/lynx_help_main.html"
+#define HELPFILE "http://lynx.isc.org/release/breakout/lynx_help/lynx_help_main.html"
 /* #define HELPFILE "file://localhost/PATH_TO/lynx_help/lynx_help_main.html" */
 
 /*****************************
@@ -483,7 +516,7 @@
  * An index to your CWIS can be placed here or a document containing
  * pointers to lots of interesting places on the web.
  */
-#define DEFAULT_INDEX_FILE "http://www.ncsa.uiuc.edu/SDG/Software/Mosaic/MetaIndex.html"
+#define DEFAULT_INDEX_FILE "http://scout.wisc.edu/"
 
 /*****************************
  * If USE_TRACE_LOG is set FALSE, then when TRACE mode is invoked the
@@ -875,6 +908,12 @@
  */
 #define SET_COOKIES TRUE
 
+/********************************
+ * If SEND_USERAGENT is set FALSE, Lynx will not send a user-agent string.
+ * You can override this in the 'O'ptions menu.
+ */
+#define SEND_USERAGENT TRUE
+
 /*******************************
  * If ACCEPT_ALL_COOKIES is set TRUE, and SET_COOKIES is TRUE, Lynx will
  * accept all cookies.
@@ -883,7 +922,6 @@
  * toggled via the -accept_all_cookies command line switch.
  */
 #define ACCEPT_ALL_COOKIES FALSE
-
 
 /****************************************************************
  *   Section 2.   Things that you probably want to change or review
@@ -970,7 +1008,7 @@
 #define BOXHORI '-'
 /* #define BOXHORI 0 */
 #endif /* DOSPATH */
-#endif	/* !HAVE_CONFIG_H */
+#endif /* !HAVE_CONFIG_H */
 
 /******************************
  * LY_UMLAUT controls the 7-bit expansion of characters with dieresis or
@@ -1146,7 +1184,7 @@
  *
  *  NOTE: This can generate A LOT of mail, be warned.
  */
-#define MAIL_SYSTEM_ERROR_LOGGING   FALSE  /*mail a message for every error?*/
+#define MAIL_SYSTEM_ERROR_LOGGING   FALSE	/*mail a message for every error? */
 
 /*********************************
  *  If a document cannot be accessed, and MAIL_SYSTEM_ERROR_LOGGING
@@ -1156,7 +1194,7 @@
  *
  *  NOTE: This can generate A REAL LOT of mail, be warned!!!
  */
-/* #define ALERTMAIL "webmaster@localhost" */ /*error recipient if no owner*/
+/* #define ALERTMAIL "webmaster@localhost" */ /*error recipient if no owner */
 
 /*********************************
  * If CHECKMAIL is set to TRUE, the user will be informed (via a status line
@@ -1182,8 +1220,8 @@
  * Vi or Emacs movement keys.  These are defaults,
  * which can be changed in lynx.cfg , the Options Menu or .lynxrc .
  */
-#define VI_KEYS_ALWAYS_ON	FALSE /* familiar h j k l */
-#define EMACS_KEYS_ALWAYS_ON	FALSE /* familiar ^N ^P ^F ^B */
+#define VI_KEYS_ALWAYS_ON	FALSE	/* familiar h j k l */
+#define EMACS_KEYS_ALWAYS_ON	FALSE	/* familiar ^N ^P ^F ^B */
 
 /*********************************
  * DEFAULT_KEYPAD_MODE may be set to NUMBERS_AS_ARROWS
@@ -1202,7 +1240,7 @@
  * The default search.
  * This is a default that can be overridden in lynx.cfg or by the user!
  */
-#define CASE_SENSITIVE_ALWAYS_ON    FALSE /* case sensitive user search */
+#define CASE_SENSITIVE_ALWAYS_ON    FALSE	/* case sensitive user search */
 
 /********************************
  * If NO_DOT_FILES is set TRUE here or in lynx.cfg, the user will not be
@@ -1216,7 +1254,7 @@
  * If it is FALSE at startup of Lynx, the user can regulate it via the
  * 'o'ptions menu, and may save the preference in the RC file.
  */
-#define NO_DOT_FILES    TRUE  /* disallow access to dot files */
+#define NO_DOT_FILES    TRUE	/* disallow access to dot files */
 
 /********************************
  * If MAKE_LINKS_FOR_ALL_IMAGES is TRUE, all images will be given links
@@ -1231,7 +1269,7 @@
  *
  * The default also can be toggled via an "-image_links" command line switch.
  */
-#define MAKE_LINKS_FOR_ALL_IMAGES	FALSE /* inlines cast to links */
+#define MAKE_LINKS_FOR_ALL_IMAGES	FALSE	/* inlines cast to links */
 
 /********************************
  * If MAKE_PSEUDO_ALTS_FOR_INLINES is FALSE, inline images which do not
@@ -1247,7 +1285,7 @@
  * The default also can be toggled via a "-pseudo_inlines" command line
  * switch.
  */
-#define MAKE_PSEUDO_ALTS_FOR_INLINES	TRUE /* Use "[INLINE]" pseudo-ALTs */
+#define MAKE_PSEUDO_ALTS_FOR_INLINES	TRUE	/* Use "[INLINE]" pseudo-ALTs */
 
 /********************************
  * If SUBSTITUTE_UNDERSCORES is TRUE, the _underline_ format will be used
@@ -1256,7 +1294,7 @@
  * The default defined here can be changed in lynx.cfg, and the user can
  * toggle the default via a "-underscore" command line switch.
  */
-#define SUBSTITUTE_UNDERSCORES	FALSE /* Use _underline_ format in dumps */
+#define SUBSTITUTE_UNDERSCORES	FALSE	/* Use _underline_ format in dumps */
 
 /********************************
  * If QUIT_DEFAULT_YES is defined as TRUE then when the QUIT command
@@ -1335,7 +1373,6 @@
 #include <LYMessages_en.h>
 #endif /* !LYMESSAGES_EN_H */
 
-
 /****************************************************************
  * DEFAULT_VISITED_LINKS may be set to one or more of
  *					VISITED_LINKS_AS_FIRST_V
@@ -1349,6 +1386,51 @@
  */
 #define DEFAULT_VISITED_LINKS (VISITED_LINKS_AS_LATEST | VISITED_LINKS_REVERSE)
 
+/****************************************************************
+ * If USE_CACHEJAR is set to TRUE the user will be able to view,
+ * access and delete cached documents in current lynx session.
+ */
+#ifndef USE_CACHEJAR
+/* #define USE_CACHEJAR TRUE */
+#endif
+
+/****************************************************************
+ * If USE_SESSIONS is set to TRUE the user will be able to save,
+ * resume and in general manipulate with lynx sessions.
+ */
+#ifndef USE_SESSIONS
+/* #define USE_SESSIONS TRUE */
+#endif
+
+#define MAX_SESSIONS	10000
+
+/*
+ * If USE_SESSIONS is TRUE you may tune it fine how it will work:
+ */
+#define GOTOURL_IN_SESSION	/* Allow to save goto url */
+#define GOTOURL_OUT_SESSION	/* Allow to restore goto url */
+#define HISTORY_IN_SESSION	/* Allow to save history */
+#define HISTORY_OUT_SESSION	/* Allow to restore history */
+#define SEARCH_IN_SESSION	/* Allow to save search string */
+#define SEARCH_OUT_SESSION	/* Allow to restore search string */
+#define VLINK_IN_SESSION	/* Allow to save visited link */
+#define VLINK_OUT_SESSION	/* Allow to restore visited link */
+
+/****************************************************************
+ * The STATUSBUFSIZE defines how many entries will be stored in
+ * cyclic buffer of statusline messages. This is specially useful
+ * for users who use lynx on a terminal with more than 40 lines.
+ */
+/* #define STATUSBUFSIZE 90 */
+
+/****************************************************************
+ * If USE_PROGRESSBAR is TRUE the user will be able to set
+ * download progress as odometer(thermometer) display, ie:
+ *
+ * 80% IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+ *
+ */
+/* #define USE_PROGRESSBAR TRUE */
 
 /****************************************************************
  *   Section 3.   Things that you should not change until you
@@ -1360,13 +1442,21 @@
  * the version definition with the Project Version on checkout.  Just
  * ignore it. - kw */
 /* $Format: "#define LYNX_VERSION \"$ProjectVersion$\""$ */
-#define LYNX_VERSION "2.8.6rel.4"
+#define LYNX_VERSION "2.8.8pre.5"
 #define LYNX_WWW_HOME "http://lynx.isc.org/"
 #define LYNX_WWW_DIST "http://lynx.isc.org/current/"
 /* $Format: "#define LYNX_DATE \"$ProjectDate$\""$ */
-#define LYNX_DATE "Wed, 15 Nov 2006 16:42:22 -0800"
+#define LYNX_DATE "Fri, 14 Feb 2014 05:00:16 -0800"
 #define LYNX_DATE_OFF 5		/* truncate the automatically-generated date */
 #define LYNX_DATE_LEN 11	/* truncate the automatically-generated date */
+
+#ifdef UNICODE
+#define W32_STRING(s) L##s
+#else
+#define W32_STRING(s) s
+#endif
+
+#define LYNX_SUBKEY W32_STRING("Software\\Lynx")
 
 #define LINESIZE 1024		/* max length of line to read from file */
 #define MAXLINKS 1024		/* max links on one screen */
@@ -1393,6 +1483,38 @@
 #define HTML_SUFFIX ".html"
 #endif
 
+#ifndef FNAME_LYNXRC
+#ifdef FNAMES_8_3
+#define FNAME_LYNXRC "lynx.rc"
+#else
+#define FNAME_LYNXRC ".lynxrc"
+#endif /* FNAMES_8_3 */
+#endif
+
+#ifndef FNAME_LYNX_COOKIES
+#ifdef FNAMES_8_3
+#define FNAME_LYNX_COOKIES "cookies"
+#else
+#define FNAME_LYNX_COOKIES ".lynx_cookies"
+#endif /* FNAMES_8_3 */
+#endif
+
+#ifndef FNAME_LYNX_TRACE
+#ifdef FNAMES_8_3
+#define FNAME_LYNX_TRACE "LY-TRACE.LOG"
+#else
+#define FNAME_LYNX_TRACE "Lynx.trace"
+#endif /* FNAMES_8_3 */
+#endif
+
+#ifndef BLAT_MAIL
+#define BLAT_MAIL "blat"
+#endif
+
+#ifndef ALTBLAT_MAIL
+#define ALTBLAT_MAIL "blatj"
+#endif
+
 #define BIN_SUFFIX  ".bin"
 #define TEXT_SUFFIX ".txt"
 
@@ -1412,28 +1534,24 @@
 
 #ifdef DOSPATH
 
+/*
+ * Define this to setup feature that uses directory of lynx.exe to locate
+ * associated configuration files.
+#define USE_PROGRAM_DIR 1
+ */
+
 #ifdef _WINDOWS
-#ifdef SYSTEM_MAIL
-#undef SYSTEM_MAIL
+
+#ifndef USE_BLAT_MAILER
+#define USE_BLAT_MAILER 1
 #endif
-#ifdef SYSTEM_MAIL_FLAGS
-#undef SYSTEM_MAIL_FLAGS
-#endif
-#ifdef USE_ALT_BLAT_MAILER
-#define SYSTEM_MAIL		"BLAT"
-#define SYSTEM_MAIL_FLAGS	""
-#else
-#define SYSTEM_MAIL		"BLATJ"
-#define SYSTEM_MAIL_FLAGS	""
-#endif
+
 #else
 /* have to define something... */
-#ifdef SYSTEM_MAIL
 #undef SYSTEM_MAIL
-#endif /* SYSTEM_MAIL */
-#define SYSTEM_MAIL "sendmail"
-#define SYSTEM_MAIL_FLAGS "-t -oi"
-#endif
+#define SYSTEM_MAIL             "sendmail"
+#define SYSTEM_MAIL_FLAGS       "-t -oi"
+#endif /* _WINDOWS */
 
 /*
 **  The following executables may be used at run time.  Unless you change
@@ -1486,7 +1604,7 @@
  */
 #endif /* HAVE_CONFIG_H */
 
-#else	/* Unix */
+#else /* Unix */
 	/* Standard locations are defined via the configure script.  When
 	 * helper applications are in your home directory or other nonstandard
 	 * locations, you probably will have to preset the path to them with
@@ -1495,13 +1613,12 @@
 #endif /* DOSPATH */
 #endif /* VMS */
 
-
-/***************************** 
+/*****************************
  * I have not ported multibyte support for EBCDIC.  In fact, some multibyte
  * code in LYLowerCase() crashes on EBCDIC strings.  -- gil
  */
 #if       ! defined(NOT_ASCII)
-/***************************** 
+/*****************************
  * SUPPORT_MULTIBYTE_EDIT provides better support of CJK characters to
  * Lynx's Line Editor.  JIS X0201 Kana is partially supported.  The
  * reason why I didn't support it fully is I think supporting it is not
@@ -1510,7 +1627,7 @@
 #define SUPPORT_MULTIBYTE_EDIT
 #endif /* ! defined(NOT_ASCII) */
 
-/***************************** 
+/*****************************
  * SUPPORT_CHDIR provides CD command (bound to 'C' by default).  It allows
  * changing directory to arbitrary location (if OS allows them).  If dired is
  * enabled, user will be able to visit any directory and view any file allowed
@@ -1518,42 +1635,40 @@
  */
 #define SUPPORT_CHDIR
 
-/***************************** 
+/*****************************
  * MARK_HIDDEN_LINKS controls whether hidden links are shown with the title
  * set by the HIDDEN_LINK_MARKER string in lynx.cfg
  */
 #define MARK_HIDDEN_LINKS
 
 /*****************************
- * USE_TH_JP_AUTO_DETECT, CONV_JISX0201KANA_JISX0208KANA,  
- * and KANJI_CODE_OVERRIDE are the macros for Japanese. - TH 
- */ 
-/***************************** 
- * USE_TH_JP_AUTO_DETECT enables a new Japanese charset detection routine. 
- * With the old detection strategy, Lynx always thought a document was 
- * written in mixture of three kanji codes (JIS, EUC and SJIS).  The new 
- * strategy is for Lynx to first assume the document is written in one code 
- * or JIS + one other kanji code (JIS, EUC, SJIS, EUC+JIS and SJIS+JIS). 
- * The first assumption is usually correct, but if the assumption is wrong, 
- * Lynx falls back to the old assumption of the three kanji codes mixed. 
- */ 
-#define USE_TH_JP_AUTO_DETECT 
- 
-/***************************** 
- * If CONV_JISX0201KANA_JISX0208KANA is set, Lynx will convert 
- * JIS X0201 Kana to JIS X0208 Kana, i.e., convert half-width kana 
- * to full-width. 
- */ 
-#define CONV_JISX0201KANA_JISX0208KANA 
- 
-/***************************** 
- * Uncomment the following line to enable the kanji code override routine. 
- * The code can be changed by pressing ^L.  More precisely, this allows 
- * the user to override the assumption about the kanji code for the document 
- * which Lynx has made on the basis of a META tag and HTTP response. 
- */ 
-/*#define KANJI_CODE_OVERRIDE */ 
- 
+ * USE_TH_JP_AUTO_DETECT and KANJI_CODE_OVERRIDE are the macros
+ * for Japanese. - TH
+ */
+/*****************************
+ * USE_TH_JP_AUTO_DETECT enables a new Japanese charset detection routine.
+ * With the old detection strategy, Lynx always thought a document was
+ * written in mixture of three kanji codes (JIS, EUC and SJIS).  The new
+ * strategy is for Lynx to first assume the document is written in one code
+ * or JIS + one other kanji code (JIS, EUC, SJIS, EUC+JIS and SJIS+JIS).
+ * The first assumption is usually correct, but if the assumption is wrong,
+ * Lynx falls back to the old assumption of the three kanji codes mixed.
+ */
+#define USE_TH_JP_AUTO_DETECT
+
+/*****************************
+ * Uncomment the following line to enable the kanji code override routine.
+ * The code can be changed by pressing ^L.  More precisely, this allows
+ * the user to override the assumption about the kanji code for the document
+ * which Lynx has made on the basis of a META tag and HTTP response.
+ */
+/*#define KANJI_CODE_OVERRIDE */
+
+/**************************
+ * SSL_CERT_FILE contains valid SSL CA certificates.  Set this to a string
+ * to provide a runtime default value.
+ */
+#define SSL_CERT_FILE NULL
 
 /****************************************************************
  *  Section 4.  Things you MUST check only if you plan to use Lynx
@@ -1626,7 +1741,7 @@
  * set to FALSE if you don't want users of your anonymous
  * account to be able to goto particular URLs.
  */
-#define CAN_ANONYMOUS_GOTO_BIBP		TRUE    /* BIBP maps to HTTP */
+#define CAN_ANONYMOUS_GOTO_BIBP		TRUE	/* BIBP maps to HTTP */
 #define CAN_ANONYMOUS_GOTO_CSO		FALSE
 #define CAN_ANONYMOUS_GOTO_FILE		FALSE
 #define CAN_ANONYMOUS_GOTO_FINGER	TRUE
@@ -1721,5 +1836,26 @@
  *
  * This ends the section specific to anonymous accounts.
  */
+
+/*****************************
+ * These can be uncommmented to get more detail when debugging changes to
+ * the color-style and layout logic.
+ */
+/*#define DEBUG_APPCH 1*/
+/*#define DEBUG_STYLE 1*/
+
+#ifdef DEBUG_STYLE
+#define CTRACE_STYLE(p) CTRACE2(TRACE_STYLE, p)
+#else
+#define CTRACE_STYLE(p)		/* nothing */
+#endif
+
+/* #define DEBUG_SPLITLINE */
+
+#ifdef DEBUG_SPLITLINE
+#define CTRACE_SPLITLINE(p)	CTRACE(p)
+#else
+#define CTRACE_SPLITLINE(p)	/*nothing */
+#endif
 
 #endif /* USERDEFS_H */

@@ -1,4 +1,7 @@
-/*		HTML Generator
+/*
+ * $LynxId: HTMLGen.c,v 1.40 2013/11/28 11:13:46 tom Exp $
+ *
+ *		HTML Generator
  *		==============
  *
  *	This version of the HTML object sends HTML markup to the output stream.
@@ -11,6 +14,8 @@
  *	from the incomming data or the anchor.	Currently it is from the former
  *	which is cleanest.
  */
+
+#define HTSTREAM_INTERNAL 1
 
 #include <HTUtils.h>
 
@@ -37,15 +42,10 @@
 #include <LYCurses.h>
 #include <LYLeaks.h>
 
-#define PUTC(c) (*me->targetClass.put_character)(me->target, c)
-/* #define PUTS(s) (*me->targetClass.put_string)(me->target, s) */
-#define PUTB(s,l) (*me->targetClass.put_block)(me->target, s, l)
-
 #ifdef USE_COLOR_STYLE
-char class_string[TEMPSTRINGSIZE];
+char class_string[TEMPSTRINGSIZE + 1];
 
 static char *Style_className = NULL;
-static char myHash[128];
 static int hcode;
 #endif
 
@@ -95,7 +95,7 @@ static void HTMLGen_flush(HTStructured * me)
 {
     (*me->targetClass.put_block) (me->target,
 				  me->buffer,
-				  me->write_pointer - me->buffer);
+				  (int) (me->write_pointer - me->buffer));
     me->write_pointer = me->buffer;
     flush_breaks(me);
     me->cleanness = 0;
@@ -143,15 +143,14 @@ static void do_cstyle_flush(HTStructured * me)
  *	We keep track of all the breaks for when we chop the line
  */
 
-static void allow_break(HTStructured * me, int new_cleanness,
-			BOOL dlbc)
+static void allow_break(HTStructured * me, int new_cleanness, int dlbc)
 {
     if (dlbc && me->write_pointer == me->buffer)
 	dlbc = NO;
     me->line_break[new_cleanness] =
 	dlbc ? me->write_pointer - 1	/* Point to space */
 	: me->write_pointer;	/* point to gap */
-    me->delete_line_break_char[new_cleanness] = dlbc;
+    me->delete_line_break_char[new_cleanness] = (BOOLEAN) dlbc;
     if (new_cleanness >= me->cleanness &&
 	(me->overflowed || me->line_break[new_cleanness] > me->buffer))
 	me->cleanness = new_cleanness;
@@ -170,7 +169,7 @@ static void allow_break(HTStructured * me, int new_cleanness,
  *	   This should make the source files easier to read and modify
  *	by hand, too, though this is not a primary design consideration. TBL
  */
-static void HTMLGen_put_character(HTStructured * me, char c)
+static void HTMLGen_put_character(HTStructured * me, int c)
 {
     if (me->escape_specials && UCH(c) < 32) {
 	if (c == HT_NON_BREAK_SPACE || c == HT_EN_SPACE ||
@@ -198,7 +197,7 @@ static void HTMLGen_put_character(HTStructured * me, char c)
 	}
     }
 
-    *me->write_pointer++ = c;
+    *me->write_pointer++ = (char) c;
 
     if (c == '\n') {
 	HTMLGen_flush(me);
@@ -215,9 +214,9 @@ static void HTMLGen_put_character(HTStructured * me, char c)
 	    char *p;
 
 	    strcpy(delims, ",;:.");	/* @@ english bias */
-	    p = strchr(delims, me->write_pointer[-2]);
+	    p = StrChr(delims, me->write_pointer[-2]);
 	    if (p)
-		new_cleanness = p - delims + 6;
+		new_cleanness = (int) (p - delims + 6);
 	    if (!me->in_attrval)
 		new_cleanness += 10;
 	}
@@ -239,8 +238,8 @@ static void HTMLGen_put_character(HTStructured * me, char c)
 	    me->line_break[me->cleanness][0] = '\n';
 	    (*me->targetClass.put_block) (me->target,
 					  me->buffer,
-					  me->line_break[me->cleanness] -
-					  me->buffer + 1);
+					  (int) (me->line_break[me->cleanness] -
+						 me->buffer + 1));
 	    me->line_break[me->cleanness][0] = line_break_char;
 	    {			/* move next line in */
 		char *p = saved;
@@ -312,7 +311,7 @@ static void HTMLGen_write(HTStructured * me, const char *s,
  */
 static int HTMLGen_start_element(HTStructured * me, int element_number,
 				 const BOOL *present,
-				 const char **value,
+				 STRING2PTR value,
 				 int charset GCC_UNUSED,
 				 char **insert GCC_UNUSED)
 {
@@ -325,15 +324,16 @@ static int HTMLGen_start_element(HTStructured * me, int element_number,
     char *title_tmp = NULL;
 
     if (LYPreparsedSource) {
+	char *myHash = NULL;
+
 	/*
 	 * Same logic as in HTML_start_element, copied from there.  - kw
 	 */
 	HTSprintf(&Style_className, ";%s", HTML_dtd.tags[element_number].name);
-	strcpy(myHash, HTML_dtd.tags[element_number].name);
+	StrAllocCopy(myHash, HTML_dtd.tags[element_number].name);
 	if (class_string[0]) {
-	    int len = strlen(myHash);
-
-	    sprintf(myHash + len, ".%.*s", (int) sizeof(myHash) - len - 2, class_string);
+	    StrAllocCat(myHash, ".");
+	    StrAllocCat(myHash, class_string);
 	    HTSprintf(&Style_className, ".%s", class_string);
 	}
 	class_string[0] = '\0';
@@ -369,6 +369,7 @@ static int HTMLGen_start_element(HTStructured * me, int element_number,
 	    do_cstyle_flush(me);
 	    HText_characterStyle(me->text, hcode, 1);
 	}
+	FREE(myHash);
     }
 #endif /* USE_COLOR_STYLE */
     me->preformatted = YES;	/* free text within tags */
@@ -390,8 +391,7 @@ static int HTMLGen_start_element(HTStructured * me, int element_number,
 		 */
 		if (LYPreparsedSource &&
 		    element_number == HTML_LINK && !title &&
-		    present[HTML_LINK_CLASS] &&
-		    value && *value[HTML_LINK_CLASS] != '\0' &&
+		    present[HTML_LINK_CLASS] && *value[HTML_LINK_CLASS] &&
 		    !present[HTML_LINK_REV] &&
 		    (present[HTML_LINK_REL] || present[HTML_LINK_HREF])) {
 		    if (present[HTML_LINK_TITLE] && *value[HTML_LINK_TITLE]) {
@@ -417,11 +417,11 @@ static int HTMLGen_start_element(HTStructured * me, int element_number,
 		if (value[i]) {
 		    me->preformatted = was_preformatted;
 		    me->in_attrval = YES;
-		    if (strchr(value[i], '"') == NULL) {
+		    if (StrChr(value[i], '"') == NULL) {
 			HTMLGen_put_string(me, "=\"");
 			HTMLGen_put_string(me, value[i]);
 			HTMLGen_put_character(me, '"');
-		    } else if (strchr(value[i], '\'') == NULL) {
+		    } else if (StrChr(value[i], '\'') == NULL) {
 			HTMLGen_put_string(me, "='");
 			HTMLGen_put_string(me, value[i]);
 			HTMLGen_put_character(me, '\'');
@@ -464,7 +464,9 @@ static int HTMLGen_start_element(HTStructured * me, int element_number,
     /*
      * Make very specific HTML assumption that PRE can't be nested!
      */
-    me->preformatted = (element_number == HTML_PRE) ? YES : was_preformatted;
+    me->preformatted = (BOOL) ((element_number == HTML_PRE)
+			       ? YES
+			       : was_preformatted);
 
     /*
      * Can break after element start.
@@ -561,7 +563,7 @@ static int HTMLGen_end_element(HTStructured * me, int element_number,
  */
 static int HTMLGen_put_entity(HTStructured * me, int entity_number)
 {
-    int nent = HTML_dtd.number_of_entities;
+    int nent = (int) HTML_dtd.number_of_entities;
 
     HTMLGen_put_character(me, '&');
     if (entity_number < nent) {
@@ -627,6 +629,9 @@ HTStructured *HTMLGenerator(HTStream *output)
 
     if (me == NULL)
 	outofmem(__FILE__, "HTMLGenerator");
+
+    assert(me != NULL);
+
     me->isa = &HTMLGeneration;
 
     me->target = output;
@@ -709,6 +714,9 @@ HTStream *HTPlainToHTML(HTPresentation *pres GCC_UNUSED,
 
     if (me == NULL)
 	outofmem(__FILE__, "PlainToHTML");
+
+    assert(me != NULL);
+
     me->isa = (const HTStructuredClass *) &PlainToHTMLConversion;
 
     /*

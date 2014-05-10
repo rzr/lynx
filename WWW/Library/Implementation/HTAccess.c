@@ -1,4 +1,7 @@
-/*		Access Manager					HTAccess.c
+/*
+ * $LynxId: HTAccess.c,v 1.79 2013/11/28 11:11:05 tom Exp $
+ *
+ *		Access Manager					HTAccess.c
  *		==============
  *
  *  Authors
@@ -61,6 +64,7 @@
 
 #include <LYGlobalDefs.h>
 #include <LYexit.h>
+#include <LYStrings.h>
 #include <LYUtils.h>
 #include <LYLeaks.h>
 
@@ -263,7 +267,7 @@ BOOL override_proxy(const char *addr)
 	FREE(host);
 	return NO;
     }
-    Host = (((at = strchr(host, '@')) != NULL) ? (at + 1) : host);
+    Host = (((at = StrChr(host, '@')) != NULL) ? (at + 1) : host);
 
     if ((acc_method = HTParse(addr, "", PARSE_ACCESS))) {
 	if (!strcmp("file", acc_method) &&
@@ -281,9 +285,8 @@ BOOL override_proxy(const char *addr)
 	return NO;
     }
 
-    if (NULL != (p = strrchr(Host, ':'))) {	/* Port specified */
-	*p++ = 0;		/* Chop off port */
-	port = atoi(p);
+    if (NULL != (p = HTParsePort(Host, &port))) {	/* Port specified */
+	*p = 0;			/* Chop off port */
     } else {			/* Use default port */
 	acc_method = HTParse(addr, "", PARSE_ACCESS);
 	if (acc_method != NULL) {
@@ -318,29 +321,35 @@ BOOL override_proxy(const char *addr)
     }
     if (!port)
 	port = 80;		/* Default */
-    h_len = strlen(Host);
+    h_len = (int) strlen(Host);
 
     while (*no_proxy) {
 	const char *end;
 	const char *colon = NULL;
 	int templ_port = 0;
 	int t_len;
+	int brackets = 0;
 
 	while (*no_proxy && (WHITE(*no_proxy) || *no_proxy == ','))
 	    no_proxy++;		/* Skip whitespace and separators */
 
 	end = no_proxy;
 	while (*end && !WHITE(*end) && *end != ',') {	/* Find separator */
-	    if (*end == ':')
+	    if (!brackets && (*end == ':'))
 		colon = end;	/* Port number given */
+	    else if (*end == '[')
+		++brackets;
+	    else if (*end == ']')
+		--brackets;
 	    end++;
 	}
 
 	if (colon) {
+	    /* unlike HTParsePort(), this may be followed by non-digits */
 	    templ_port = atoi(colon + 1);
-	    t_len = colon - no_proxy;
+	    t_len = (int) (colon - no_proxy);
 	} else {
-	    t_len = end - no_proxy;
+	    t_len = (int) (end - no_proxy);
 	}
 
 	if ((!templ_port || templ_port == port) &&
@@ -352,7 +361,8 @@ BOOL override_proxy(const char *addr)
 #ifdef CJK_EX			/* ASATAKU PROXY HACK */
 	if ((!templ_port || templ_port == port) &&
 	    (t_len > 0 && t_len <= h_len &&
-	     isdigit(UCH(*no_proxy)) && !strncmp(host, no_proxy, t_len))) {
+	     isdigit(UCH(*no_proxy)) &&
+	     !StrNCmp(host, no_proxy, t_len))) {
 	    FREE(host);
 	    return YES;
 	}
@@ -406,10 +416,10 @@ static int get_physical(const char *addr,
 	StrAllocCat(physical, "?0,0");
 	CTRACE((tfp, "HTAccess: Appending '?0,0' coordinate pair.\n"));
     }
-    if (!strncmp(physical, "Proxied=", 8)) {
+    if (!StrNCmp(physical, "Proxied=", 8)) {
 	HTAnchor_setPhysical(anchor, physical + 8);
 	using_proxy = YES;
-    } else if (!strncmp(physical, "NoProxy=", 8)) {
+    } else if (!StrNCmp(physical, "NoProxy=", 8)) {
 	HTAnchor_setPhysical(anchor, physical + 8);
 	override_flag = YES;
     } else {
@@ -443,15 +453,16 @@ static int get_physical(const char *addr,
 #ifdef USE_GATEWAYS
 
     if (!override_flag && !using_proxy) {	/* else ignore no_proxy env var */
+	char *host = NULL;
+	int port;
+
 	if (!strcasecomp(acc_method, "news")) {
 	    /*
 	     * News is different, so we need to check the name of the server,
 	     * as well as the default port for selective exclusions.
 	     */
-	    char *host = NULL;
-
 	    if ((host = HTParse(addr, "", PARSE_HOST))) {
-		if (strchr(host, ':') == NULL) {
+		if (HTParsePort(host, &port) == NULL) {
 		    StrAllocCopy(Server_addr, "news://");
 		    StrAllocCat(Server_addr, host);
 		    StrAllocCat(Server_addr, ":119/");
@@ -467,10 +478,8 @@ static int get_physical(const char *addr,
 	     * Wais also needs checking of the default port for selective
 	     * exclusions.
 	     */
-	    char *host = NULL;
-
 	    if ((host = HTParse(addr, "", PARSE_HOST))) {
-		if (!(strchr(host, ':'))) {
+		if (!(HTParsePort(host, &port))) {
 		    StrAllocCopy(Server_addr, "wais://");
 		    StrAllocCat(Server_addr, host);
 		    StrAllocCat(Server_addr, ":210/");
@@ -518,7 +527,7 @@ static int get_physical(const char *addr,
 	    char *gatewayed = NULL;
 
 	    StrAllocCopy(gatewayed, proxy);
-	    if (!strncmp(gatewayed, "http", 4)) {
+	    if (!StrNCmp(gatewayed, "http", 4)) {
 		char *cp = strrchr(gatewayed, '/');
 
 		/* Append a slash to the proxy specification if it doesn't
@@ -530,7 +539,7 @@ static int get_physical(const char *addr,
 	    /*
 	     * Ensure that the proxy server uses ftp for file URLs. - FM
 	     */
-	    if (!strncmp(addr, "file", 4)) {
+	    if (!StrNCmp(addr, "file", 4)) {
 		StrAllocCat(gatewayed, "ftp");
 		StrAllocCat(gatewayed, (addr + 4));
 	    } else
@@ -678,24 +687,27 @@ static int HTLoad(const char *addr,
     HTProtocol *p;
     int status = get_physical(addr, anchor);
 
+    if (reloading) {
+	FREE(anchor->charset);
+	FREE(anchor->UCStages);
+    }
+
     if (status == HT_FORBIDDEN) {
 	/* prevent crash if telnet or similar was forbidden by rule. - kw */
 	LYFixCursesOn("show alert:");
-	return HTLoadError(sink, 500, gettext("Access forbidden by rule"));
+	status = HTLoadError(sink, 500, gettext("Access forbidden by rule"));
     } else if (status == HT_REDIRECTING) {
-	return status;		/* fake redirection by rule, to redirecting_url */
+	;			/* fake redirection by rule, to redirecting_url */
+    } else if (status >= 0) {
+	/* prevent crash if telnet or similar mapped or proxied by rule. - kw */
+	LYFixCursesOnForAccess(addr, HTAnchor_physical(anchor));
+	p = (HTProtocol *) HTAnchor_protocol(anchor);
+	anchor->parent->underway = TRUE;	/* Hack to deal with caching */
+	status = p->load(HTAnchor_physical(anchor),
+			 anchor, format_out, sink);
+	anchor->parent->underway = FALSE;
+	LYUCPopAssumed();
     }
-    if (status < 0)
-	return status;		/* Can't resolve or forbidden */
-
-    /* prevent crash if telnet or similar mapped or proxied by rule. - kw */
-    LYFixCursesOnForAccess(addr, HTAnchor_physical(anchor));
-    p = (HTProtocol *) HTAnchor_protocol(anchor);
-    anchor->parent->underway = TRUE;	/* Hack to deal with caching */
-    status = p->load(HTAnchor_physical(anchor),
-		     anchor, format_out, sink);
-    anchor->parent->underway = FALSE;
-    LYUCPopAssumed();
     return status;
 }
 
@@ -792,7 +804,7 @@ static BOOL HTLoadDocument(const char *full_address,	/* may include #fragment */
      */
     if (!anchor->post_data) {
 	while ((cp = HTAnchor_physical(anchor)) != NULL &&
-	       !strncmp(cp, "Location=", 9)) {
+	       !StrNCmp(cp, "Location=", 9)) {
 	    DocAddress NewDoc;
 
 	    CTRACE((tfp, "HTAccess: '%s' is a redirection URL.\n",
@@ -846,7 +858,7 @@ static BOOL HTLoadDocument(const char *full_address,	/* may include #fragment */
 	 * (3) we are repositioning within the currently loaded document based
 	 * on the target anchor's address (URL_Reference).
 	 *
-	 * If DONT_TRACK_INTERNAL_LINKS is defined, HText_AreDifferent() is
+	 * If track_internal_links is false, HText_AreDifferent() is
 	 * used to determine whether (3) applies.  If the target address
 	 * differs from that of the current document only by a fragment and the
 	 * target address has an appended fragment, repositioning without
@@ -861,7 +873,7 @@ static BOOL HTLoadDocument(const char *full_address,	/* may include #fragment */
 	 * (e.g., user requested RELOAD, or HTTP response with no-cache header
 	 * and we are not overriding).
 	 *
-	 * If DONT_TRACK_INTERNAL_LINKS is undefined, a target address that
+	 * If track_internal_links is true, a target address that
 	 * points to the same URL as the current document may still result in
 	 * reloading, depending on whether the original URL-Reference was given
 	 * as an internal link in the context of the previously loaded
@@ -883,15 +895,14 @@ static BOOL HTLoadDocument(const char *full_address,	/* may include #fragment */
 	 * based on an If-Modified-Since check, etc.) but the code for doing
 	 * those other things isn't available yet.
 	 */
-	if (LYoverride_no_cache ||
-#ifdef DONT_TRACK_INTERNAL_LINKS
-	    !HText_hasNoCacheSet(text) ||
-	    !HText_AreDifferent(anchor, full_address)
-#else
-	    ((LYinternal_flag || !HText_hasNoCacheSet(text)) &&
-	     !isLYNXIMGMAP(full_address))
-#endif /* TRACK_INTERNAL_LINKS */
-	    ) {
+	if ((reloading != REAL_RELOAD) &&
+	    (LYoverride_no_cache ||
+	     ((!track_internal_links &&
+	       (!HText_hasNoCacheSet(text) ||
+		!HText_AreDifferent(anchor, full_address))) ||
+	      (track_internal_links &&
+	       (((LYinternal_flag || !HText_hasNoCacheSet(text)) &&
+		 !isLYNXIMGMAP(full_address))))))) {
 	    CTRACE((tfp, "HTAccess: Document already in memory.\n"));
 	    HText_select(text);
 
@@ -903,11 +914,12 @@ static BOOL HTLoadDocument(const char *full_address,	/* may include #fragment */
 	    return YES;
 	} else {
 	    ForcingNoCache = YES;
+	    BStrFree(anchor->post_data);
 	    CTRACE((tfp, "HTAccess: Auto-reloading document.\n"));
 	}
     }
 
-    if (text && HText_HaveUserChangedForms(text)) {
+    if (HText_HaveUserChangedForms(text)) {
 	/*
 	 * Issue a warning.  User forms content will be lost.
 	 * Will not restore changed forms, currently.
@@ -1271,6 +1283,8 @@ BOOL HTSearch(const char *keywords,
     if (escaped == NULL)
 	outofmem(__FILE__, "HTSearch");
 
+    assert(escaped != NULL);
+
     StrAllocCopy(address, here->isIndexAction);
 
     /*
@@ -1285,7 +1299,7 @@ BOOL HTSearch(const char *keywords,
 
 	if (WHITE(*p)) {
 	    *q++ = '+';
-	} else if (HTCJK != NOCJK) {
+	} else if (IS_CJK_TTY) {
 	    *q++ = *p;
 	} else if (c >= 32 && c <= UCH(127) && isAcceptable[c - 32]) {
 	    *q++ = *p;		/* 930706 TBL for MVS bug */
@@ -1296,7 +1310,7 @@ BOOL HTSearch(const char *keywords,
 	}
     }				/* Loop over string */
     *q = '\0';			/* Terminate escaped string */
-    u = strchr(address, '?');	/* Find old search string */
+    u = StrChr(address, '?');	/* Find old search string */
     if (u != NULL)
 	*u = '\0';		/* Chop old search off */
 

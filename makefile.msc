@@ -1,3 +1,4 @@
+# $LynxId: makefile.msc,v 1.29 2013/12/17 23:01:31 tom Exp $
 #
 # Makefile for `Lynx' browser for Microsoft Visual C++ 4.2 or later
 #
@@ -52,10 +53,10 @@ SSL_LIBS = "$(SSL_DIR)\lib\ssleay32.lib" "$(SSL_DIR)\lib\libeay32.lib"
 !endif
 
 !if "$(SCREEN)" == "pdcurses"
-SCREEN_DEFS = /D "PDCURSES" /D "COLOR_CURSES" /D "FANCY_CURSES"
+SCREEN_DEFS = /D "PDCURSES" /D "COLOR_CURSES" /D "FANCY_CURSES" /D "WIDE_CURSES"
 SCREEN_LIB  = pdcurses
 !else
-SCREEN_DEFS = /D "USE_SLANG"
+SCREEN_DEFS = /D "USE_SLANG" /D "SLANG_DLL"
 SCREEN_LIB  = wslang32
 !endif
 
@@ -65,15 +66,14 @@ INCLUDES = \
  /I "$(SRC_DIR)\chrtrans" \
  /I "$(WWW_DIR)" \
  /I "$(ETC_LIB)"
-DEFS = $(CS_DEFS) $(SOCK_DEFS) $(SSL_DEFS) $(SCREEN_DEFS) \
+DEFS = /D "WIN32_LEAN_AND_MEAN" $(CS_DEFS) $(SOCK_DEFS) $(SSL_DEFS) $(SCREEN_DEFS) \
  /D "ACCESS_AUTH" \
  /D "CJK_EX" \
  /D "DIRED_SUPPORT" \
  /D "DISP_PARTIAL" \
+ /D "DONT_HAVE_TM_GMTOFF" \
  /D "DOSPATH" \
- /D "EXP_ALT_BINDINGS" \
- /D "EXP_CMD_LOGGING" \
- /D "EXP_JUSTIFY_ELTS" \
+ /D "USE_ALT_BINDINGS" \
  /D "EXP_NESTED_TABLES" \
  /D "HAVE_KEYPAD" \
  /D "LONG_LIST" \
@@ -88,14 +88,17 @@ DEFS = $(CS_DEFS) $(SOCK_DEFS) $(SSL_DEFS) $(SCREEN_DEFS) \
  /D "NO_UTMP" \
  /D "OK_OVERRIDE" \
  /D "SH_EX" \
+ /D "USE_CMD_LOGGING" \
  /D "USE_EXTERNALS" \
  /D "USE_FILE_UPLOAD" \
+ /D "USE_JUSTIFY_ELTS" \
  /D "USE_MULTIBYTE_CURSES" \
  /D "USE_PERSISTENT_COOKIES" \
  /D "USE_PRETTYSRC" \
  /D "USE_READPROGRESS" \
  /D "USE_SCROLLBAR" \
  /D "USE_SOURCE_CACHE" \
+ /D "USE_BZLIB" \
  /D "USE_ZLIB" \
  /D "WIN32" \
  /D "WIN_EX" \
@@ -107,16 +110,19 @@ DEFS = $(CS_DEFS) $(SOCK_DEFS) $(SSL_DEFS) $(SCREEN_DEFS) \
  /D _WIN_CC="1" \
  /D VC="2.14FM"
 
+# /GX == /EHsc == 
+# /EHs enable C++ EH (no SEH exceptions)  /EHa enable C++ EH (w/ SEH exceptions)
+# /EHc extern "C" defaults to nothrow     
 !if "$(DEBUG)" == ""
-CFLAGS   = /nologo /MT /W3 /GX /O2 /c
+CFLAGS   = /nologo /MT /W3 /EHsc /O2 /c
 LDFLAGS  = /nologo /subsystem:console /incremental:no /machine:I386
 !else
-CFLAGS   = /nologo /MT /W3 /GX /Zi /c
+CFLAGS   = /nologo /MT /W3 /EHsc /Zi /c
 LDFLAGS  = /debug /nologo /subsystem:console /incremental:no /machine:I386
 !endif
 
-LIBS     = kernel32.lib user32.lib wsock32.lib /NODEFAULTLIB:libc\
- $(ETC_LIB)\$(SCREEN_LIB).lib $(ETC_LIB)\zlib.lib dirent.obj $(SSL_LIBS)
+LIBS     = kernel32.lib user32.lib wsock32.lib advapi32.lib /NODEFAULTLIB:libc\
+ $(ETC_LIB)\$(SCREEN_LIB).lib $(ETC_LIB)\libbz2.lib $(ETC_LIB)\zlib.lib dirent.obj $(SSL_LIBS)
 
 COMPILE = $(CC) $(CFLAGS) $(INCLUDES) $(DEFS)
 LINK    = $(LD) $(LDFLAGS) /map:lynx.map /out:$@
@@ -189,19 +195,23 @@ OBJS = $(CS_OBJS) \
 	"LYPrint.obj" \
 	"LYReadCFG.obj" \
 	"LYSearch.obj" \
+	"LYSession.obj" \
 	"LYShowInfo.obj" \
 	"LYStrings.obj" \
 	"LYTraversal.obj" \
 	"LYUpload.obj" \
 	"LYUtils.obj" \
+	"parsdate.obj" \
 	"LYexit.obj" \
+	"LYmktime.obj" \
 	"LYrcFile.obj" \
 	"SGML.obj" \
 	"TRSTable.obj" \
 	"UCAuto.obj" \
 	"UCAux.obj" \
 	"UCdomap.obj" \
-	"Xsystem.obj"
+	"Xsystem.obj" \
+	"LYIcon.obj"
 
 
 # Dependencies for building
@@ -219,6 +229,7 @@ all : $(PROGNAME)
 clean :
 	-del *.map
 	-del *.obj
+	-del *.res
 	-del/f/s/q *.i
 
 $(PROGNAME) : $(OBJS) dirent.obj
@@ -329,6 +340,9 @@ LYPrettySrc.obj : $(SRC_DIR)\LYPrettySrc.c
 LYPrint.obj : $(SRC_DIR)\LYPrint.c
 	$(COMPILE) $(SRC_DIR)\LYPrint.c
 
+LYmktime.obj : $(SRC_DIR)\LYmktime.c
+	$(COMPILE) $(SRC_DIR)\LYmktime.c
+
 LYrcFile.obj : $(SRC_DIR)\LYrcFile.c
 	$(COMPILE) $(SRC_DIR)\LYrcFile.c
 
@@ -337,6 +351,9 @@ LYReadCFG.obj : $(SRC_DIR)\LYReadCFG.c
 
 LYSearch.obj : $(SRC_DIR)\LYSearch.c
 	$(COMPILE) $(SRC_DIR)\LYSearch.c
+
+LYSession.obj : $(SRC_DIR)\LYSession.c
+	$(COMPILE) $(SRC_DIR)\LYSession.c
 
 LYShowInfo.obj : $(SRC_DIR)\LYShowInfo.c
 	$(COMPILE) $(SRC_DIR)\LYShowInfo.c
@@ -355,6 +372,9 @@ LYUpload.obj : $(SRC_DIR)\LYUpload.c
 
 LYUtils.obj : $(SRC_DIR)\LYUtils.c
 	$(COMPILE) $(SRC_DIR)\LYUtils.c
+
+parsdate.obj : $(SRC_DIR)\parsdate.c
+	$(COMPILE) $(SRC_DIR)\parsdate.c
 
 TRSTable.obj : $(SRC_DIR)\TRSTable.c
 	$(COMPILE) $(SRC_DIR)\TRSTable.c
@@ -376,6 +396,12 @@ UCdomap.obj : $(SRC_DIR)\UCdomap.c
 
 Xsystem.obj : $(SRC_DIR)\Xsystem.c
 	$(COMPILE) $(SRC_DIR)\Xsystem.c
+
+LYIcon.obj : $(SRC_DIR)\LYIcon.rc
+	cd $(SRC_DIR)
+	$(RC) /r /fo ..\LYIcon.res LYIcon.rc
+	cd ..
+	cvtres /verbose /machine:ix86 LYIcon.res
 
 dirent.obj : $(ETC_LIB)\dirent.c
 	$(COMPILE) $(ETC_LIB)\dirent.c

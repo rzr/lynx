@@ -1,4 +1,8 @@
-/* global variable definitions */
+/*
+ * $LynxId: LYGlobalDefs.h,v 1.138 2014/02/04 01:25:39 tom Exp $
+ *
+ * global variable definitions
+ */
 
 #ifndef LYGLOBALDEFS_H
 #define LYGLOBALDEFS_H
@@ -21,6 +25,7 @@
 #define ALT_EDIT_HELP		"keystrokes/alt_edit_help.html"
 #define BASHLIKE_EDIT_HELP	"keystrokes/bashlike_edit_help.html"
 #define COOKIE_JAR_HELP		"Lynx_users_guide.html#Cookies"
+#define CACHE_JAR_HELP		"Lynx_users_guide.html#Cache"
 #define CURRENT_KEYMAP_HELP	"keystrokes/keystroke_help.html"
 #define DIRED_MENU_HELP		"keystrokes/dired_help.html"
 #define DOWNLOAD_OPTIONS_HELP	"Lynx_users_guide.html#RemoteSource"
@@ -60,6 +65,16 @@ extern "C" {
 #ifndef VMS
     extern char *list_format;
 #endif				/* !VMS */
+    extern char *ftp_format;
+
+    typedef enum {
+	BAD_HTML_IGNORE = 0
+	,BAD_HTML_TRACE
+	,BAD_HTML_MESSAGE
+	,BAD_HTML_WARN
+    } enumBadHtml;
+
+    extern int cfg_bad_html;	/* enumBadHtml */
 
 #ifdef DIRED_SUPPORT
 
@@ -136,8 +151,8 @@ extern "C" {
 #define ADVANCED_MODE 	  2
     extern BOOLEAN LYUseNoviceLineTwo;	/* True if TOGGLE_HELP is not mapped */
 
-#define MAX_LINE 1024		/* Hope that no window is larger than this */
-#define MAX_COLS 999		/* we don't expect wider than this */
+#define MAX_LINE 1024		/* No window can be wider than this */
+#define MAX_COLS (MAX_LINE-10)	/* we don't expect wider than this */
 #define DFT_COLS 80		/* ...and normally only this */
 #define DFT_ROWS 24		/* ...corresponding nominal height */
 
@@ -177,13 +192,18 @@ extern "C" {
 #ifdef USE_READPROGRESS
 	,rateEtaBYTES
 	,rateEtaKB
+	,rateEtaBYTES2
+	,rateEtaKB2
+#endif
+#ifdef USE_PROGRESSBAR
+	,rateBAR
 #endif
     } TransferRate;
 
 #ifdef USE_READPROGRESS
-#  define rateEtaKB_maybe	rateEtaKB
+#  define isRateInKB(n) ((n) == rateKB || (n) == rateEtaKB || (n) == rateEtaKB2)
 #else
-#  define rateEtaKB_maybe	rateKB
+#  define isRateInKB(n) ((n) == rateKB)
 #endif
 
 #define TITLE_LINES  1
@@ -191,6 +211,7 @@ extern "C" {
     extern BOOLEAN LYCursesON;	/* start_curses()->TRUE, stop_curses()->FALSE */
     extern BOOLEAN LYJumpFileURL;	/* URL from the jump file shortcuts? */
     extern BOOLEAN LYNewsPosting;	/* News posting supported if TRUE */
+    extern BOOLEAN LYAutoSession;	/* Auto restore/save session? */
     extern BOOLEAN LYShowCursor;	/* Show the cursor or hide it?      */
     extern BOOLEAN LYShowTransferRate;
     extern BOOLEAN LYUnderlineLinks;	/* Show the links underlined vs bold */
@@ -203,20 +224,20 @@ extern "C" {
     extern BOOLEAN LYoverride_no_cache;		/* don't need fresh copy, from history */
     extern BOOLEAN LYresubmit_posts;
     extern BOOLEAN LYtrimInputFields;
+    extern BOOLEAN LYxhtml_parsing;
     extern BOOLEAN bold_H1;
     extern BOOLEAN bold_headers;
     extern BOOLEAN bold_name_anchors;
-    extern BOOLEAN case_sensitive;	/* TRUE to turn on case sensitive search */
+    extern BOOLEAN LYcase_sensitive;	/* TRUE to turn on case sensitive search */
     extern BOOLEAN check_mail;	/* TRUE to report unread/new mail messages */
     extern BOOLEAN child_lynx;	/* TRUE to exit with an arrow */
+    extern BOOLEAN dump_links_inline;
     extern BOOLEAN dump_links_only;
     extern BOOLEAN dump_output_immediately;
     extern BOOLEAN dump_to_stderr;
     extern BOOLEAN emacs_keys;	/* TRUE to turn on emacs-like key movement */
     extern BOOLEAN error_logging;	/* TRUE to mail error messages */
-    extern BOOLEAN ftp_local_passive;
     extern BOOLEAN ftp_ok;
-    extern BOOLEAN ftp_passive;	/* TRUE if we want to use passive mode ftp */
     extern BOOLEAN goto_buffer;	/* TRUE if offering default goto URL */
     extern BOOLEAN is_www_index;
     extern BOOLEAN jump_buffer;	/* TRUE if offering default shortcut */
@@ -235,13 +256,19 @@ extern "C" {
     extern BOOLEAN vi_keys;	/* TRUE to turn on vi-like key movement */
 
     extern HTList *Goto_URLs;
+    extern HTList *positionable_editor;
 
     extern char *LYRequestReferer;	/* Referer, may be set in getfile() */
     extern char *LYRequestTitle;	/* newdoc.title in calls to getfile() */
     extern char *LYTransferName;	/* abbreviation for Kilobytes */
     extern char *LynxHome;
+#ifdef USE_SESSIONS
+    extern char *LYSessionFile;	/* file for auto-session */
+    extern char *session_file;	/* file for -session= */
+    extern char *sessionin_file;	/* file for -sessionin= */
+    extern char *sessionout_file;	/* file for -sessionout= */
+#endif
     extern char *LynxSigFile;	/* Signature file, in or off home */
-    extern char *ftp_lasthost;
     extern char *helpfile;
     extern char *helpfilepath;
     extern char *jumpprompt;	/* The default jump statusline prompt */
@@ -273,11 +300,17 @@ extern "C" {
     extern int LYTransferRate;	/* see enum TransferRate */
     extern int display_lines;	/* number of lines in the display */
     extern int dump_output_width;
+    extern int dump_server_status;
     extern int keypad_mode;	/* NUMBERS_AS_ARROWS or LINKS_ARE_NUMBERED */
     extern int lynx_temp_subspace;
     extern int max_cookies_buffer;
     extern int max_cookies_domain;
     extern int max_cookies_global;
+    extern int max_uri_size;
+#ifdef USE_SESSIONS
+    extern short session_limit;	/* maximal entries saved/restored
+				   in session file */
+#endif
     extern int user_mode;	/* novice or advanced */
     extern int www_search_result;
 
@@ -345,6 +378,7 @@ extern "C" {
     extern char *indexfile;
     extern char *anonftp_password;
     extern char *personal_mail_address;
+    extern char *personal_mail_name;
     extern char *homepage;	/* startfile or command line argument */
     extern char *editor;	/* if non empty it enables edit mode with
 
@@ -358,11 +392,14 @@ extern "C" {
     extern char *personal_extension_map;
     extern char *LYHostName;
     extern char *LYLocalDomain;
+    extern BOOLEAN unique_urls;
     extern BOOLEAN use_underscore;
     extern BOOLEAN no_list;
     extern BOOLEAN no_margins;
+    extern BOOLEAN no_pause;
     extern BOOLEAN no_title;
     extern BOOLEAN historical_comments;
+    extern BOOLEAN html5_charsets;
     extern BOOLEAN minimal_comments;
     extern BOOLEAN soft_dquotes;
 
@@ -384,6 +421,7 @@ extern "C" {
     extern BOOLEAN LYRestricted;	/* whether we had -anonymous option */
     extern BOOLEAN LYValidate;
     extern BOOLEAN LYPermitURL;
+    extern BOOLEAN track_internal_links;
     extern BOOLEAN enable_scrollback;	/* Clear screen before displaying new page */
     extern BOOLEAN keep_mime_headers;	/* Include mime headers and *
 
@@ -417,10 +455,11 @@ extern "C" {
     extern BOOLEAN LYCancelledFetch;
     extern const char *LYToolbarName;
 
+    extern BOOLEAN nomore;
     extern int AlertSecs;
     extern int InfoSecs;
     extern int MessageSecs;
-    extern int DebugSecs;
+    extern int DelaySecs;
     extern int ReplaySecs;
 
     extern char *LYUserAgent;	/* Lynx User-Agent header */
@@ -428,6 +467,7 @@ extern "C" {
     extern BOOLEAN LYNoRefererHeader;	/* Never send Referer header? */
     extern BOOLEAN LYNoRefererForThis;	/* No Referer header for this URL? */
     extern BOOLEAN LYNoFromHeader;	/* Never send From header?    */
+    extern BOOLEAN LYSendUserAgent;	/* send Lynx User-Agent header? */
     extern BOOLEAN LYListNewsNumbers;
     extern BOOLEAN LYUseMouse;
     extern BOOLEAN LYListNewsDates;
@@ -472,6 +512,14 @@ extern "C" {
     extern BOOLEAN BibP_bibhost_available;	/* bibhost is responding         */
 #endif
 
+#ifndef DISABLE_FTP
+    extern BOOLEAN ftp_local_passive;
+    extern BOOLEAN ftp_passive;	/* TRUE if we want to use passive mode ftp */
+    extern HTList *broken_ftp_epsv;
+    extern HTList *broken_ftp_retr;
+    extern char *ftp_lasthost;
+#endif
+
 #ifdef USE_PERSISTENT_COOKIES
     extern BOOLEAN persistent_cookies;
     extern char *LYCookieFile;	/* cookie read file              */
@@ -486,6 +534,8 @@ extern "C" {
 
     extern BOOLEAN LYNoISMAPifUSEMAP;	/* Omit ISMAP link if MAP present? */
     extern int LYHiddenLinks;
+
+    extern char *SSL_cert_file;	/* Default CA CERT file */
 
     extern int Old_DTD;
 
@@ -528,14 +578,15 @@ extern "C" {
     extern int LYNoZapKey;	/* 0: off (do 'z' checking), 1: full, 2: initially */
 #endif
 
-#ifdef EXP_JUSTIFY_ELTS
-    extern BOOL ok_justify;
+#ifdef USE_JUSTIFY_ELTS
+    extern BOOLEAN ok_justify;
     extern int justify_max_void_percent;
 #endif
 
-#ifdef EXP_LOCALE_CHARSET
+#ifdef USE_LOCALE_CHARSET
     extern BOOLEAN LYLocaleCharset;
 #endif
+    extern BOOLEAN assumed_charset;
 
 #ifndef NO_DUMP_WITH_BACKSPACES
     extern BOOLEAN with_backspaces;
@@ -546,18 +597,22 @@ extern "C" {
     extern int scrsize_y;
 #endif
 
+    extern BOOLEAN conv_jisx0201kana;
+    extern BOOLEAN wait_viewer_termination;
+
 #ifndef NO_LYNX_TRACE
     extern FILE *LYTraceLogFP;	/* Pointer for TRACE log         */
     extern char *LYTraceLogPath;	/* Path for TRACE log            */
 #endif
     extern BOOLEAN LYUseTraceLog;	/* Use a TRACE log?              */
 
-    extern BOOL force_empty_hrefless_a;
+    extern BOOLEAN force_empty_hrefless_a;
     extern int connect_timeout;
+    extern int reading_timeout;
 
 #ifdef TEXTFIELDS_MAY_NEED_ACTIVATION
     extern BOOL textfields_need_activation;
-    extern BOOL textfields_activation_option;
+    extern BOOLEAN textfields_activation_option;
 
 #ifdef INACTIVE_INPUT_STYLE_VH
     extern BOOL textinput_redrawn;
@@ -574,6 +629,7 @@ extern "C" {
 #endif				/* !VMS */
 
 #if defined(USE_COLOR_STYLE)
+    extern int LYuse_color_style;	/* color-style vs oldlynx */
     extern char *lynx_lss_file;
 #endif
 
@@ -583,6 +639,10 @@ extern "C" {
 
     extern int HTNoDataOK;	/* HT_NO_DATA-is-ok hack */
     extern BOOLEAN FileInitAlreadyDone;
+
+#ifdef USE_PROGRAM_DIR
+    extern char *program_dir;
+#endif
 
 #ifdef __DJGPP__
     extern BOOLEAN watt_debug;
@@ -595,22 +655,20 @@ extern "C" {
     extern BOOLEAN system_is_NT;
     extern char windows_drive[4];
     extern int lynx_timeout;
+    extern CRITICAL_SECTION critSec_DNS;
+    extern CRITICAL_SECTION critSec_READ;
 #endif				/* _WINDOWS */
 
-#ifdef SH_EX
     extern BOOLEAN show_cfg;
-#endif
-
     extern BOOLEAN no_table_center;
 
 #if USE_BLAT_MAILER
+    extern BOOLEAN mail_is_altblat;
     extern BOOLEAN mail_is_blat;
 #endif
 
 #if defined(__CYGWIN__)
-    extern void cygwin_conv_to_full_win32_path(char *posix, char *dos);
-    extern void cygwin_conv_to_full_posix_path(char *dos, char *posix);
-    extern int setmode(int handle, int amode);
+#include <io.h>
 #endif
 
 #if !defined(__CYGWIN__) && defined(__CYGWIN32__)
@@ -621,6 +679,14 @@ extern "C" {
 
 #define	cygwin_conv_to_full_posix_path(p, q) \
 	cygwin32_conv_to_full_posix_path(p, q)
+#endif
+
+#ifdef __CYGWIN__
+#define ConvertToWin32Path(p, q) \
+	cygwin_conv_to_full_win32_path(p, q);
+#else
+#define ConvertToWin32Path(p, q) \
+	q = p
 #endif
 
 #ifdef USE_SCROLLBAR

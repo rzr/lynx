@@ -1,3 +1,6 @@
+/*
+ * $LynxId: LYCharSets.c,v 1.68 2013/01/04 21:47:16 tom Exp $
+ */
 #include <HTUtils.h>
 #include <HTCJK.h>
 #include <HTMLDTD.h>
@@ -21,11 +24,11 @@ int forced_UCLYhdnl;
 int LYNumCharsets = 0;		/* Will be initialized later by UC_Register. */
 int current_char_set = -1;	/* will be intitialized later in LYMain.c */
 int linedrawing_char_set = -1;
-const char **p_entity_values = NULL;	/* Pointer, for HTML_put_entity() */
+STRING2PTR p_entity_values = NULL;	/* Pointer, for HTML_put_entity() */
 
 			      /* obsolete and probably not used(???)        */
 			      /* will be initialized in HTMLUseCharacterSet */
-#ifdef EXP_CHARSET_CHOICE
+#ifdef USE_CHARSET_CHOICE
 charset_subset_t charset_subsets[MAXCHARSETS];
 BOOL custom_display_charset = FALSE;
 BOOL custom_assumed_doc_charset = FALSE;
@@ -38,7 +41,7 @@ const char *display_charset_choices[MAXCHARSETS + 1];
 const char *assumed_charset_choices[MAXCHARSETS + 1];
 int displayed_display_charset_idx;
 #endif
-#endif /* EXP_CHARSET_CHOICE */
+#endif /* USE_CHARSET_CHOICE */
 
 /*
  * New character sets now declared with UCInit() in UCdomap.c
@@ -339,7 +342,7 @@ const char *SevenBitApproximations[] =
 /*
  * Add the array name to LYCharSets
  */
-const char **LYCharSets[MAXCHARSETS] =
+STRING2PTR LYCharSets[MAXCHARSETS] =
 {
     ISO_Latin1,			/* ISO Latin 1          */
     SevenBitApproximations,	/* 7 Bit Approximations */
@@ -416,9 +419,8 @@ void HTMLSetCharacterHandling(int i)
 	else
 	    LYRawMode = (BOOL) (!LYUseDefaultRawMode);
 
-	HTPassEightBitNum = (BOOL) (
-				       ((LYCharSet_UC[i].codepoints & UCT_CP_SUPERSETOF_LAT1)
-					|| (LYCharSet_UC[i].like8859 & UCT_R_HIGH8BIT)));
+	HTPassEightBitNum = (BOOL) ((LYCharSet_UC[i].codepoints & UCT_CP_SUPERSETOF_LAT1)
+				    || (LYCharSet_UC[i].like8859 & UCT_R_HIGH8BIT));
 
 	if (LYRawMode) {
 	    HTPassEightBitRaw = (BOOL) (LYlowest_eightbit[i] <= 160);
@@ -456,10 +458,10 @@ void HTMLSetCharacterHandling(int i)
 	/* for any CJK: */
 	if (!LYUseDefaultRawMode)
 	    HTCJK = NOCJK;
-	LYRawMode = (BOOL) ((HTCJK != NOCJK) ? TRUE : FALSE);
+	LYRawMode = (BOOL) (IS_CJK_TTY ? TRUE : FALSE);
 	HTPassEightBitRaw = FALSE;
 	HTPassEightBitNum = FALSE;
-	HTPassHighCtrlRaw = (BOOL) ((HTCJK != NOCJK) ? TRUE : FALSE);
+	HTPassHighCtrlRaw = (BOOL) (IS_CJK_TTY ? TRUE : FALSE);
 	HTPassHighCtrlNum = FALSE;
     }
 
@@ -492,7 +494,7 @@ void HTMLSetCharacterHandling(int i)
     }
 #endif /* USE_SLANG */
 
-    ena_csi((BOOLEAN) (LYlowest_eightbit[current_char_set] > 155));
+    ena_csi(LYlowest_eightbit[current_char_set] > 155);
 
     /* some diagnostics */
     if (TRACE) {
@@ -563,18 +565,18 @@ static void HTMLSetRawModeDefault(int i)
  * character set and the current LYRawMode value.  - FM
  */
 void HTMLSetUseDefaultRawMode(int i,
-			      BOOLEAN modeflag)
+			      int modeflag)
 {
     if (LYCharSet_UC[i].enc != UCT_ENC_CJK) {
 
 	int chndl = safeUCGetLYhndl_byMIME(UCAssume_MIMEcharset);
 
 	if (i == chndl)
-	    LYUseDefaultRawMode = modeflag;
+	    LYUseDefaultRawMode = (BOOLEAN) modeflag;
 	else
 	    LYUseDefaultRawMode = (BOOL) (!modeflag);
     } else			/* CJK encoding: */
-	LYUseDefaultRawMode = modeflag;
+	LYUseDefaultRawMode = (BOOLEAN) modeflag;
 
     return;
 }
@@ -710,10 +712,10 @@ int UCGetLYhndl_byAnyName(char *value)
 {
     int i;
 
-    LYTrimTrailing(value);
     if (value == NULL)
 	return -1;
 
+    LYTrimTrailing(value);
     CTRACE((tfp, "UCGetLYhndl_byAnyName(%s)\n", value));
 
     /* search by name */
@@ -903,6 +905,200 @@ UCode_t HTMLGetEntityUCValue(const char *name)
 }
 
 /*
+ * Original comment -
+ * Assume these are Microsoft code points, inflicted on us by FrontPage.  - FM
+ *
+ * MS FrontPage uses syntax like &#153; in 128-159 range and doesn't follow
+ * Unicode standards for this area.  Windows-1252 codepoints are assumed here.
+ *
+ * However see -
+ * http://www.whatwg.org/specs/web-apps/current-work/multipage/infrastructure.html#character-encodings-0
+ */
+UCode_t LYcp1252ToUnicode(UCode_t code)
+{
+    if ((code == 1) ||
+	(code > 127 && code < 160)) {
+	switch (code) {
+	case 1:
+	    /*
+	     * WHITE SMILING FACE
+	     */
+	    code = 0x263a;
+	    break;
+	case 128:
+	    /*
+	     * EURO currency sign
+	     */
+	    code = 0x20ac;
+	    break;
+	case 130:
+	    /*
+	     * SINGLE LOW-9 QUOTATION MARK (sbquo)
+	     */
+	    code = 0x201a;
+	    break;
+	case 131:
+	    /*
+	     * LATIN SMALL LETTER F WITH HOOK
+	     */
+	    code = 0x192;
+	    break;
+	case 132:
+	    /*
+	     * DOUBLE LOW-9 QUOTATION MARK (bdquo)
+	     */
+	    code = 0x201e;
+	    break;
+	case 133:
+	    /*
+	     * HORIZONTAL ELLIPSIS (hellip)
+	     */
+	    code = 0x2026;
+	    break;
+	case 134:
+	    /*
+	     * DAGGER (dagger)
+	     */
+	    code = 0x2020;
+	    break;
+	case 135:
+	    /*
+	     * DOUBLE DAGGER (Dagger)
+	     */
+	    code = 0x2021;
+	    break;
+	case 136:
+	    /*
+	     * MODIFIER LETTER CIRCUMFLEX ACCENT
+	     */
+	    code = 0x2c6;
+	    break;
+	case 137:
+	    /*
+	     * PER MILLE SIGN (permil)
+	     */
+	    code = 0x2030;
+	    break;
+	case 138:
+	    /*
+	     * LATIN CAPITAL LETTER S WITH CARON
+	     */
+	    code = 0x160;
+	    break;
+	case 139:
+	    /*
+	     * SINGLE LEFT-POINTING ANGLE QUOTATION MARK (lsaquo)
+	     */
+	    code = 0x2039;
+	    break;
+	case 140:
+	    /*
+	     * LATIN CAPITAL LIGATURE OE
+	     */
+	    code = 0x152;
+	    break;
+	case 142:
+	    /*
+	     * LATIN CAPITAL LETTER Z WITH CARON
+	     */
+	    code = 0x17d;
+	    break;
+	case 145:
+	    /*
+	     * LEFT SINGLE QUOTATION MARK (lsquo)
+	     */
+	    code = 0x2018;
+	    break;
+	case 146:
+	    /*
+	     * RIGHT SINGLE QUOTATION MARK (rsquo)
+	     */
+	    code = 0x2019;
+	    break;
+	case 147:
+	    /*
+	     * LEFT DOUBLE QUOTATION MARK (ldquo)
+	     */
+	    code = 0x201c;
+	    break;
+	case 148:
+	    /*
+	     * RIGHT DOUBLE QUOTATION MARK (rdquo)
+	     */
+	    code = 0x201d;
+	    break;
+	case 149:
+	    /*
+	     * BULLET (bull)
+	     */
+	    code = 0x2022;
+	    break;
+	case 150:
+	    /*
+	     * EN DASH (ndash)
+	     */
+	    code = 0x2013;
+	    break;
+	case 151:
+	    /*
+	     * EM DASH (mdash)
+	     */
+	    code = 0x2014;
+	    break;
+	case 152:
+	    /*
+	     * SMALL TILDE (tilde)
+	     */
+	    code = 0x02dc;
+	    break;
+	case 153:
+	    /*
+	     * TRADE MARK SIGN (trade)
+	     */
+	    code = 0x2122;
+	    break;
+	case 154:
+	    /*
+	     * LATIN SMALL LETTER S WITH CARON
+	     */
+	    code = 0x161;
+	    break;
+	case 155:
+	    /*
+	     * SINGLE RIGHT-POINTING ANGLE QUOTATION MARK (rsaquo)
+	     */
+	    code = 0x203a;
+	    break;
+	case 156:
+	    /*
+	     * LATIN SMALL LIGATURE OE
+	     */
+	    code = 0x153;
+	    break;
+	case 158:
+	    /*
+	     * LATIN SMALL LETTER Z WITH CARON
+	     */
+	    code = 0x17e;
+	    break;
+	case 159:
+	    /*
+	     * LATIN CAPITAL LETTER Y WITH DIAERESIS
+	     */
+	    code = 0x178;
+	    break;
+	default:
+	    /*
+	     * Undefined (by convention, use the replacement character).
+	     */
+	    code = 0xfffd;
+	    break;
+	}
+    }
+    return code;
+}
+
+/*
  * Function to select a character set and then set the character handling and
  * LYHaveCJKCharacterSet flag.  - FM
  */
@@ -926,7 +1122,7 @@ int LYCharSetsDeclared(void)
     return UCInitialized;
 }
 
-#ifdef EXP_CHARSET_CHOICE
+#ifdef USE_CHARSET_CHOICE
 void init_charset_subsets(void)
 {
     int i, n;
@@ -958,4 +1154,4 @@ void init_charset_subsets(void)
     }
 #endif
 }
-#endif /* EXP_CHARSET_CHOICE */
+#endif /* USE_CHARSET_CHOICE */

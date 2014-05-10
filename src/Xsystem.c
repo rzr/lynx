@@ -1,9 +1,9 @@
-/* $Id: Xsystem.c 1.15 Thu, 30 Dec 2004 04:11:59 -0800 dickey $
+/* $LynxId: Xsystem.c,v 1.28 2013/11/29 00:22:00 tom Exp $
  *	like system("cmd") but return with exit code of "cmd"
  *	for Turbo-C/MS-C/LSI-C
  *  This code is in the public domain.
  *
- * $Log: xsystem.c,v $
+ * @Log: xsystem.c,v @
  *
  * Revision 1.14  1997/10/17 (Fri) 16:28:24  senshu
  * *** for Win32 version ***
@@ -26,6 +26,7 @@
  */
 #include <LYUtils.h>
 #include <LYStrings.h>
+#include <LYGlobalDefs.h>
 
 #ifdef DOSPATH
 #include <io.h>
@@ -82,7 +83,7 @@ static char *NEAR xmalloc(size_t n)
 
     if ((bp = typecallocn(char, n)) == 0) {
 	write(2, "xsystem: Out of memory.!\n", 25);
-	exit_immediately(1);
+	exit_immediately(EXIT_FAILURE);
     }
     return bp;
 }
@@ -93,17 +94,13 @@ static char *NEAR xrealloc(void *p, size_t n)
 
     if ((bp = realloc(p, n)) == (char *) 0) {
 	write(2, "xsystem: Out of memory!.\n", 25);
-	exit_immediately(1);
+	exit_immediately(EXIT_FAILURE);
     }
     return bp;
 }
 
 static int NEAR is_builtin_command(char *s)
 {
-#ifdef WIN_EX
-    extern int system_is_NT;	/* 1997/11/05 (Wed) 22:10:35 */
-#endif
-
     static char *cmdtab[] =
     {
 	"dir", "type", "rem", "ren", "rename", "erase", "del",
@@ -126,7 +123,7 @@ static int NEAR is_builtin_command(char *s)
 	if (strcasecomp(s, cmdtab[i]) == 0)
 	    return 1;
 	lc = strlen(cmdtab[i]);
-	if (lc < l && strnicmp(s, cmdtab[i], lc) == 0 && issep2(s[lc]))
+	if (lc < l && strncasecomp(s, cmdtab[i], lc) == 0 && issep2(s[lc]))
 	    return 1;
     }
     return 0;
@@ -134,15 +131,18 @@ static int NEAR is_builtin_command(char *s)
 
 static int NEAR getswchar(void)
 {
+    int result;
+
 #ifdef __WIN32__
-    return '/';
+    result = '/';
 #else
     union REGS reg;
 
     reg.x.ax = 0x3700;
     intdos(&reg, &reg);
-    return reg.h.dl;
+    result = reg.h.dl;
 #endif
+    return result;
 }
 
 static int NEAR csystem(PRO * p, int flag)
@@ -169,7 +169,7 @@ static PRO *NEAR pars1c(char *s)
     int q;
 
     pp = (PRO *) xmalloc(sizeof(PRO));
-    for (q = 0; q < TABLESIZE(pp->ored); q++)
+    for (q = 0; q < (int) TABLESIZE(pp->ored); q++)
 	pp->ored[q] = q;
     while (isspc(*s))
 	s++;
@@ -254,7 +254,7 @@ static PRO *NEAR pars(char *s)
     char *lb;
     int li, ls, q;
     int c;
-    PRO *pp;
+    PRO *pp = 0;
 
     lb = xmalloc(ls = STR_MAX);	/* about */
     li = q = 0;
@@ -294,17 +294,17 @@ static int NEAR try3(char *cnm, PRO * p, int flag)
     char cmdb[STR_MAX];
     int rc;
 
-    sprintf(cmdb, "%.*s.com", sizeof(cmdb) - 5, cnm);
+    sprintf(cmdb, "%.*s.com", (int) sizeof(cmdb) - 5, cnm);
     if ((rc = open(cmdb, O_RDONLY)) >= 0) {
 	close(rc);
 	return spawnl(flag, cmdb, cmdb, p->arg, (char *) 0);
     }
-    sprintf(cmdb, "%.*s.exe", sizeof(cmdb) - 5, cnm);
+    sprintf(cmdb, "%.*s.exe", (int) sizeof(cmdb) - 5, cnm);
     if ((rc = open(cmdb, O_RDONLY)) >= 0) {
 	close(rc);
 	return spawnl(flag, cmdb, cmdb, p->arg, (char *) 0);
     }
-    sprintf(cmdb, "%.*s.bat", sizeof(cmdb) - 5, cnm);
+    sprintf(cmdb, "%.*s.bat", (int) sizeof(cmdb) - 5, cnm);
     if ((rc = open(cmdb, O_RDONLY)) >= 0) {
 	close(rc);
 	return csystem(p, flag);
@@ -318,7 +318,7 @@ static int NEAR prog_go(PRO * p, int flag)
     char *extp = 0;
     char cmdb[STR_MAX];
     char *ep;
-    int rc, lc, cmd_len;
+    int rc, lc = 0, cmd_len;
 
     cmd_len = strlen(p->cmd);
 
@@ -335,7 +335,7 @@ static int NEAR prog_go(PRO * p, int flag)
 
     if (s < p->cmd) {		/* cmd has no PATH nor Drive */
 	ep = LYGetEnv("PATH");
-	LYstrncpy(cmdb, p->cmd, sizeof(cmdb) - 1);
+	LYStrNCpy(cmdb, p->cmd, sizeof(cmdb) - 1);
 	for (;;) {
 	    if (extp) {		/* has extension */
 		if ((rc = open(cmdb, O_RDONLY)) >= 0) {
@@ -358,7 +358,7 @@ static int NEAR prog_go(PRO * p, int flag)
 		if (i > 0 && lc != ':' && lc != '\\' && lc != '/')
 		    cmdb[i++] = '\\';
 		cmdb[i] = 0;
-		LYstrncpy(cmdb + i, p->cmd, sizeof(cmdb) - 1 - i);
+		LYStrNCpy(cmdb + i, p->cmd, sizeof(cmdb) - 1 - i);
 	    } else {
 		if (rc == -2)
 		    return rc;
@@ -385,7 +385,7 @@ static char *NEAR tmpf(char *tp)
     int i;
 
     if ((ev = LYGetEnv("TMP")) != 0) {
-	LYstrncpy(tplate, ev, sizeof(tplate) - 2 - strlen(tp));
+	LYStrNCpy(tplate, ev, sizeof(tplate) - 2 - strlen(tp));
 	i = strlen(ev);
 	if (i && ev[i - 1] != '\\' && ev[i - 1] != '/')
 	    strcat(tplate, "\\");
@@ -427,7 +427,7 @@ static void NEAR redswitch(PRO * p)
 {
     int d;
 
-    for (d = 0; d < TABLESIZE(p->ored); d++) {
+    for (d = 0; d < (int) TABLESIZE(p->ored); d++) {
 	if (d != p->ored[d]) {
 	    p->sred[d] = dup(d);
 	    dup2(p->ored[d], d);
@@ -439,7 +439,7 @@ static void NEAR redunswitch(PRO * p)
 {
     int d;
 
-    for (d = 0; d < TABLESIZE(p->ored); d++) {
+    for (d = 0; d < (int) TABLESIZE(p->ored); d++) {
 	if (d != p->ored[d]) {
 	    dup2(p->sred[d], d);
 	    close(p->sred[d]);
@@ -454,7 +454,10 @@ int xsystem(char *cmd)
     int psstdin, psstdout;
     int rdstdin, rdstdout;
     int rc = 0;
+
+#if USECMDLINE
     static char *cmdline = 0;
+#endif
 
 #ifdef SH_EX			/* 1997/11/01 (Sat) 10:04:03 add by JH7AYN */
     pif = cmd;
@@ -527,12 +530,10 @@ int xsystem(char *cmd)
 
 int exec_command(char *cmd, int wait_flag)
 {
-#if defined(__MINGW32__)
-    return system(cmd);
-#else
+    int rc;
+
     PRO *p;
     char *pif;
-    int rc = 0;
     int cmd_str;
 
     pif = cmd;
@@ -565,7 +566,6 @@ int exec_command(char *cmd, int wait_flag)
 	rc = prog_go(p, P_NOWAIT);
 
     return rc;
-#endif
 }
 
 #ifdef TEST

@@ -1,4 +1,6 @@
-/*							File access in libwww
+/*
+ * $LynxId: HTFile.h,v 1.33 2012/02/10 00:59:15 tom Exp $
+ *							File access in libwww
  *				FILE ACCESS
  *
  *  These are routines for local file access used by WWW browsers and servers.
@@ -47,8 +49,8 @@ extern "C" {
 /*
  *  Convert filenames between local and WWW formats
  */
-    extern char *HTURLPath_toFile(const char *name, BOOL expand_all, BOOL is_remote);
-    extern char *HTnameOfFile_WWW(const char *name, BOOL WWW_prefix, BOOL expand_all);
+    extern char *HTURLPath_toFile(const char *name, int expand_all, int is_remote);
+    extern char *HTnameOfFile_WWW(const char *name, int WWW_prefix, int expand_all);
 
 #define HTLocalName(name)      HTnameOfFile_WWW(name,TRUE,TRUE)
 #define HTfullURL_toFile(name) HTnameOfFile_WWW(name,FALSE,TRUE)
@@ -81,7 +83,7 @@ extern "C" {
  */
     extern BOOL HTDirTitles(HTStructured * target, HTParentAnchor *anchor,
 			    HTFormat format_out,
-			    BOOL tildeIsTop);
+			    int tildeIsTop);
 
 /*
  *	Check existence.
@@ -221,15 +223,25 @@ extern "C" {
 					       int *rootlen);
 
 /*
- *  Determine compression type from the content-type.
- */
-    extern CompressFileType HTContentToCompressType(const char *encoding);
-
-/*
  *  Determine compression type from the content-encoding.
  */
     extern CompressFileType HTEncodingToCompressType(const char *encoding);
-
+/*
+ *  Determine compression type from the content-encoding.
+ */
+    extern CompressFileType HTContentTypeToCompressType(const char *ct);
+/*
+ *  Determine compression type from the content-type and/or content-encoding.
+ */
+    extern CompressFileType HTContentToCompressType(HTParentAnchor *anchor);
+/*
+ *  Determine compression encoding from the compression method.
+ */
+    extern const char *HTCompressTypeToEncoding(CompressFileType method);
+/*
+ *  Determine expected file-suffix from the compression method.
+ */
+    extern const char *HTCompressTypeToSuffix(CompressFileType method);
 /*
  *  Determine write access to a file.
  *
@@ -335,7 +347,7 @@ extern "C" {
 /*
  * Reset the list of known program paths to the ones that are compiled-in
  */
-    extern void HTInitProgramPaths(void);
+    extern void HTInitProgramPaths(BOOL init);
 
 /*
  *  The Protocols

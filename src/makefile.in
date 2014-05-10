@@ -1,3 +1,4 @@
+# $LynxId: makefile.in,v 1.73 2014/01/19 14:41:13 tom Exp $
 # template-makefile for Lynx src directory
 
 SHELL		= @CONFIG_SHELL@
@@ -5,10 +6,11 @@ CDPATH		= .
 
 @SET_MAKE@
 prefix		= @prefix@
+datarootdir	= @datarootdir@
 exec_prefix	= @exec_prefix@
 top_srcdir	= @top_srcdir@
 srcdir		= @srcdir@
-VPATH		= $(srcdir)
+VPATH		= .:$(srcdir)
 
 top_builddir	= ..
 
@@ -32,9 +34,16 @@ BUILD_CPP	= @BUILD_CPP@
 BUILD_CFLAGS	= @BUILD_CFLAGS@
 BUILD_CPPFLAGS	= @BUILD_CPPFLAGS@ @DEFS@
 BUILD_EXEEXT	= @BUILD_EXEEXT@
+BUILD_LDFLAGS	= @BUILD_LDFLAGS@
+BUILD_LIBS	= @BUILD_LIBS@
+
+MAKE_RECUR	= $(MAKE) @cf_cv_makeflags@ DESTDIR="$(DESTDIR)" CC="$(CC)"
+
+YACC		= @YACC@
+WINDRES		= @WINDRES@
 
 LIBS		= @LIBS@ $(RESOLVLIB) $(WAISLIB) $(SITE_LIBS)
-LDFLAGS		= @LDFLAGS@
+LDFLAGS		= @EXTRA_LDFLAGS@ @LDFLAGS@
 
 # Symbols inherited from the top-level makefile
 RESOLVLIB	= # FIXME: set in parent makefile
@@ -48,7 +57,7 @@ WWWLIB		= $(top_builddir)/WWW/Library/Implementation/libwww.a
 INTLLIB		= @INTLLIBS@
 INTLDIR_CPPFLAGS= @INTLDIR_CPPFLAGS@-I$(top_srcdir)/intl
 
-CPP_OPTS	= $(EXTRA_CPPFLAGS) $(CPPFLAGS) $(DEFS) $(CHARSET_DEFS) \
+CPP_OPTS	= $(DEFS) $(CHARSET_DEFS) \
 		-DLOCALEDIR=\"$(localedir)\" \
 		-I. \
 		-I$(top_builddir) \
@@ -57,45 +66,49 @@ CPP_OPTS	= $(EXTRA_CPPFLAGS) $(CPPFLAGS) $(DEFS) $(CHARSET_DEFS) \
 		-I$(top_srcdir) \
 		-I$(top_srcdir)/src \
 		-I$(top_srcdir)/$(WWWINC) \
-		$(INTLDIR_CPPFLAGS) $(SITE_DEFS)
+		$(INTLDIR_CPPFLAGS) $(SITE_DEFS) $(EXTRA_CPPFLAGS) $(CPPFLAGS)
 CC_OPTS		= $(CPP_OPTS) $(CFLAGS)
 
 LINT		= @LINT@
 LINTOPTS	=
 
+CTAGS		= @CTAGS@
+
 COMPRESS_PROG	=@COMPRESS_PROG@
 COMPRESS_EXT	=@COMPRESS_EXT@
 
 CHARTRANS_OBJS	= UCdomap$o UCAux$o UCAuto$o
-OBJS	= \
+OBJS		= \
+	LYebcdic$o \
 	LYClean$o LYShowInfo$o LYEdit$o LYStrings$o LYMail$o \
 	HTAlert$o GridText$o LYGetFile$o LYMain$o LYMainLoop$o \
-	LYCurses$o LYBookmark$o LYUtils$o LYOptions$o \
+	LYCurses$o LYBookmark$o LYmktime$o LYUtils$o LYOptions$o \
 	LYReadCFG$o LYSearch$o LYHistory$o LYForms$o LYPrint$o \
 	LYrcFile$o LYDownload$o LYNews$o LYKeymap$o HTML$o \
 	HTFWriter$o HTInit$o DefaultStyle$o LYUpload$o \
 	LYLeaks$o LYexit$o LYJump$o LYList$o LYCgi$o \
 	LYTraversal$o LYEditmap$o LYCharSets$o LYCharUtils$o \
 	LYMap$o LYCookie$o LYStyle$o LYHash$o LYPrettySrc$o \
-	TRSTable$o $(CHARTRANS_OBJS) @EXTRA_OBJS@ @LIBOBJS@
+	TRSTable$o parsdate$o $(CHARTRANS_OBJS) @EXTRA_OBJS@ @LIBOBJS@
 
-C_SRC	= $(OBJS:$o=.c)
+C_SRC		= $(OBJS:$o=.c)
 
 all: lynx$x
 
 .SUFFIXES : $o .i
 
+# yacc builds .c in target directory, not $(srcdir)
 .c$o:
-@RULE_CC@
-	@ECHO_CC@$(CC) $(CC_OPTS) -c $(srcdir)/$*.c
+	@RULE_CC@
+	@ECHO_CC@$(CC) $(CC_OPTS) -c $<
 
 .c.i:
-@RULE_CC@
-	@ECHO_CC@$(CPP) -C $(CPP_OPTS) $(srcdir)/$*.c >$@
+	@RULE_CC@
+	@ECHO_CC@$(CPP) -C $(CPP_OPTS) $< >$@
 
-lynx$x:   message do_chartrans_stuff $(top_builddir)/LYHelp.h $(OBJS) $(WWWLIB)
+lynx$x:   message $(top_builddir)/LYHelp.h $(OBJS) $(WWWLIB)
 	@echo "Linking and creating Lynx executable"
-	$(CC) $(CC_OPTS) $(LDFLAGS) -o $@  $(OBJS) $(WWWLIB) $(INTLLIB) $(LDFLAGS) $(LIBS)
+	$(CC) $(CC_OPTS) $(LDFLAGS) -o $@  $(OBJS) $(WWWLIB) $(LIBS) $(INTLLIB)
 	@echo "Copying Lynx executable into top-level directory"
 	rm -f $(top_builddir)/$@
 	cp $@ $(top_builddir)/
@@ -105,7 +118,7 @@ message:
 	@echo "Compiling Lynx sources"
 
 do_chartrans_stuff:
-	-cd chrtrans && $(MAKE) \
+	-cd chrtrans && $(MAKE_RECUR) \
 		SITE_DEFS="$(SITE_DEFS)" \
 		BUILD_CFLAGS="$(BUILD_CFLAGS)" \
 		BUILD_CPPFLAGS="$(BUILD_CPPFLAGS)" \
@@ -114,14 +127,14 @@ do_chartrans_stuff:
 		BUILD_CC="$(BUILD_CC)" tables
 
 lint:
-	$(LINT) $(LINTOPTS) $(CPP_OPTS) *.c  > $(top_builddir)/lint.lynx
+	$(LINT) $(LINTOPTS) $(CPP_OPTS) $(C_SRC)  2>&1 |tee $(top_builddir)/lint.lynx
 
 clean:
-	rm -f lynx$x core *.core *.leaks *.i *$o *.bak tags TAGS
-	cd chrtrans && $(MAKE) clean
+	rm -f lynx$x core *.core *.leaks *.i *$o *.bak tags TAGS test_*
+	cd chrtrans && $(MAKE_RECUR) clean
 
 tags:
-	ctags *.[ch]
+	$(CTAGS) *.[ch]
 
 distclean: clean
 
@@ -132,6 +145,7 @@ HTInit$o :		$(top_srcdir)/userdefs.h
 LYCharSets$o :		$(top_srcdir)/userdefs.h
 LYGetFile$o :		$(top_srcdir)/userdefs.h
 LYKeymap$o :		$(top_srcdir)/userdefs.h
+LYLeaks$o :		$(CMN)LYLeaks.h $(CMN)HTString.h
 LYMail$o :		$(top_srcdir)/userdefs.h
 LYMain$o :		$(top_srcdir)/userdefs.h $(top_builddir)/lynx_cfg.h
 LYMainLoop$o :		$(top_srcdir)/userdefs.h
@@ -140,8 +154,11 @@ LYReadCFG$o :		$(top_srcdir)/userdefs.h
 LYShowInfo$o :		$(top_builddir)/cfg_defs.h
 LYTraversal$o :		$(top_srcdir)/userdefs.h
 LYUtils$o :		$(top_srcdir)/userdefs.h
+LYmktime$o :		$(top_srcdir)/userdefs.h
 LYrcFile$o :		$(top_srcdir)/userdefs.h
-LYLeaks$o :		$(CMN)LYLeaks.h $(CMN)HTString.h
+
+LYIcon$o: LYIcon.rc
+	$(WINDRES) -i LYIcon.rc -o LYIcon$o -O coff
 
 CHRTR= chrtrans/
 
@@ -158,9 +175,11 @@ TABLES= \
  $(CHRTR)cp775_uni.h \
  $(CHRTR)cp850_uni.h \
  $(CHRTR)cp852_uni.h \
+ $(CHRTR)cp857_uni.h \
  $(CHRTR)cp862_uni.h \
  $(CHRTR)cp864_uni.h \
  $(CHRTR)cp866_uni.h \
+ $(CHRTR)cp866u_uni.h \
  $(CHRTR)cp869_uni.h \
  $(CHRTR)def7_uni.h \
  $(CHRTR)dmcs_uni.h \
@@ -175,18 +194,22 @@ TABLES= \
  $(CHRTR)iso08_uni.h \
  $(CHRTR)iso09_uni.h \
  $(CHRTR)iso10_uni.h \
+ $(CHRTR)iso13_uni.h \
+ $(CHRTR)iso14_uni.h \
  $(CHRTR)iso15_uni.h \
  $(CHRTR)koi8r_uni.h \
+ $(CHRTR)koi8u_uni.h \
  $(CHRTR)mac_uni.h \
- $(CHRTR)mnem_suni.h \
  $(CHRTR)mnem2_suni.h \
+ $(CHRTR)mnem_suni.h \
  $(CHRTR)next_uni.h \
+ $(CHRTR)pt154_uni.h \
  $(CHRTR)rfc_suni.h \
  $(CHRTR)utf8_uni.h \
  $(CHRTR)viscii_uni.h
 
 $(TABLES):
-	-cd chrtrans && $(MAKE) tables
+	-cd chrtrans && $(MAKE_RECUR) tables
 
 UCdomap$o :	UCdomap.c \
 		chrtrans/UCkd.h \
@@ -195,10 +218,23 @@ UCdomap$o :	UCdomap.c \
 	UCdomap.h $(CMN)UCMap.h $(TABLES) $(top_srcdir)/userdefs.h
 
 chrtrans/makeuctb$(BUILD_EXEEXT):
-	cd chrtrans; make makeuctb$(BUILD_EXEEXT)
+	cd chrtrans && $(MAKE_RECUR) makeuctb$(BUILD_EXEEXT)
 
 UCAux$o : UCAux.c $(CMN)UCAux.h $(CMN)UCDefs.h
 LYCookie$o : $(top_srcdir)/userdefs.h
+
+test_mktime.o: $(srcdir)/LYmktime.c
+	$(CC) -o $@ $(CC_OPTS) -DTEST_DRIVER -c $(srcdir)/LYmktime.c
+
+# test-driver for LYmktime
+test_mktime: test_mktime.o parsdate.o LYebcdic.o
+	$(CC) -o $@ $(CC_OPTS) test_mktime.o parsdate.o LYebcdic.o
+
+# update generated source (may be in ".", or srcdir)
+parsdate.c : $(srcdir)/parsdate.y
+	$(YACC)  $(srcdir)/parsdate.y
+	-rm -f $@
+	mv y.tab.c $@
 
 depend : $(TABLES)
 	makedepend -fmakefile -- $(CC_OPTS) -- $(C_SRC)

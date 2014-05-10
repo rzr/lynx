@@ -1,5 +1,7 @@
 #!/bin/sh
-# Indent LYNX files.
+# $LynxId: indent.sh,v 1.4 2013/10/20 19:34:35 tom Exp $
+# Indent LYNX files (for reference).  See "lnx-indent" from
+#	http://invisible-island.net/cindent/
 NOOP=no
 OPTS='
 --blank-lines-after-declarations
@@ -112,12 +114,14 @@ do
 			-e '/MODULE_ID(/s/)$/);/' \
 			-e 's,)[ 	]*\<GCC_PRINTFLIKE,);//GCC_PRINTFLIKE,' \
 			-e 's,[ 	]*\<GCC_NORETURN;,;//GCC_NORETURN;,' \
+			-e 's,[ 	]*\<GCC_UNUSED;,;//GCC_UNUSED;,' \
 			"$save" >"$test"
 		cp "$test" "$name"
 		chmod u+w "$name"
 		${INDENT_PROG-indent} -npro $OPTS "$name"
 		sed \
 			-e '/MODULE_ID(/s/);$/)/' \
+			-e 's,;[ 	]*//GCC_UNUSED;, GCC_UNUSED;,' \
 			-e 's,;[ 	]*//GCC_NORETURN;, GCC_NORETURN;,' \
 			-e 's,);[ 	]*//GCC_PRINTFLIKE,) GCC_PRINTFLIKE,' \
 			"$name" >"$test"

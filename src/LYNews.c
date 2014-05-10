@@ -1,3 +1,6 @@
+/*
+ * $LynxId: LYNews.c,v 1.61 2013/11/28 11:21:09 tom Exp $
+ */
 #include <HTUtils.h>
 #ifndef DISABLE_NEWS
 #include <HTParse.h>
@@ -80,10 +83,10 @@ static BOOLEAN message_has_content(const char *filename,
  *  snewsreply URLs.  - FM
  */
 char *LYNewsPost(char *newsgroups,
-		 BOOLEAN followup)
+		 int followup)
 {
-    char user_input[1024];
-    char CJKinput[1024];
+    char user_input[MAX_LINE];
+    char CJKinput[MAX_LINE];
     char *cp = NULL;
     const char *kp = NULL;
     int c = 0;			/* user input */
@@ -136,7 +139,7 @@ char *LYNewsPost(char *newsgroups,
 	current_char_set == UCGetLYhndl_byMIME("shift_jis")) {
 	if ((fc = LYOpenTemp(CJKfile, HTML_SUFFIX, "w")) == NULL) {
 	    HTAlert(CANNOT_OPEN_TEMP);
-	    LYRemoveTemp(my_tempfile);
+	    (void) LYRemoveTemp(my_tempfile);
 	    return (postfile);
 	}
     }
@@ -157,7 +160,7 @@ char *LYNewsPost(char *newsgroups,
 	    StrAllocCat(References, ">");
 	}
 	HTUnEscape(References);
-	if (!((cp = strchr(References, '@')) && cp > References + 1 &&
+	if (!((cp = StrChr(References, '@')) && cp > References + 1 &&
 	      isalnum(UCH(cp[1])))) {
 	    FREE(References);
 	}
@@ -192,7 +195,7 @@ char *LYNewsPost(char *newsgroups,
     LYaddstr(gettext("\n\n Please provide your mail address for the From: header\n"));
     sprintf(user_input, "From: %.*s", (int) sizeof(user_input) - 8,
 	    NonNull(personal_mail_address));
-    if (LYgetstr(user_input, VISIBLE,
+    if (LYGetStr(user_input, FALSE,
 		 sizeof(user_input), NORECALL) < 0 ||
 	term_message) {
 	HTInfoMsg(NEWS_POST_CANCELLED);
@@ -234,11 +237,11 @@ char *LYNewsPost(char *newsgroups,
 	if (strncasecomp(kp, "Re:", 3)) {
 	    strcat(user_input, "Re: ");
 	}
-	len = strlen(user_input);
-	LYstrncpy(user_input + len, kp, sizeof(user_input) - len - 1);
+	len = (int) strlen(user_input);
+	LYStrNCpy(user_input + len, kp, (int) sizeof(user_input) - len - 1);
     }
     cp = NULL;
-    if (LYgetstr(user_input, VISIBLE,
+    if (LYGetStr(user_input, FALSE,
 		 sizeof(user_input), NORECALL) < 0 ||
 	term_message) {
 	HTInfoMsg(NEWS_POST_CANCELLED);
@@ -280,8 +283,8 @@ char *LYNewsPost(char *newsgroups,
 	if (p != 0 && (p - fname) < sizeof(fname) - 15) {
 	    strcpy(p + 1, "LYNX_ETC.TXT");
 	    if ((fp = fopen(fname, TXT_R)) != NULL) {
-		if (fgets(user_input, sizeof(user_input), fp) != NULL) {
-		    if ((org = strchr(user_input, '\n')) != NULL) {
+		if (fgets(user_input, (int) sizeof(user_input), fp) != NULL) {
+		    if ((org = StrChr(user_input, '\n')) != NULL) {
 			*org = '\0';
 		    }
 		    if (user_input[0] != '\0') {
@@ -294,10 +297,10 @@ char *LYNewsPost(char *newsgroups,
     }
 #endif /* _WINDOWS */
 #endif /* !UNIX */
-    LYstrncpy(user_input, cp, (sizeof(user_input) - 16));
+    LYStrNCpy(user_input, cp, (sizeof(user_input) - 16));
     FREE(cp);
     LYaddstr(gettext("\n\n Please provide or edit the Organization: header\n"));
-    if (LYgetstr(user_input, VISIBLE,
+    if (LYGetStr(user_input, FALSE,
 		 sizeof(user_input), NORECALL) < 0 ||
 	term_message) {
 	HTInfoMsg(NEWS_POST_CANCELLED);
@@ -359,7 +362,7 @@ char *LYNewsPost(char *newsgroups,
 	LYaddstr("\n\n");
 	LYrefresh();
 	*user_input = '\0';
-	if (LYgetstr(user_input, VISIBLE,
+	if (LYGetStr(user_input, FALSE,
 		     sizeof(user_input), NORECALL) < 0 ||
 	    term_message) {
 	    HTInfoMsg(NEWS_POST_CANCELLED);
@@ -373,7 +376,7 @@ char *LYNewsPost(char *newsgroups,
 	    if (!nonempty && strlen(user_input))
 		nonempty = TRUE;
 	    *user_input = '\0';
-	    if (LYgetstr(user_input, VISIBLE,
+	    if (LYGetStr(user_input, FALSE,
 			 sizeof(user_input), NORECALL) < 0) {
 		HTInfoMsg(NEWS_POST_CANCELLED);
 		LYCloseTempFP(fd);	/* Close the temp file. */
@@ -447,7 +450,7 @@ char *LYNewsPost(char *newsgroups,
 	    LYCloseTempFP(fc);
 	    StrAllocCopy(postfile, CJKfile);
 	    LYCloseInput(fd);
-	    LYRemoveTemp(my_tempfile);
+	    (void) LYRemoveTemp(my_tempfile);
 	    strcpy(my_tempfile, CJKfile);
 	    CJKfile[0] = '\0';
 	} else {
@@ -479,8 +482,8 @@ char *LYNewsPost(char *newsgroups,
 #endif /* !VMS */
     term_message = FALSE;
     if (!postfile)
-	LYRemoveTemp(my_tempfile);
-    LYRemoveTemp(CJKfile);
+	(void) LYRemoveTemp(my_tempfile);
+    (void) LYRemoveTemp(CJKfile);
     FREE(NewsGroups);
     FREE(References);
 

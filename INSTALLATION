@@ -25,6 +25,8 @@ First, you must configure Lynx for your system regardless of the port you use.
 Follow the instructions given immediately below to configure for your system,
 and then go to the respective section concerning the port you wish to compile.
 
+-------------------------------------------------------------------------------
+
 I. General configuration instructions (all ports).
 
 Step 1.  Compile-time Variables.
@@ -94,6 +96,8 @@ Step 5.  Anonymous Accounts *** VERY IMPORTANT!!!!! ***
   uses the -cfg and -homepage switches to specify  lynx.cfg  and start-file,
   rather than relying on variables LYNX_CFG, LYNX_CFG_FILE and WWW_HOME.
 
+-------------------------------------------------------------------------------
+
 II. Compile instructions -- UNIX
 
 1a. Auto-configure.  The auto-configure script uses autoconf2.13 to generate a
@@ -137,10 +141,11 @@ II. Compile instructions -- UNIX
     Use the "--with-screen=ncurses" or "--with-screen=slang" option.
 
     Note that while lynx will build with a variety of versions of curses and
-    ncurses, some will be less satisfactory.  Versions of ncurses before 1.9.9g
-    will not render color properly.  Some other versions of curses do not
-    display color at all.  Likewise, lynx may not build with old versions of
-    slang, e.g., before 0.99-38, because slang's interfaces change periodically.
+    ncurses, some will be less satisfactory.  Versions of ncurses before
+    1.9.9g will not render color properly.  Some other versions of curses do
+    not display color at all.  Likewise, lynx may not build with old versions
+    of slang, e.g., before 0.99-38, because slang's interfaces change
+    periodically.
 
     Note compiler/system specific problems below.  See also:
 	http://invisible-island.net/ncurses/ncurses.faq.html
@@ -173,13 +178,17 @@ II. Compile instructions -- UNIX
     for information on defines for which there are no option switches.
 
   --datadir
-	Defines the location where you want the documentation files installed. 
+	Defines the location where you want the documentation files installed.
 	The configure script constructs makefile actions to install lynx.cfg
 	modified to reflect this in the HELPFILE setting.  (For platforms which
 	do not support a configure script, such as MS-DOS, Win32 and VMS, you
 	must edit lynx.cfg).
 
-  --disable-alt-bindings 		(prevent defining EXP_ALT_BINDINGS)
+  --disable-addrlist-page		(prevent defining USE_ADDRLIST_PAGE)
+	Turn off code that displays an alternative list-page, bound to 'A'
+	rather than 'l', which always lists URLs rather than titles.
+
+  --disable-alt-bindings 		(prevent defining USE_ALT_BINDINGS)
 	Compiles-in an alternative set of line-edit bindings, in addition
 	to the default bindings.
 
@@ -296,18 +305,28 @@ II. Compile instructions -- UNIX
   --disable-gopher			(define DISABLE_GOPHER)
 	Do not compile-in code used to connect to GOPHER servers.
 
+  --disable-idna
+	By default, the configure script searches for the GNU idn library,
+	which lets lynx translated URLs which are in UTF-8 to ASCII.  The
+	latter is needed for most network accesses.  Use this option to
+	suppress the feature, e.g., to reduce size.
+
   --disable-included-msgs
 	Do not use included messages, for i18n support.  If NLS support is
 	requested, the configure script will otherwise use the messages in the
 	./po subdirectory.
 
-  --disable-justify-elts		(define EXP_JUSTIFY_ELTS)
+  --disable-justify-elts		(define USE_JUSTIFY_ELTS)
 	Do not use element-justification logic.
 
-  --disable-largefiles			(prevent defining LONG_LIST)
+  --disable-largefile			(prevent defining LONG_LIST)
 
 	Use this option to disable the compiler and linker options that
 	provide largefile interfaces.
+
+  --disable-locale-charset		(define USE_LOCALE_CHARSET)
+  	Use nl_langinfo(CODESET) to determine initial value for display
+	charset, overrides character_set value in .lynxrc file.
 
   --disable-long-list			(prevent defining LONG_LIST)
 	Use this option to disable long "ls -l" directory listings (when
@@ -328,25 +347,49 @@ II. Compile instructions -- UNIX
 	it.
 
   --disable-persistent-cookies		(prevent defining USE_PERSISTENT_COOKIES)
-	Use this option to tell configure whether to compile-in support for
-	saving cookies to a file, for subsequent reuse.  Persistent cookie
-	support will use (or create) the file specified by the 'COOKIE_FILE'
-	option, or default to ".lynx_cookies" in the home directory.
-	(Currently there is no protection against conflict if several lynx
-	sessions are active from the same account).
+	Turn off support for saving cookies to a file, for subsequent reuse.
+	Persistent cookie support will use (or create) the file specified by
+	the 'COOKIE_FILE' option, or default to ".lynx_cookies" in the home
+	directory.  (Currently there is no protection against conflict if
+	several lynx sessions are active from the same account).
 
   --disable-prettysrc			(define USE_PRETTYSRC)
-	Use this option to compile-in support for colorizing the source view of
-	HTML pages.  If compiled-in, new source view mode is available with
-	-prettysrc command line option.
+	Turn off support for colorizing the source view of HTML pages.  If
+	compiled-in, new source view mode is available with -prettysrc command
+	line option.
+
+  --disable-progressbar			(define USE_PROGRESSBAR)
+	Turn off support for a "progress bar" which displays at the bottom
+	of the screen when doing downloads and other time-consuming (but
+	interruptible) processes.  This feature can be selected in the
+	options menu.
 
   --disable-read-eta			(define USE_READPROGRESS)
-	Enhance the read-progress message to show ETA (estimated time to
+	Turn off enhanced read-progress message showing ETA (estimated time to
 	completion), as well as the amount of time stalled without any data
 	transferred.
 
+  --disable-rpath-hack
+	The rpath-hack makes it simpler to build programs, particularly with
+	the *BSD ports which may have essential libraries in unusual places.
+	But it can interfere with building an executable for the base system.
+	Use this option in that case.
+
+  --disable-scrollbar			(define USE_SCROLLBAR)
+	Turn off support for scrollbar on the right-margin of the screen.
+	If you configure with ncurses, this works with the mouse on xterm,
+	etc.
+
+  --disable-session-cache		(define USE_CACHE_JAR)
+	Turn off support for saving/restoring session information in files.
+	Configurable from lynx.cfg
+
+  --disable-sessions			(define USE_SESSIONS)
+	Turn off support for sessions, which allows the user to automatically
+	save and restore history information.
+
   --disable-source-cache		(define USE_SOURCE_CACHE)
-	Use this option to compile-in support for caching HTML pages locally,
+	Turn off support for caching HTML pages locally,
 	in files or in memory.	Configurable from lynx.cfg
 
   --disable-trace			(define NO_LYNX_TRACE)
@@ -355,9 +398,10 @@ II. Compile instructions -- UNIX
 	information to diagnose problems with either Lynx or the sites to which
 	you connect.
 
-  --enable-addrlist-page		(define EXP_ADDRLIST_PAGE)
-	Compiles-in an alternative list-page, bound to 'A' rather than 'l',
-	which always lists URLs rather than titles.
+  --enable-ascii-ctypes			(define USE_ASCII_CTYPES)
+	Compiles-in alternative case-conversion functions which ensure that
+	configuration names, etc., are compared in POSIX locale.  This is
+	important for operating in some locale such as Turkish.
 
   --enable-cgi-links			(define LYNXCGI_LINKS)
 	Allows lynx to access a cgi script directly without the need for
@@ -367,7 +411,7 @@ II. Compile instructions -- UNIX
   	Allow users to change the execution status within the options screen.
 	See EXEC_LINKS and EXEC_SCRIPTS.
 
-  --enable-charset-choice		(define EXP_CHARSET_CHOICE)
+  --enable-charset-choice		(define USE_CHARSET_CHOICE)
 	Add logic for ASSUMED_DOC_CHARSET_CHOICE and DISPLAY_CHARSET_CHOICE in
 	lynx.cfg, allowing user to configure a subset of the compiled-in
 	charsets for normal use.
@@ -409,6 +453,10 @@ II. Compile instructions -- UNIX
 	fonts) according to the current Display Character Set.  (Linux console
 	only.  *Use with discretion.*  See docs/README.chartrans.)
 
+  --enable-gnutls-compat		(define USE_GNUTLS_FUNCS)
+	When --with-gnutls is used, tell whether to use GNUTLS's OpenSSL
+	compatibility library or use GNUTLS's low-level API directly.
+
   --enable-gzip-help
 	Install the lynx help files in gzip'd format [*.gz] to save space.
 
@@ -416,7 +464,7 @@ II. Compile instructions -- UNIX
 	generate an HTMLized copy of lynx.cfg which will be installed with
 	the other help files.
 
-  --enable-internal-links		(prevent defining DONT_TRACK_INTERNAL_LINKS)
+  --enable-internal-links		(define TRACK_INTERNAL_LINKS)
         With `internal links' (links within a document to a location within
         the same document) enabled, Lynx will distinguish between, for example,
         `<A HREF="foo#frag">' and `<A HREF="#frag">' within a document whose
@@ -429,7 +477,7 @@ II. Compile instructions -- UNIX
         inappropriate resubmission of form content.
 
   --enable-ipv6         		(define ENABLE_IPV6)
-	use experimental IPV6 (with IPV4) logic.
+	use IPV6 (with IPV4) logic.
 
   --enable-japanese-utf8		(define EXP_JAPANESEUTF8_SUPPORT)
 	use experimental Japanese UTF-8 logic.
@@ -441,15 +489,12 @@ II. Compile instructions -- UNIX
 		JCUKEN Cyrillic, for AT 101-key kbd
 		YAWERTY Cyrillic, for DEC LK201 kbd
 
-  --enable-libjs			(define EXP_LIBJS)
-  	Disabled by default; used for ifdef'ing JavaScript interface.
-	Currently dummy: no JavaScript support implemented in Lynx yet.
+  --enable-local-docs
+	On install, modify link from help-page to point to the local
+	doc-directory, e.g., with README files.  Normally this points
+	to the current release directory.
 
-  --enable-locale-charset		(define EXP_LOCALE_CHARSET)
-  	Use nl_langinfo(CODESET) to determine initial value for display
-	charset, overrides character_set value in .lynxrc file.
-
-  --enable-nested-tables
+  --enable-nested-tables		(define EXP_NESTED_TABLES)
 	Extends TRST to format nested tables, as well as be smarter about
 	<BR> and <P> tags in table cells.
 
@@ -459,11 +504,6 @@ II. Compile instructions -- UNIX
   --enable-nsl-fork			(define NSL_FORK)
 	Disabled by default, this allows interruption of NSL requests,
 	so that `z' will stop the `look-up' phase of a connection.
-
-  --enable-scrollbar			(define USE_SCROLLBAR)
-	Compile-in experimental support for scrollbar on the right-margin of
-	the screen.  If you configure with ncurses, this works with the mouse
-	on xterm, etc.
 
   --enable-syslog			(define SYSLOG_REQUESTED_URLS)
 	Use this option to log NSL requests via syslog().
@@ -477,6 +517,9 @@ II. Compile instructions -- UNIX
 
   --enable-warnings
 	Use this option to turn on GCC compiler warnings.
+
+  --enable-wais
+	Use this option to turn on configure check for freeWAIS library.
 
   --enable-widec
 	Use this option to allow the configure script to look for wide-curses
@@ -500,6 +543,42 @@ II. Compile instructions -- UNIX
 	This option allows you to specify the X libraries used if you
 	are configuring lynx to use PDCurses on a Unix platform.
 
+  --with-build-cc=XXX
+	If cross-compiling, specify a host C compiler, which is needed to
+	compile a utility which generates tables for lynx.
+	If you do not give this option, the configure script checks if the
+	$BUILD_CC variable is set, and otherwise defaults to gcc or cc.
+
+  --with-build-cpp=XXX
+	This is unused by lynx.
+
+  --with-build-cflags=XXX
+	If cross-compiling, specify the host C compiler-flags.  You might need
+	to do this if the target compiler has unusual flags which confuse the
+	host compiler.
+
+  --with-build-cppflags=XXX
+	If cross-compiling, specify the host C preprocessor-flags.  You might
+	need to do this if the target compiler has unusual flags which confuse
+	the host compiler.
+
+  --with-build-ldflags=XXX
+	If cross-compiling, specify the host linker-flags.  You might need to
+	do this if the target linker has unusual flags which confuse the host
+	compiler.
+
+  --with-build-libs=XXX
+	If cross-compiling, the host libraries.  You might need to do this if
+	the target environment requires unusual libraries.
+
+  --with-bzlib[=XXX]			(define USE_BZLIB)
+	Use libbz2 for decompression of some bzip2 files.
+
+	The optional value XXX specifies the directory in which the library
+	can be found, and may be either the path of the "lib" directory,
+	or one level above.  In either case, the corresponding header files
+	are assumed to be in the parallel "include" directory.
+
   --with-charsets=list			(define ALL_CHARSETS)
  	Limit the number of charsets that are compiled-in to the specified
 	list of comma-separated MIME names.
@@ -507,7 +586,14 @@ II. Compile instructions -- UNIX
   --with-cfg-file			(define LYNX_CFG_FILE)
 	Specify the default configuration file's name.  Use --without-cfg-file
 	to force the user to specify the configuration file on the command
-	line.
+	line.  The filename can be overridden by using the LYNX_CFG environment
+	variable.
+
+  --with-cfg-path			(define LYNX_CFG_PATH)
+	Specify the default configuration file(s) directory search-list.  Use
+	--without-cfg-path to limit this to the location of the lynx.cfg file.
+	The search-list can be overridden using the LYNX_CFG_PATH environment
+	variable.
 
   --with-curses-dir
 	Specify directory under which curses/ncurses is installed.  This
@@ -516,10 +602,17 @@ II. Compile instructions -- UNIX
   --with-dbmalloc
 	use Conor Cahill's dbmalloc library
 
+  --with-destdir=XXX
+	set DESTDIR variable in makefiles.  This is prefixed to all directories
+	in the actual install, but is not really part of the compiled-in or
+	configured directory names.  It is convenient for packaging the
+	installed files.  If you do not provide the option, the configure
+	script uses your $DESTDIR environment variable.
+
   --with-dmalloc
 	use Gray Watson's dmalloc library
 
-  --with-gnutls[=XXX]			(define USE_SSL)
+  --with-gnutls[=XXX]			(define USE_SSL, USE_GNUTLS_INCL)
 	Use this option to configure with the GNU TLS library.
 	See docs/README.ssl for additional information.
 
@@ -528,6 +621,8 @@ II. Compile instructions -- UNIX
 	or one level above.  In either case, the corresponding header files
 	are assumed to be in the parallel "include" directory.  The default
 	is /usr/local/gnutls.
+
+	See the "--enable-gnutls-compat" option.
 
   --with-included-gettext
 	not supported in this package.  The configure script uses macros which
@@ -543,6 +638,10 @@ II. Compile instructions -- UNIX
 	to make the default behavior match the non-color-style (if no --lss
 	option is given, and no COLOR_STYLE setting is in lynx.cfg).
 
+  --with-mime-libdir=list		(define MIME_LIBDIR)
+	Use this option to specify the system directory containing the
+	mime.types and mailcap files.
+
   --with-neXtaw
 	This option allows you to specify the X libraries used if you
 	are configuring lynx to use PDCurses on a Unix platform.
@@ -552,6 +651,29 @@ II. Compile instructions -- UNIX
 	under which the locale (i.e., language) files are installed.  The
 	default value is derived at configure time, and depends on whether GNU
 	or native gettext is used.
+
+  --with-nss-compat[=XXX]		(define USE_NSS_COMPAT_INCL)
+	Use this option to configure with the NSS library's OpenSSL-compatible
+	interface.
+	See docs/README.ssl for additional information.
+
+	The optional value XXX specifies the directory in which the library
+	can be found, and may be either the path of the "lib" directory,
+	or one level above.  In either case, the corresponding header files
+	are assumed to be in the parallel "include" directory.
+
+  --with-pkg-config[=XXX]
+	Use pkg-config, if available, to tell how to build with certain
+	libraries, e.g., openssl and gnutls.  If pkg-config is not used,
+	or if those libraries are not known to pkg-config, then the configure
+	script will search for the libraries as described in the --with-ssl
+	and --with-gnutls options.
+
+	The optional value XXX specifies the pathname for pkg-config, e.g.,
+	"/usr/local/bin/pkg-config".
+
+	Note: The pkg-config program is used only if no explicit directory
+	parameter is provided for the --with-ssl or --with-gnutls options.
 
   --with-screen=XXX
 	Use this option to select the screen type.  The option value, XXX
@@ -608,39 +730,22 @@ II. Compile instructions -- UNIX
 	or one level above.  In either case, the corresponding header files
 	are assumed to be in the parallel "include" directory.
 
-    --with-build-cc=XXX
-	If cross-compiling, specify a host C compiler, which is needed to
-	compile a utility which generates tables for lynx.
-	If you do not give this option, the configure script checks if the
-	$BUILD_CC variable is set, and otherwise defaults to gcc or cc.
+  --with-system-type=XXX
+	For testing, override the derived host system-type which is used to
+	decide things such as special compiler options.  This is normally
+	chosen automatically based on the type of system which you are
+	building on.  We use it for testing the configure script.
 
-    --with-build-cpp=XXX
-	This is unused by lynx.
+  --with-textdomain[=XXX]		(define NLS_TEXTDOMAIN)
+	Set the NLS textdomain to the given value.  This is normally "lynx".
 
-    --with-build-cflags=XXX
-	If cross-compiling, specify the host C compiler-flags.  You might need
-	to do this if the target compiler has unusual flags which confuse the
-	host compiler.
-
-    --with-build-cppflags=XXX
-	If cross-compiling, specify the host C preprocessor-flags.  You might
-	need to do this if the target compiler has unusual flags which confuse
-	the host compiler.
-
-    --with-build-ldflags=XXX
-	If cross-compiling, specify the host linker-flags.  You might need to
-	do this if the target linker has unusual flags which confuse the host
-	compiler.
-
-    --with-build-libs=XXX
-	If cross-compiling, the host libraries.  You might need to do this if
-	the target environment requires unusual libraries.
-
-  --with-bzlib				(define USE_BZLIB)
-	Use libbz2 for decompression of some bzip2 files.
-
-  --with-zlib				(define USE_ZLIB)
+  --with-zlib[=XXX]			(define USE_ZLIB)
 	Use zlib for decompression of some gzip files.
+
+	The optional value XXX specifies the directory in which the library
+	can be found, and may be either the path of the "lib" directory,
+	or one level above.  In either case, the corresponding header files
+	are assumed to be in the parallel "include" directory.
 
 1d. Environment variables
     The configure script looks for programs and libraries in known/standard
@@ -699,25 +804,28 @@ II. Compile instructions -- UNIX
 		--mandir=$HOME/.usr/man --sysconfdir=$HOME/.usr/lib \
 		--with-screen=slang --with-zlib
 
-    CPPFLAGS in this example defines the full path to the slang and zlib header
-    files, which are not kept in standard directories.  Likewise, LIBS defines
-    the nonstandard locations of libslang.a and libz.a.  Setting the option
-    --bindir tells the configure script where I want to install the lynx
-    binary; setting --mandir tells it where to put the lynx.1 man page, and
-    setting --sysconfdir tells it (while at the same time defining LYNX_CFG_FILE)
-    where to put the configuration file "lynx.cfg", when I type "make install".
-    The --with-screen=slang and --with-zlib options are explained above.
+    CPPFLAGS in this example defines the full path to the slang and zlib
+    header files, which are not kept in standard directories.  Likewise, LIBS
+    defines the nonstandard locations of libslang.a and libz.a.  Setting the
+    option --bindir tells the configure script where I want to install the
+    lynx binary; setting --mandir tells it where to put the lynx.1 man page,
+    and setting --sysconfdir tells it (while at the same time defining
+    LYNX_CFG_FILE) where to put the configuration file "lynx.cfg", when I type
+    "make install".  The --with-screen=slang and --with-zlib options are
+    explained above.
 
 2. Wais support (optional)
     To add direct WAIS support, get the freeWAIS distribution from
-    "ftp://ftp.cnidr.org/pub/NIDR.tools/freewais", and compile it.  The compile
-    process will create the libraries you will need, wais.a and client.a.  Edit
-    the Makefile in the top level directory and add the library locations under
-    the DIRECT WAIS ACCESS heading.  Edit the Makefile for the WWW Library in
-    "WWW/Library/Implementation/makefile" to point to the include
-    directory for the freewais distribution.  Precompiled libraries are
-    available for many platforms if you don't wish to compile one yourself.
+    "ftp://ftp.cnidr.org/pub/NIDR.tools/freewais", and compile it.  The
+    compile process will create the libraries you will need, wais.a and
+    client.a.  Edit the Makefile in the top level directory and add the
+    library locations under the DIRECT WAIS ACCESS heading.  Edit the Makefile
+    for the WWW Library in "WWW/Library/Implementation/makefile" to point to
+    the include directory for the freewais distribution.  Precompiled
+    libraries are available for many platforms if you don't wish to compile
+    one yourself.
 
+-------------------------------------------------------------------------------
 
 III. Compile instructions -- VMS
 
@@ -811,18 +919,76 @@ Step 3b.  (optional compilation method)
     You instead can SOCKSify the proxy server, and it will handle all clients,
     not just Lynx.
 
+-------------------------------------------------------------------------------
 
 IV. Compile instructions -- Win32 (Windows95/98/NT)
 
 Borland C:
+---------
 
+Simplified:
+----------
+
+Sources:
+    Download the current sources (choose a zip-file) from http://lynx.isc.org
+    and unzip them into a directory where you will build Lynx.
+
+Compiler:
+    Download the Borland C/C++ 5.51 compiler from
+	http://forms.embarcadero.com/forms/BCC32CompilerDownload
+
+    This is a file named "freecompilertools.exe".
+
+    Run that to install the compiler, e.g., in
+	c:\app\bcc55
+
+    Do not install into a directory with spaces in its name, such as
+	c:\program files
+
+Libraries:
+    Download these "setup" files from http://gnuwin32.sourceforge.net
+	libiconv-1.9.2-1.exe (libiconv)
+	libintl-0.14.4.exe (libintl)
+	openssl-0.9.8h-1-setup.exe (openssl)
+	pdcurses-2.6.exe (pdcurses)
+	zlib-1.2.3.exe (zlib)
+
+    Install all of the packages in the same directory, "c:\app\GnuWin32".
+
+    A fix is needed in GnuWin32 include/zconf.h: change line reading
+    	#if 1	/* HAVE_UNISTD_H -- this line is updated by ./configure */
+    to
+    	#ifdef HAVE_UNISTD_H
+
+    Prepare import-libraries using Borland's implib program.  The ".lib"
+    files that it uses are a different format than the import libraries
+    distributed with GnuWin2.  From Lynx's source directory run
+        bcblibs
+
+Environment:
+    At this point, the bin-directory for the compiler and for the GnuWin32
+    libraries should be in your path.
+
+Building:
+    From Lynx's source directory
+	cd src\chrtrans
+	makew32 clean
+	makew32
+	cd ..\..
+	makew32 clean
+	makew32
+
+-------------------------------------------------------------------------------
+
+Detailed:
+--------
     The original Win32 port was built with Borland C++ 4.52, but later
     versions reportedly can be used.  Before compiling the Lynx sources, you
     need a curses library, and it is recommended that you have the zlib
-    library.  Get pdcurses2.3 from "http://www.lightlink.com/hessling/".  I
+    library.  Get pdcurses2.3 from "http://pdcurses.sourceforge.net/".  I
     have modified it so that mouse support is no longer broken for Lynx (see
     "http://www.fdisk.com/doslynx/").  You will want to get zlib from
-    "http://www.gzip.org/zlib/ ".  Compile these libraries, and
+    "http://www.zlib.net/ ".  Compile these libraries, and
     put them in a convenient place (pdcurses inside the Lynx directory).
 
     Unpack the latest Lynx source distribution, and make an obj directory
@@ -842,6 +1008,9 @@ Borland C:
     information can be found in "http://www.fdisk.com/doslynx/lynxport.htm".
 
 -- 1997/10/12 - W. Buttles <lynx-port@fdisk.com>
+-- 2010/11/27 - URL's updated by Doug Kaufman <dkaufman@rahul.net>
+
+-------------------------------------------------------------------------------
 
 Cygwin:
     It is possible to compile under the cygwin system, which will allow you to
@@ -872,6 +1041,8 @@ Visual C++:
 	make-msc
 
     to build lynx.
+
+-------------------------------------------------------------------------------
 
 V. Compile instructions -- 386 DOS
 
@@ -917,7 +1088,7 @@ V. Compile instructions -- 386 DOS
 
     If you wish to compile with "USE_ZLIB" (recommended), you must have the
     zlib library.  Get the source from
-	    http://www.gzip.org/zlib/
+	    http://www.zlib.net
     and compile it.  Put libz.a in the lib subdirectory of DJGPP, and put
     zlib.h and zconf.h in the include subdirectory.
 
@@ -925,8 +1096,8 @@ V. Compile instructions -- 386 DOS
     package and a TCP package.  You can use PDCurses (available at
     "http://pdcurses.sourceforge.net/") and the DJGPP port of WATTCP.  The
     updated version of WATTCP is known as WATT-32, and is available at
-    "http://www.bgnett.no/~giva/".  You can also use slang (available at
-    "http://www.s-lang.org/") as your screen library.  You must
+    "http://home.broadpark.no/~gvanem/".  You can also use slang (available at
+    "http://www.jedsoft.org/slang/") as your screen library.  You must
     compile these before you go any further.  If you wish to use PDCurses 2.6,
     you need to first apply the following patch:
 
@@ -1058,21 +1229,19 @@ V. Compile instructions -- 386 DOS
 
     If you wish to compile with SSL enabled, you need to get and compile
     OpenSSL. The DJGPP port has been successfully compiled with the
-    0.9.7 stable series of OpenSSL. DJGPP can compile OpenSSL from the
+    development version of OpenSSL. DJGPP can compile OpenSSL from the
     standard source distribution (http://www.openssl.org/). See the file
     "INSTALL.DJGPP" in the OpenSSL distribution.
 
-
     If you have trouble applying the patches, try using the "patch" program,
-    ("http://www.delorie.com/pub/djgpp/current/v2gnu/pat253b.zip").
+    ("http://www.delorie.com/pub/djgpp/current/v2gnu/pat261b.zip").
     To read the Unix man style documentation, use, for example, "less"
     ("http://www.delorie.com/pub/djgpp/current/v2gnu/lss374b.zip").
     Compile or place your compiled PDCurses library in /djgpp/pdcur26, and
     compile or place your compiled WATT-32 library in /djgpp/watt32.  If
     using the SLANG library, put libslang.a in your DJGPP/lib directory and put
-    slang.h and slcurses.h in your DJGPP/include directory, or in the
-    appropriate directories specified by LIBRARY_PATH and INCLUDE_PATH in your
-    DJGPP.ENV file.
+    slang.h in your DJGPP/include directory, or in the appropriate directories
+    specified by LIBRARY_PATH and INCLUDE_PATH in your DJGPP.ENV file.
 
     Move to the "lynx2-*/WWW/Library/djgpp" directory.  If compiling with
     PDCurses, do "make".  If using SLANG, do "make -f makefile.sla".  This
@@ -1101,27 +1270,27 @@ V. Compile instructions -- 386 DOS
     If all goes well, you will have a lynx.exe file.  If you have trouble,
     check to be sure djgpp.env is the way it came in the original package.
 
-    To test Lynx_386 you must have a packet driver installed.  The simplest
-    method is to use a null packet driver that just allows Lynx to start up,
-    but doesn't do anything else.  One such executable driver has been posted,
-    uuencoded, to the lynx-dev mailing list:
-    "http://www.flora.org/lynx-dev/html/month011998/msg00057.html".
-    Start the dummy packet driver with "nullpkt 0x60", and take it out of
-    memory with "nullpkt -u".  You can also use slip8250.com.  See the CRYNWR
-    package "ftp://ftp.simtel.net/pub/simtelnet/msdos/pktdrvr/pktd11.zip".
-    Usage is "slip8250 0x60", but you may have to invoke it as, for example,
-    "slip8250  0x60 6 3 0x2F8" so that it uses COM2 and IRQ 3, in order to
-    avoid an IRQ conflict with a mouse or some other device.  Another packet
+    To test Lynx_386 you must have a packet driver installed. The simplest
+    method is to use a null packet driver that just allows Lynx to start
+    up, but doesn't do anything else. One such executable driver has been
+    posted, uuencoded, to the lynx-dev mailing list in January 1998,
+    but is corrupted in the mailing list archive. You can get this at
+    "http://www.ncf.ca/ncf/pda/computer/dos/net/nullpkt.zip". Start the
+    dummy packet driver with "nullpkt 0x60", and take it out of memory with
+    "nullpkt -u". You can also use slip8250.com. See the CRYNWR package
+    "ftp://ftp.simtel.net/pub/simtelnet/msdos/pktdrvr/pktd11.zip". Usage
+    is "slip8250 0x60", but you may have to invoke it as, for example,
+    "slip8250 0x60 6 3 0x2F8" so that it uses COM2 and IRQ 3, in order to
+    avoid an IRQ conflict with a mouse or some other device. Another packet
     driver is slipper.exe, which is available from many sites, including
-    "ftp://ftp.trumpet.com.au/slipper".  To remove it from memory use
-    termin.com (usage "termin 0x60"), available in the CRYNWR package.  To
-    connect over a dialup PPP connection you need dosppp or klos' pppshare.
-    (Find at:
+    "http://www.cavazza.it/file/bbs/intsoft/slippr15.zip". To remove it from
+    memory use termin.com (usage "termin 0x60"), available in the CRYNWR
+    package. To connect over a dialup PPP connection you need dosppp or klos'
+    pppshare. (Find at:
     "http://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/net/dosppp/dosppp06.zip"
     "http://www.ncf.carleton.ca/ncf/pda/computer/dos/net/dosppp06.zip"
-    "http://mvmpc200.ciw.uni-karlsruhe.de/~mvmpc9/user/TONI/dosppp/dosppp06.zip"
-    "ftp://ftp.oldskool.org/pub/tvdog/internet/dosppp06.zip";
-    "ftp://ftp.klos.com/pub/demo/pppshare.exe")
+    "http://www.cavazza.it/file/bbs/intsoft/dosppp06.zip"
+    "http://www.cavazza.it/file/bbs/intsoft/pppshare.exe")
 
     File access looks like this:
 
@@ -1158,7 +1327,7 @@ V. Compile instructions -- 386 DOS
     lynx2-* directory.  Place a copy of this batch file, named "djgpp.bat",
     in the lynx2-* directory, move to that directory and type "djgpp".  A more
     complete batch file with error checking and annotation can be found at:
-    "http://www.flora.org/lynx-dev/html/month111997/msg00250.html".
+    "http://lists.nongnu.org/archive/html/lynx-dev/1997-11/msg00250.html".
 
     If you use the configure method, remember that if you configure with
     the option "--enable-nls", you also need to set LIBS="-liconv". A
@@ -1189,8 +1358,9 @@ V. Compile instructions -- 386 DOS
 
 -- 1997/9/29 - D. Kaufman <dkaufman@rahul.net>
 -- 1997/10/3 - B. Schiavo <Wschiavo@concentric.net>
--- Last update - 2004/01/19
+-- Last update - 2010/11/27
 
+-------------------------------------------------------------------------------
 
 VI. General installation instructions
 
@@ -1225,6 +1395,7 @@ VI. General installation instructions
     build, be certain to do a "make clean" (or "make distclean" for those
     using auto-configure) before attempting to compile again.
 
+-------------------------------------------------------------------------------
 
 VII. Setting environment variables before running Lynx (optional)
 
@@ -1281,7 +1452,8 @@ VII. Setting environment variables before running Lynx (optional)
     for IP number, Gateway, Netmask, and Domain Name Server.  This can also be
     automated in the batch file.
 
-    Adapted from "readme.txt" by Wayne Buttles and "readme.dos" by Doug Kaufman.
+    Adapted from "readme.txt" by Wayne Buttles and "readme.dos" by Doug
+    Kaufman.
 
 VIII. Acknowledgment
 
@@ -1289,3 +1461,5 @@ VIII. Acknowledgment
    installation manual as accurate and complete as possible.
 
 -- 1999/04/24 - H. Nelson <lynx-admin@irm.nara.kindai.ac.jp>
+-- vile:txtmode
+-- $LynxId: INSTALLATION,v 1.123 2014/01/09 20:07:01 tom Exp $

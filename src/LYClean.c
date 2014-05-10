@@ -1,3 +1,4 @@
+/* $LynxId: LYClean.c,v 1.40 2013/10/10 23:47:25 tom Exp $ */
 #include <HTUtils.h>
 #include <LYCurses.h>
 #include <LYUtils.h>
@@ -8,6 +9,7 @@
 #include <LYTraversal.h>
 #include <LYHistory.h>
 #include <LYCookie.h>
+#include <LYSession.h>
 #include <UCAuto.h>
 #include <HTAlert.h>
 
@@ -49,42 +51,35 @@ void cleanup_sig(int sig)
 
 #ifdef VMS
     if (!dump_output_immediately) {
-	int c;
 
 	/*
 	 * Reassert the AST.
 	 */
 	(void) signal(SIGINT, cleanup_sig);
-	if (!LYCursesON)
-	    return;
+	if (LYCursesON) {
+	    lynx_force_repaint();	/* wipe away the "cancel" message */
+	    LYrefresh();
 
-	/*
-	 * Refresh screen to get rid of "cancel" message, then query.
-	 */
-	lynx_force_repaint();
-	LYrefresh();
+	    /*
+	     * Ask if exit is intended.
+	     */
+	    if (LYQuitDefaultYes == TRUE) {
+		int Dft = ((LYQuitDefaultYes == TRUE) ? YES : NO);
+		int c = HTConfirmDefault(REALLY_EXIT, Dft);
 
-	/*
-	 * Ask if exit is intended.
-	 */
-	if (LYQuitDefaultYes == TRUE) {
-	    c = HTConfirmDefault(REALLY_EXIT, YES);
-	} else {
-	    c = HTConfirmDefault(REALLY_EXIT, NO);
-	}
-	HadVMSInterrupt = TRUE;
-	if (LYQuitDefaultYes == TRUE) {
-	    if (c == NO) {
-		return;
+		HadVMSInterrupt = TRUE;
+		if (c != Dft) {
+		    return;
+		}
 	    }
-	} else if (c != YES) {
+	} else {
 	    return;
 	}
     }
 #endif /* VMS */
 
     /*
-     * Ignore further interrupts.  - mhc:  11/2/91
+     * Ignore signals from terminal.
      */
 #ifndef NOSIGHUP
     (void) signal(SIGHUP, SIG_IGN);
@@ -95,11 +90,11 @@ void cleanup_sig(int sig)
      * Use ttclose() from cleanup() for VMS if not dumping.
      */
     if (dump_output_immediately)
+	(void) signal(SIGTERM, SIG_IGN);
 #else /* Unix: */
     (void) signal(SIGINT, SIG_IGN);
-#endif /* VMS */
-
     (void) signal(SIGTERM, SIG_IGN);
+#endif /* VMS */
 
     if (traversal)
 	dump_traversal_history();
@@ -123,10 +118,16 @@ void cleanup_sig(int sig)
 	}
 #ifndef NOSIGHUP
     } else {
+#ifdef USE_SESSIONS
+	/*
+	 * It is useful to save the session if a user closed lynx in a
+	 * nonstandard way, such as closing xterm window or in even a crash.
+	 */
+	SaveSession();
+#endif /* USE_SESSIONS */
 	cleanup_files();
     }
 #endif /* NOSIGHUP */
-
     if (sig != 0) {
 	exit_immediately(EXIT_SUCCESS);
     } else {
@@ -135,7 +136,7 @@ void cleanup_sig(int sig)
 }
 
 /*
- * Called by Interrupt handler or at quit time.  Erases the temporary files
+ * Called by interrupt handler or at quit-time, this erases the temporary files
  * that lynx created.
  */
 void cleanup_files(void)
@@ -146,27 +147,19 @@ void cleanup_files(void)
 
 void cleanup(void)
 {
-#ifdef VMS
-    extern BOOLEAN DidCleanup;
-#endif /* VMS */
-
     /*
-     * Cleanup signals - just in case.  Ignore further interrupts.  - mhc: 
-     * 11/2/91
+     * Ignore signals from terminal.
      */
 #ifndef NOSIGHUP
     (void) signal(SIGHUP, SIG_IGN);
 #endif /* NOSIGHUP */
-    (void) signal(SIGTERM, SIG_IGN);
-
 #ifndef VMS			/* use ttclose() from cleanup() for VMS */
     (void) signal(SIGINT, SIG_IGN);
 #endif /* !VMS */
+    (void) signal(SIGTERM, SIG_IGN);
 
     if (LYCursesON) {
-	LYmove(LYlines - 1, 0);
-	LYclrtoeol();
-
+	LYParkCursor();
 	lynx_stop_all_colors();
 	LYrefresh();
 
@@ -175,8 +168,7 @@ void cleanup(void)
 #ifdef EXP_CHARTRANS_AUTOSWITCH
     /*
      * Currently implemented only for LINUX:  Restore original font.
-     */
-    UCChangeTerminalCodepage(-1, (LYUCcharset *) 0);
+     */ UCChangeTerminalCodepage(-1, (LYUCcharset *) 0);
 #endif /* EXP_CHARTRANS_AUTOSWITCH */
 
 #ifdef USE_PERSISTENT_COOKIES
@@ -190,6 +182,9 @@ void cleanup(void)
     if (persistent_cookies)
 	LYStoreCookies(LYCookieSaveFile);
 #endif
+#ifdef USE_SESSIONS
+    SaveSession();
+#endif /* USE_SESSIONS */
 
     cleanup_files();
 #ifdef VMS

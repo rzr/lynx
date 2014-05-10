@@ -1,5 +1,7 @@
-/* 
-   dir.c for MS-DOS by Samuel Lam <skl@van-bc.UUCP>, June/87 
+/*
+ * $LynxId: dirent.c,v 1.6 2013/12/07 13:46:58 tom Exp $
+ *
+ * dir.c for MS-DOS by Samuel Lam <skl@van-bc.UUCP>, June/87 
  */
 
 /* #ifdef WIN32 */
@@ -18,15 +20,29 @@
  *    Changes made by Gordon Chaffee (chaffee@bugs-bunny.cs.berkeley.edu)
  */
 
-
 /*Includes: 
  *    crt 
  */
+#ifdef HAVE_CONFIG_H
+#include "lynx_cfg.h"
+#endif
+
+#ifndef __GNUC__
+#pragma warning (disable : 4100)	/* unreferenced formal parameter */
+#pragma warning (disable : 4127)	/* conditional expression is constant */
+#pragma warning (disable : 4201)	/* nameless struct/union */
+#pragma warning (disable : 4214)	/* bit field types other than int */
+#pragma warning (disable : 4310)	/* cast truncates constant value */
+#pragma warning (disable : 4514)	/* unreferenced inline function has been removed */
+#pragma warning (disable : 4996)	/* This function or variable may be unsafe. ... */
+#endif
+
 #include <windows.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys\types.h>
 #include <sys\stat.h>
+
 #include "dirent.h"
 
 #define stat _stat
@@ -42,6 +58,10 @@
 #define HDIR        HANDLE
 #define HFILE       HANDLE
 #define PHFILE      PHANDLE
+
+#ifndef INVALID_HANDLE_VALUE
+#define INVALID_HANDLE_VALUE ((HDIR) 0xffffffff)
+#endif
 
 /* 
  *    local functions 
@@ -112,6 +132,7 @@ DIR *opendirx(char *name, char *pattern)
 	return NULL;
     }
     dirp = malloc(sizeof(DIR));
+
     if (dirp == NULL) {
 	return dirp;
     }
@@ -142,7 +163,7 @@ DIR *opendirx(char *name, char *pattern)
     }
     do {
 	if (((dp = malloc(sizeof(struct _dircontents))) == NULL) ||
-	     ((dp->_d_entry = malloc(strlen(s) + 1)) == NULL)) {
+	      ((dp->_d_entry = malloc(strlen(s) + 1)) == NULL)) {
 	    if (dp)
 		free(dp);
 	    free_dircontents(dirp->dd_contents);
@@ -169,13 +190,13 @@ DIR *opendir(char *name)
     return opendirx(name, "*");
 }
 
-void closedir(DIR * dirp)
+void closedir(DIR *dirp)
 {
     free_dircontents(dirp->dd_contents);
     free(dirp);
 }
 
-struct dirent *readdir(DIR * dirp)
+struct dirent *readdir(DIR *dirp)
 {
     /* static struct dirent dp; */
     if (dirp->dd_cp == NULL)
@@ -188,30 +209,28 @@ struct dirent *readdir(DIR * dirp)
     dp.d_namlen = dp.d_reclen =
 	strlen(dp.d_name);
 
-    dp.d_ino = dirp->dd_loc + 1;	/* fake the inode */
+    dp.d_ino = (ino_t) (dirp->dd_loc + 1);	/* fake the inode */
 
     dirp->dd_cp = dirp->dd_cp->_d_next;
     dirp->dd_loc++;
 
-
     return &dp;
 }
 
-void seekdir(DIR * dirp, long off)
+void seekdir(DIR *dirp, long off)
 {
     long i = off;
     struct _dircontents *dp;
 
     if (off >= 0) {
-	for (dp = dirp->dd_contents; --i >= 0 && dp; dp = dp->_d_next);
+	for (dp = dirp->dd_contents; --i >= 0 && dp; dp = dp->_d_next) ;
 
 	dirp->dd_loc = off - (i + 1);
 	dirp->dd_cp = dp;
     }
 }
 
-
-long telldir(DIR * dirp)
+long telldir(DIR *dirp)
 {
     return dirp->dd_loc;
 }
@@ -236,7 +255,7 @@ static char *getdirent(char *dir)
 
     if (dir != NULL) {		/* get first entry */
 	if ((FindHandle = FindFirstFile(dir, &FileFindData))
-	    == (HDIR) 0xffffffff) {
+	    == INVALID_HANDLE_VALUE) {
 	    return NULL;
 	}
 	got_dirent = 1;
@@ -252,14 +271,12 @@ static char *getdirent(char *dir)
 }
 /* end of getdirent() */
 
-struct passwd *_cdecl
- getpwnam(char *name)
+struct passwd *_cdecl getpwnam(char *name)
 {
     return NULL;
 }
 
-struct passwd *_cdecl
- getpwuid(int uid)
+struct passwd *_cdecl getpwuid(int uid)
 {
     return NULL;
 }
@@ -269,8 +286,7 @@ int getuid()
     return 0;
 }
 
-void _cdecl
- endpwent(void)
+void _cdecl endpwent(void)
 {
 }
 

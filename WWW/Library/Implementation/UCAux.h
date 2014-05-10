@@ -1,3 +1,6 @@
+/*
+ * $LynxId: UCAux.h,v 1.18 2010/11/07 21:20:59 tom Exp $
+ */
 #ifndef UCAUX_H
 #define UCAUX_H
 
@@ -39,6 +42,7 @@ extern "C" {
 	BOOL trans_C0_to_uni;
 	BOOL repl_translated_C0;
 	BOOL trans_from_uni;
+	int ucs_mode;
     };
     typedef struct _UCTransParams UCTransParams;
 
@@ -55,11 +59,11 @@ extern "C" {
 			      int vert_in,
 			      int hori_in);
 
-    typedef void putc_func_t(HTStream *me,
-			     char ch);
+    typedef void putc_func_t (HTStream *me,
+			      int ch);
 
     extern BOOL UCPutUtf8_charstring(HTStream *target,
-				     putc_func_t * actions,
+				     putc_func_t *actions,
 				     UCode_t code);
 
     extern BOOL UCConvertUniToUtf8(UCode_t code,

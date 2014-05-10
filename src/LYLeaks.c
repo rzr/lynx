@@ -1,5 +1,8 @@
 /*
+ * $LynxId: LYLeaks.c,v 1.37 2013/12/07 13:46:58 tom Exp $
+ *
  *	Copyright (c) 1994, University of Kansas, All Rights Reserved
+ *	(this file was rewritten twice - 1998/1999 and 2003/2004)
  *
  *	This code will be used only if LY_FIND_LEAKS is defined.
  *
@@ -7,6 +10,8 @@
  *	05-26-94	created Lynx 2-3-1 Garrett Arch Blythe
  *	10-30-97	modified to handle StrAllocCopy() and
  *			  StrAllocCat(). - KW & FM
+ *	07-23-07	free leaks of THIS module too -TD
+ *	02-09-12	add bstring functions -TD
  */
 
 /*
@@ -28,16 +33,16 @@ static AllocationList *ALp_RunTimeAllocations = NULL;
 
 #ifdef LEAK_SUMMARY
 
-static long now_allocated = 0;
-static long peak_alloced = 0;
+static size_t now_allocated = 0;
+static size_t peak_alloced = 0;
 
-static long total_alloced = 0;
-static long total_freed = 0;
+static size_t total_alloced = 0;
+static size_t total_freed = 0;
 
 static long count_mallocs = 0;
 static long count_frees = 0;
 
-static void CountMallocs(long size)
+static void CountMallocs(size_t size)
 {
     ++count_mallocs;
     total_alloced += size;
@@ -46,7 +51,7 @@ static void CountMallocs(long size)
 	peak_alloced = now_allocated;
 }
 
-static void CountFrees(long size)
+static void CountFrees(size_t size)
 {
     ++count_frees;
     total_freed += size;
@@ -54,8 +59,8 @@ static void CountFrees(long size)
 }
 
 #else
-#define CountMallocs() ++count_mallocs
-#define CountFrees()		/* nothing */
+#define CountMallocs(size) ++count_mallocs
+#define CountFrees(size)	/* nothing */
 #endif
 
 /*
@@ -127,21 +132,21 @@ static void RemoveFromList(AllocationList * ALp_del)
      */
     if (ALp_del == ALp_findbefore) {
 	ALp_RunTimeAllocations = ALp_del->ALp_Next;
-	return;
-    }
+    } else {
 
-    /*
-     * Loop through checking all of the next values, if a match don't continue. 
-     * Always assume the item will be found.
-     */
-    while (ALp_findbefore->ALp_Next != ALp_del) {
-	ALp_findbefore = ALp_findbefore->ALp_Next;
-    }
+	/*
+	 * Loop through checking all of the next values, if a match don't
+	 * continue.  Always assume the item will be found.
+	 */
+	while (ALp_findbefore->ALp_Next != ALp_del) {
+	    ALp_findbefore = ALp_findbefore->ALp_Next;
+	}
 
-    /*
-     * We are one item before the one to get rid of.  Get rid of it.
-     */
-    ALp_findbefore->ALp_Next = ALp_del->ALp_Next;
+	/*
+	 * We are one item before the one to get rid of.  Get rid of it.
+	 */
+	ALp_findbefore->ALp_Next = ALp_del->ALp_Next;
+    }
 }
 
 /*
@@ -174,8 +179,19 @@ void LYLeaks(void)
     size_t st_total = (size_t) 0;
     FILE *Fp_leakagesink;
 
-    if (LYfind_leaks == FALSE)
+    CTRACE((tfp, "entering LYLeaks, flag=%d\n", LYfind_leaks));
+
+    if (LYfind_leaks == FALSE) {
+	/*
+	 * Free MY leaks too, in case someone else is watching.
+	 */
+	while (ALp_RunTimeAllocations != NULL) {
+	    ALp_head = ALp_RunTimeAllocations;
+	    ALp_RunTimeAllocations = ALp_head->ALp_Next;
+	    free(ALp_head);
+	}
 	return;
+    }
 
     /*
      * Open the leakage sink to take all the output.  Recreate the file each
@@ -194,7 +210,7 @@ void LYLeaks(void)
 	ALp_RunTimeAllocations = ALp_head->ALp_Next;
 
 	/*
-	 * Print the type of leak/error.  Free off memory when we no longer
+	 * Print the type of leak/error.  Release memory when we no longer
 	 * need it.
 	 */
 	if (ALp_head->vp_Alloced == NULL) {
@@ -300,17 +316,18 @@ void LYLeaks(void)
 	    gettext("Total memory leakage this run:"),
 	    (unsigned) st_total);
 #ifdef LEAK_SUMMARY
-    fprintf(Fp_leakagesink, "%s\t%ld\n", gettext("Peak allocation"), peak_alloced);
-    fprintf(Fp_leakagesink, "%s\t%ld\n", gettext("Bytes allocated"), total_alloced);
-    fprintf(Fp_leakagesink, "%s\t%ld\n", gettext("Total mallocs"), count_mallocs);
-    fprintf(Fp_leakagesink, "%s\t%ld\n", gettext("Total frees"), count_frees);
+    fprintf(Fp_leakagesink,
+	    "%s\t%lu\n", gettext("Peak allocation"), (unsigned long) peak_alloced);
+    fprintf(Fp_leakagesink,
+	    "%s\t%lu\n", gettext("Bytes allocated"), (unsigned long) total_alloced);
+    fprintf(Fp_leakagesink,
+	    "%s\t%ld\n", gettext("Total mallocs"), count_mallocs);
+    fprintf(Fp_leakagesink,
+	    "%s\t%ld\n", gettext("Total frees"), count_frees);
 #endif
     fclose(Fp_leakagesink);
 
     HTSYS_purge(LEAKAGE_SINK);
-#if defined(NCURSES) && defined(HAVE__NC_FREEALL)
-    _nc_freeall();
-#endif
 }
 
 /*
@@ -335,44 +352,45 @@ void *LYLeakMalloc(size_t st_bytes, const char *cp_File,
 {
     void *vp_malloc;
 
-    if (LYfind_leaks == FALSE)
-	return (void *) malloc(st_bytes);
+    if (LYfind_leaks == FALSE) {
+	vp_malloc = (void *) malloc(st_bytes);
+    } else {
 
-    /*
-     * Do the actual allocation.
-     */
-    vp_malloc = (void *) malloc(st_bytes);
-    CountMallocs(st_bytes);
-
-    /*
-     * Only on successful allocation do we track any information.
-     */
-    if (vp_malloc != NULL) {
 	/*
-	 * Further allocate memory to store the information.  Just return on
-	 * failure to allocate more.
+	 * Do the actual allocation.
 	 */
-	AllocationList *ALp_new = typecalloc(AllocationList);
+	vp_malloc = (void *) malloc(st_bytes);
+	CountMallocs(st_bytes);
 
-	if (ALp_new == NULL) {
-	    return (vp_malloc);
+	/*
+	 * Only on successful allocation do we track any information.
+	 */
+	if (vp_malloc != NULL) {
+	    /*
+	     * Further allocate memory to store the information.  Just return
+	     * on failure to allocate more.
+	     */
+	    AllocationList *ALp_new = typecalloc(AllocationList);
+
+	    if (ALp_new != NULL) {
+		/*
+		 * Copy over the relevant information.  There is no need to
+		 * allocate more memory for the file name as it is a static
+		 * string anyway.
+		 */
+		ALp_new->st_Sequence = count_mallocs;
+		ALp_new->vp_Alloced = vp_malloc;
+		ALp_new->st_Bytes = st_bytes;
+		ALp_new->SL_memory.cp_FileName = cp_File;
+		ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
+
+		/*
+		 * Add the new item to the allocation list.
+		 */
+		AddToList(ALp_new);
+	    }
 	}
-	/*
-	 * Copy over the relevant information.  There is no need to allocate
-	 * more memory for the file name as it is a static string anyhow.
-	 */
-	ALp_new->st_Sequence = count_mallocs;
-	ALp_new->vp_Alloced = vp_malloc;
-	ALp_new->st_Bytes = st_bytes;
-	ALp_new->SL_memory.cp_FileName = cp_File;
-	ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
-
-	/*
-	 * Add the new item to the allocation list.
-	 */
-	AddToList(ALp_new);
     }
-
     return (vp_malloc);
 }
 
@@ -403,48 +421,45 @@ AllocationList *LYLeak_mark_malloced(void *vp_malloced,
 {
     AllocationList *ALp_new = NULL;
 
-    if (LYfind_leaks == FALSE)
-	return NULL;
-
-    /*
-     * The actual allocation has already been done!
-     *
-     * Only on successful allocation do we track any information.
-     */
-    if (vp_malloced != NULL) {
+    if (LYfind_leaks != FALSE) {
 	/*
-	 * See if there is already an entry.  If so, just update the source
-	 * location info.
+	 * The actual allocation has already been done!
+	 *
+	 * Only on successful allocation do we track any information.
 	 */
-	ALp_new = FindInList(vp_malloced);
-	if (ALp_new) {
-	    ALp_new->SL_memory.cp_FileName = cp_File;
-	    ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
-	    return (ALp_new);
+	if (vp_malloced != NULL) {
+	    /*
+	     * See if there is already an entry.  If so, just update the source
+	     * location info.
+	     */
+	    ALp_new = FindInList(vp_malloced);
+	    if (ALp_new) {
+		ALp_new->SL_memory.cp_FileName = cp_File;
+		ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
+	    } else {
+		/*
+		 * Further allocate memory to store the information.  Just
+		 * return on failure to allocate more.
+		 */
+		ALp_new = typecalloc(AllocationList);
+		if (ALp_new != NULL) {
+		    /*
+		     * Copy over the relevant information.
+		     */
+		    ALp_new->vp_Alloced = vp_malloced;
+		    ALp_new->st_Bytes = st_bytes;
+		    ALp_new->SL_memory.cp_FileName = cp_File;
+		    ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
+
+		    /*
+		     * Add the new item to the allocation list.
+		     */
+		    AddToList(ALp_new);
+		    CountMallocs(st_bytes);
+		}
+	    }
 	}
-	/*
-	 * Further allocate memory to store the information.  Just return on
-	 * failure to allocate more.
-	 */
-	ALp_new = typecalloc(AllocationList);
-
-	if (ALp_new == NULL) {
-	    return (NULL);
-	}
-	/*
-	 * Copy over the relevant information.
-	 */
-	ALp_new->vp_Alloced = vp_malloced;
-	ALp_new->st_Bytes = st_bytes;
-	ALp_new->SL_memory.cp_FileName = cp_File;
-	ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
-
-	/*
-	 * Add the new item to the allocation list.
-	 */
-	AddToList(ALp_new);
     }
-
     return (ALp_new);
 }
 
@@ -469,45 +484,46 @@ void *LYLeakCalloc(size_t st_number, size_t st_bytes, const char *cp_File,
 {
     void *vp_calloc;
 
-    if (LYfind_leaks == FALSE)
-	return (void *) calloc(st_number, st_bytes);
+    if (LYfind_leaks == FALSE) {
+	vp_calloc = (void *) calloc(st_number, st_bytes);
+    } else {
 
-    /*
-     * Allocate the requested memory.
-     */
-    vp_calloc = (void *) calloc(st_number, st_bytes);
-    CountMallocs(st_bytes);
-
-    /*
-     * Only if the allocation was a success do we track information.
-     */
-    if (vp_calloc != NULL) {
 	/*
-	 * Allocate memory for the item to be in the list.  If unable, just
-	 * return.
+	 * Allocate the requested memory.
 	 */
-	AllocationList *ALp_new = typecalloc(AllocationList);
+	vp_calloc = (void *) calloc(st_number, st_bytes);
+	CountMallocs(st_bytes * st_number);
 
-	if (ALp_new == NULL) {
-	    return (vp_calloc);
+	/*
+	 * Only if the allocation was a success do we track information.
+	 */
+	if (vp_calloc != NULL) {
+	    /*
+	     * Allocate memory for the item to be in the list.  If unable, just
+	     * return.
+	     */
+	    AllocationList *ALp_new = typecalloc(AllocationList);
+
+	    if (ALp_new != NULL) {
+
+		/*
+		 * Copy over the relevant information.  There is no need to
+		 * allocate memory for the file name as it is a static string
+		 * anyway.
+		 */
+		ALp_new->st_Sequence = count_mallocs;
+		ALp_new->vp_Alloced = vp_calloc;
+		ALp_new->st_Bytes = (st_number * st_bytes);
+		ALp_new->SL_memory.cp_FileName = cp_File;
+		ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
+
+		/*
+		 * Add the item to the allocation list.
+		 */
+		AddToList(ALp_new);
+	    }
 	}
-
-	/*
-	 * Copy over the relevant information.  There is no need to allocate
-	 * memory for the file name as it is a static string anyway.
-	 */
-	ALp_new->st_Sequence = count_mallocs;
-	ALp_new->vp_Alloced = vp_calloc;
-	ALp_new->st_Bytes = (st_number * st_bytes);
-	ALp_new->SL_memory.cp_FileName = cp_File;
-	ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
-
-	/*
-	 * Add the item to the allocation list.
-	 */
-	AddToList(ALp_new);
     }
-
     return (vp_calloc);
 }
 
@@ -541,68 +557,70 @@ void *LYLeakRealloc(void *vp_Alloced,
     void *vp_realloc;
     AllocationList *ALp_renew;
 
-    if (LYfind_leaks == FALSE)
-	return (void *) realloc(vp_Alloced, st_newBytes);
+    if (LYfind_leaks == FALSE) {
+	vp_realloc = (void *) realloc(vp_Alloced, st_newBytes);
 
-    /*
-     * If we are asked to resize a NULL pointer, this is just a malloc call.
-     */
-    if (vp_Alloced == NULL) {
-	return (LYLeakMalloc(st_newBytes, cp_File, ssi_Line));
-    }
-
-    /*
-     * Find the current vp_Alloced block in the list.  If NULL, this is an
-     * invalid pointer value.
-     */
-    ALp_renew = FindInList(vp_Alloced);
-    if (ALp_renew == NULL) {
+    } else if (vp_Alloced == NULL) {
 	/*
-	 * Track the invalid pointer value and then exit.  If unable to
-	 * allocate, just exit.
+	 * If we are asked to resize a NULL pointer, this is just a malloc
+	 * call.
 	 */
-	auto AllocationList *ALp_new = typecalloc(AllocationList);
+	vp_realloc = LYLeakMalloc(st_newBytes, cp_File, ssi_Line);
 
-	if (ALp_new == NULL) {
+    } else {
+
+	/*
+	 * Find the current vp_Alloced block in the list.  If NULL, this is an
+	 * invalid pointer value.
+	 */
+	ALp_renew = FindInList(vp_Alloced);
+	if (ALp_renew == NULL) {
+	    /*
+	     * Track the invalid pointer value and then exit.  If unable to
+	     * allocate, just exit.
+	     */
+	    AllocationList *ALp_new = typecalloc(AllocationList);
+
+	    if (ALp_new == NULL) {
+		exit_immediately(EXIT_FAILURE);
+	    }
+
+	    /*
+	     * Set the information up; no need to allocate file name since it is a
+	     * static string.
+	     */
+	    ALp_new->vp_Alloced = NULL;
+	    ALp_new->vp_BadRequest = vp_Alloced;
+	    ALp_new->SL_realloc.cp_FileName = cp_File;
+	    ALp_new->SL_realloc.ssi_LineNumber = ssi_Line;
+
+	    /*
+	     * Add the item to the list.  Exit.
+	     */
+	    AddToList(ALp_new);
 	    exit_immediately(EXIT_FAILURE);
 	}
 
 	/*
-	 * Set the information up; no need to allocate file name since it is a
-	 * static string.
+	 * Perform the resize.  If not NULL, record the information.
 	 */
-	ALp_new->vp_Alloced = NULL;
-	ALp_new->vp_BadRequest = vp_Alloced;
-	ALp_new->SL_realloc.cp_FileName = cp_File;
-	ALp_new->SL_realloc.ssi_LineNumber = ssi_Line;
+	vp_realloc = (void *) realloc(vp_Alloced, st_newBytes);
+	CountFrees(ALp_renew->st_Bytes);
+	CountMallocs(st_newBytes);
 
-	/*
-	 * Add the item to the list.  Exit.
-	 */
-	AddToList(ALp_new);
-	exit_immediately(EXIT_FAILURE);
+	if (vp_realloc != NULL) {
+	    ALp_renew->st_Sequence = count_mallocs;
+	    ALp_renew->vp_Alloced = vp_realloc;
+	    ALp_renew->st_Bytes = st_newBytes;
+
+	    /*
+	     * Update the realloc information, too.  No need to allocate file name,
+	     * static string.
+	     */
+	    ALp_renew->SL_realloc.cp_FileName = cp_File;
+	    ALp_renew->SL_realloc.ssi_LineNumber = ssi_Line;
+	}
     }
-
-    /*
-     * Perform the resize.  If not NULL, record the information.
-     */
-    vp_realloc = (void *) realloc(vp_Alloced, st_newBytes);
-    CountMallocs(st_newBytes);
-    CountFrees(ALp_renew->st_Bytes);
-
-    if (vp_realloc != NULL) {
-	ALp_renew->st_Sequence = count_mallocs;
-	ALp_renew->vp_Alloced = vp_realloc;
-	ALp_renew->st_Bytes = st_newBytes;
-
-	/*
-	 * Update the realloc information, too.  No need to allocate file name,
-	 * static string.
-	 */
-	ALp_renew->SL_realloc.cp_FileName = cp_File;
-	ALp_renew->SL_realloc.ssi_LineNumber = ssi_Line;
-    }
-
     return (vp_realloc);
 }
 
@@ -680,54 +698,53 @@ void LYLeakFree(void *vp_Alloced,
 
     if (LYfind_leaks == FALSE) {
 	free(vp_Alloced);
-	return;
-    }
-
-    /*
-     * Find the pointer in the allocated list.  If not found, bad pointer.  If
-     * found, free list item and vp_Allloced.
-     */
-    ALp_free = FindInList(vp_Alloced);
-    if (ALp_free == NULL) {
-	/*
-	 * Create the final entry before exiting marking this error.  If unable
-	 * to allocate more memory just exit.
-	 */
-	AllocationList *ALp_new = typecalloc(AllocationList);
-
-	if (ALp_new == NULL) {
-	    exit_immediately(EXIT_FAILURE);
-	}
-
-	/*
-	 * Set up the information, no memory need be allocated for the file
-	 * name since it is a static string.
-	 */
-	ALp_new->vp_Alloced = NULL;
-	ALp_new->vp_BadRequest = vp_Alloced;
-	ALp_new->SL_memory.cp_FileName = cp_File;
-	ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
-
-	/*
-	 * Add the entry to the list and then return.
-	 */
-	AddToList(ALp_new);
-	return;
     } else {
+
 	/*
-	 * Free off the memory.  Take entry out of allocation list.
+	 * Find the pointer in the allocated list.  If not found, bad pointer. 
+	 * If found, free list item and vp_Alloced.
 	 */
-	CountFrees(ALp_free->st_Bytes);
-	RemoveFromList(ALp_free);
-	FREE(ALp_free);
-	FREE(vp_Alloced);
+	ALp_free = FindInList(vp_Alloced);
+	if (ALp_free == NULL) {
+	    /*
+	     * Create the final entry before exiting marking this error.  If
+	     * unable to allocate more memory just exit.
+	     */
+	    AllocationList *ALp_new = typecalloc(AllocationList);
+
+	    if (ALp_new == NULL) {
+		exit_immediately(EXIT_FAILURE);
+	    }
+
+	    /*
+	     * Set up the information, no memory need be allocated for the file
+	     * name since it is a static string.
+	     */
+	    ALp_new->vp_Alloced = NULL;
+	    ALp_new->vp_BadRequest = vp_Alloced;
+	    ALp_new->SL_memory.cp_FileName = cp_File;
+	    ALp_new->SL_memory.ssi_LineNumber = ssi_Line;
+
+	    /*
+	     * Add the entry to the list and then return.
+	     */
+	    AddToList(ALp_new);
+	} else {
+	    /*
+	     * Free off the memory.  Take entry out of allocation list.
+	     */
+	    CountFrees(ALp_free->st_Bytes);
+	    RemoveFromList(ALp_free);
+	    FREE(ALp_free);
+	    free(vp_Alloced);
+	}
     }
 }
 
 /*
  *  Allocates a new copy of a string, and returns it.
  *  Tracks allocations by using other LYLeakFoo functions.
- *  Equivalent to HTSACopy in HTUtils.c - KW
+ *  Equivalent to HTSACopy in HTString.c - KW
  */
 char *LYLeakSACopy(char **dest,
 		   const char *src,
@@ -738,17 +755,17 @@ char *LYLeakSACopy(char **dest,
 	CTRACE((tfp,
 		"LYLeakSACopy: *dest equals src, contains \"%s\"\n",
 		src));
-	return *dest;
-    }
-    if (*dest) {
-	LYLeakFree(*dest, cp_File, ssi_Line);
-	*dest = NULL;
-    }
-    if (src) {
-	*dest = (char *) LYLeakMalloc(strlen(src) + 1, cp_File, ssi_Line);
-	if (*dest == NULL)
-	    outofmem(__FILE__, "LYLeakSACopy");
-	strcpy(*dest, src);
+    } else {
+	if (*dest) {
+	    LYLeakFree(*dest, cp_File, ssi_Line);
+	    *dest = NULL;
+	}
+	if (src) {
+	    *dest = (char *) LYLeakMalloc(strlen(src) + 1, cp_File, ssi_Line);
+	    if (*dest == NULL)
+		outofmem(__FILE__, "LYLeakSACopy");
+	    strcpy(*dest, src);
+	}
     }
     return *dest;
 }
@@ -768,10 +785,8 @@ char *LYLeakSACat(char **dest,
 	    CTRACE((tfp,
 		    "LYLeakSACat:  *dest equals src, contains \"%s\"\n",
 		    src));
-	    return *dest;
-	}
-	if (*dest) {
-	    int length = strlen(*dest);
+	} else if (*dest) {
+	    size_t length = strlen(*dest);
 
 	    *dest = (char *) LYLeakRealloc(*dest,
 					   (length + strlen(src) + 1),
@@ -791,6 +806,159 @@ char *LYLeakSACat(char **dest,
     }
     return *dest;
 }
+
+/******************************************************************************/
+
+/*
+ * Equivalents for bstring functions in HTString.c -TD
+ */
+/* same as HTSABAlloc */
+void LYLeakSABAlloc(bstring **dest,
+		    int len,
+		    const char *cp_File,
+		    const short ssi_Line)
+{
+    if (*dest == 0) {
+	*dest = LYLeakCalloc(1, sizeof(bstring), cp_File, ssi_Line);
+    }
+
+    if ((*dest)->len != len) {
+	(*dest)->str = (char *) LYLeakRealloc((*dest)->str,
+					      (size_t) len,
+					      cp_File,
+					      ssi_Line);
+	if ((*dest)->str == NULL)
+	    outofmem(__FILE__, "LYLeakSABalloc");
+
+	(*dest)->len = len;
+    }
+}
+
+/* same as HTSABCopy */
+void LYLeakSABCopy(bstring **dest,
+		   const char *src,
+		   int len,
+		   const char *cp_File,
+		   const short ssi_Line)
+{
+    bstring *t;
+    unsigned need = (unsigned) (len + 1);
+
+    CTRACE2(TRACE_BSTRING,
+	    (tfp, "HTSABCopy(%p, %p, %d)\n",
+	     (void *) dest, (const void *) src, len));
+    LYLeakSABFree(dest, cp_File, ssi_Line);
+    if (src) {
+	if (TRACE_BSTRING) {
+	    CTRACE((tfp, "===    %4d:", len));
+	    trace_bstring2(src, len);
+	    CTRACE((tfp, "\n"));
+	}
+	if ((t = (bstring *) LYLeakMalloc(sizeof(bstring), cp_File, ssi_Line))
+	    == NULL)
+	      outofmem(__FILE__, "HTSABCopy");
+
+	assert(t != NULL);
+
+	if ((t->str = (char *) LYLeakMalloc(need, cp_File, ssi_Line)) == NULL)
+	    outofmem(__FILE__, "HTSABCopy");
+
+	assert(t->str != NULL);
+
+	MemCpy(t->str, src, len);
+	t->len = len;
+	t->str[t->len] = '\0';
+	*dest = t;
+    }
+    if (TRACE_BSTRING) {
+	CTRACE((tfp, "=>     %4d:", BStrLen(*dest)));
+	trace_bstring(*dest);
+	CTRACE((tfp, "\n"));
+    }
+}
+
+/* same as HTSABCopy0 */
+void LYLeakSABCopy0(bstring **dest,
+		    const char *src,
+		    const char *cp_File,
+		    const short ssi_Line)
+{
+    LYLeakSABCopy(dest, src, (int) strlen(src), cp_File, ssi_Line);
+}
+
+/* same as HTSABCat */
+void LYLeakSABCat(bstring **dest,
+		  const char *src,
+		  int len,
+		  const char *cp_File,
+		  const short ssi_Line)
+{
+    bstring *t = *dest;
+
+    CTRACE2(TRACE_BSTRING,
+	    (tfp, "HTSABCat(%p, %p, %d)\n",
+	     (void *) dest, (const void *) src, len));
+    if (src) {
+	unsigned need = (unsigned) (len + 1);
+
+	if (TRACE_BSTRING) {
+	    CTRACE((tfp, "===    %4d:", len));
+	    trace_bstring2(src, len);
+	    CTRACE((tfp, "\n"));
+	}
+	if (t) {
+	    unsigned length = (unsigned) t->len + need;
+
+	    t->str = (char *) LYLeakRealloc(t->str, length, cp_File, ssi_Line);
+	} else {
+	    if ((t = (bstring *) LYLeakCalloc(1, sizeof(bstring), cp_File,
+					      ssi_Line)) == NULL)
+		  outofmem(__FILE__, "HTSACat");
+
+	    assert(t != NULL);
+
+	    t->str = (char *) LYLeakMalloc(need, cp_File, ssi_Line);
+	}
+	if (t->str == NULL)
+	    outofmem(__FILE__, "HTSACat");
+
+	assert(t->str != NULL);
+
+	MemCpy(t->str + t->len, src, len);
+	t->len += len;
+	t->str[t->len] = '\0';
+	*dest = t;
+    }
+    if (TRACE_BSTRING) {
+	CTRACE((tfp, "=>     %4d:", BStrLen(*dest)));
+	trace_bstring(*dest);
+	CTRACE((tfp, "\n"));
+    }
+}
+
+/* same as HTSABCat0 */
+void LYLeakSABCat0(bstring **dest,
+		   const char *src,
+		   const char *cp_File,
+		   const short ssi_Line)
+{
+    LYLeakSABCat(dest, src, (int) strlen(src), cp_File, ssi_Line);
+}
+
+/* same as HTSABFree */
+void LYLeakSABFree(bstring **ptr,
+		   const char *cp_File,
+		   const short ssi_Line)
+{
+    if (*ptr != NULL) {
+	if ((*ptr)->str)
+	    LYLeakFree((*ptr)->str, cp_File, ssi_Line);
+	LYLeakFree(*ptr, cp_File, ssi_Line);
+	*ptr = NULL;
+    }
+}
+
+/******************************************************************************/
 
 #if defined(LY_FIND_LEAKS) && defined(LY_FIND_LEAKS_EXTENDED)
 
@@ -821,7 +989,7 @@ short leak_ssi_Line_hack = __LINE__;
  *  Remarks/Portability/Dependencies/Restrictions:
  *		The price for generality is severe inefficiency: several
  *		list lookups are done to be on the safe side.
- *		We don't get he real allocation size, only a minimum based
+ *		We don't get the real allocation size, only a minimum based
  *		on the string length of the result.  So the amount of memory
  *		leakage may get underestimated.
  *		If *dest is an invalid pointer value on entry (i.e. was not
@@ -871,7 +1039,7 @@ static char *LYLeakSAVsprintf(char **dest,
 	     * Track the invalid pointer value and then exit.  If unable to
 	     * allocate, just exit.
 	     */
-	    auto AllocationList *ALp_new = typecalloc(AllocationList);
+	    AllocationList *ALp_new = typecalloc(AllocationList);
 
 	    if (ALp_new == NULL) {
 		exit_immediately(EXIT_FAILURE);
@@ -941,53 +1109,35 @@ static char *LYLeakSAVsprintf(char **dest,
 
 /* Note: the following may need updating if HTSprintf in HTString.c
  * is changed. - kw */
-#ifdef ANSI_VARARGS
 static char *LYLeakHTSprintf(char **pstr, const char *fmt,...)
-#else
-static char *LYLeakHTSprintf(va_alist)
-    va_dcl
-#endif
 {
     char *str;
     size_t inuse = 0;
     va_list ap;
 
     LYva_start(ap, fmt);
-    {
-#ifndef ANSI_VARARGS
-	char **pstr = va_arg(ap, char **);
-	const char *fmt = va_arg(ap, const char *);
-#endif
-	if (pstr != 0 && *pstr != 0)
-	    inuse = strlen(*pstr);
-	str = LYLeakSAVsprintf(pstr, leak_cp_File_hack, leak_ssi_Line_hack,
-			       inuse, fmt, &ap);
-    }
+
+    if (pstr != 0 && *pstr != 0)
+	inuse = strlen(*pstr);
+    str = LYLeakSAVsprintf(pstr, leak_cp_File_hack, leak_ssi_Line_hack,
+			   inuse, fmt, &ap);
+
     va_end(ap);
     return str;
 }
 
 /* Note: the following may need updating if HTSprintf0 in HTString.c
  * is changed. - kw */
-#ifdef ANSI_VARARGS
 static char *LYLeakHTSprintf0(char **pstr, const char *fmt,...)
-#else
-static char *LYLeakHTSprintf0(va_alist)
-    va_dcl
-#endif
 {
     char *str;
     va_list ap;
 
     LYva_start(ap, fmt);
-    {
-#ifndef ANSI_VARARGS
-	char **pstr = va_arg(ap, char **);
-	const char *fmt = va_arg(ap, const char *);
-#endif
-	str = LYLeakSAVsprintf(pstr, leak_cp_File_hack, leak_ssi_Line_hack,
-			       0, fmt, &ap);
-    }
+
+    str = LYLeakSAVsprintf(pstr, leak_cp_File_hack, leak_ssi_Line_hack,
+			   0, fmt, &ap);
+
     va_end(ap);
     return str;
 }

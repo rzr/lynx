@@ -1,4 +1,6 @@
-/*                                   HTParse:  URL parsing in the WWW Library
+/*
+ * $LynxId: HTParse.h,v 1.21 2010/09/24 22:45:23 tom Exp $
+ *				HTParse:  URL parsing in the WWW Library
  *				HTPARSE
  *
  *  This module of the WWW library contains code to parse URLs and various
@@ -49,6 +51,19 @@ extern "C" {
  *	Return value points to first non-white character, or to 0 if none.
  *	All trailing white space is OVERWRITTEN with zero.
  */ extern char *HTStrip(char *s);
+
+/*
+ *	Parse a port number
+ *	-------------------
+ *
+ * On entry,
+ *	host            A pointer to hostname possibly followed by port
+ *
+ * On exit,
+ *	returns         A pointer to the ":" before the port
+ *	sets            the port number via the pointer portp.
+ */
+    extern char *HTParsePort(char *host, int *portp);
 
 /*	Parse a Name relative to another name.			HTParse()
  *	--------------------------------------
@@ -124,7 +139,7 @@ extern "C" {
  *	Unlike HTUnEscape(), this routine returns a malloc'd string.
  */
     extern char *HTEscape(const char *str,
-			  unsigned char mask);
+			  unsigned mask);
 
 /*		Escape unsafe characters using %		HTEscapeUnsafe()
  *		--------------------------------
@@ -150,7 +165,7 @@ extern "C" {
  *	Unlike HTUnEscape(), this routine returns a malloc'd string.
  */
     extern char *HTEscapeSP(const char *str,
-			    unsigned char mask);
+			    unsigned mask);
 
 /*	Decode %xx escaped characters.				HTUnEscape()
  *	------------------------------

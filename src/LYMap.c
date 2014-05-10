@@ -1,4 +1,6 @@
-/*			Lynx Client-side Image MAP Support	       LYMap.c
+/*
+ * $LynxId: LYMap.c,v 1.48 2013/11/28 11:21:09 tom Exp $
+ *			Lynx Client-side Image MAP Support	       LYMap.c
  *			==================================
  *
  *	Author: FM	Foteos Macrides (macrides@sci.wfbr.edu)
@@ -34,9 +36,7 @@
 typedef struct _LYMapElement {
     char *address;
     char *title;
-#ifndef DONT_TRACK_INTERNAL_LINKS
-    BOOL intern_flag;
-#endif
+    BOOLEAN intern_flag;
 } LYMapElement;
 
 typedef struct _LYImageMap {
@@ -44,10 +44,6 @@ typedef struct _LYImageMap {
     char *title;
     HTList *elements;
 } LYImageMap;
-
-struct _HTStream {
-    HTStreamClass *isa;
-};
 
 static HTList *LynxMaps = NULL;
 
@@ -112,7 +108,7 @@ static void LYLynxMaps_free(void)
  *   and List Page screens are logically part of the document on which
  *   they are based. - kw
  *
- * If DONT_TRACK_INTERNAL_LINKS is defined, only the global list will be used
+ * If track_internal_links is false, only the global list will be used
  * for all MAPs.
  *
  */
@@ -144,8 +140,7 @@ BOOL LYAddImageMap(char *address,
      * with post data, the specific list.  The list is created if it doesn't
      * already exist.  - kw
      */
-#ifndef DONT_TRACK_INTERNAL_LINKS
-    if (node_anchor->post_data) {
+    if (track_internal_links && node_anchor->post_data) {
 	/*
 	 * We are handling a MAP element found while parsing node_anchor's
 	 * stream of data, and node_anchor has post_data associated and should
@@ -155,9 +150,7 @@ BOOL LYAddImageMap(char *address,
 	if (!theList) {
 	    theList = node_anchor->imaps = HTList_new();
 	}
-    } else
-#endif
-    {
+    } else {
 	if (!LynxMaps) {
 	    LynxMaps = HTList_new();
 #ifdef LY_FIND_LEAKS
@@ -213,7 +206,7 @@ BOOL LYAddMapElement(char *map,
 		     char *address,
 		     char *title,
 		     HTParentAnchor *node_anchor,
-		     BOOL intern_flag GCC_UNUSED)
+		     int intern_flag GCC_UNUSED)
 {
     LYMapElement *tmp = NULL;
     LYImageMap *theMap = NULL;
@@ -232,8 +225,7 @@ BOOL LYAddMapElement(char *map,
      * a MAP element in node_anchor's stream of data, so that LYAddImageMap has
      * been called.  - kw
      */
-#ifndef DONT_TRACK_INTERNAL_LINKS
-    if (node_anchor->post_data) {
+    if (track_internal_links && node_anchor->post_data) {
 	/*
 	 * We are handling an AREA tag found while parsing node_anchor's stream
 	 * of data, and node_anchor has post_data associated and should
@@ -243,9 +235,7 @@ BOOL LYAddMapElement(char *map,
 	if (!theList) {
 	    return FALSE;
 	}
-    } else
-#endif
-    {
+    } else {
 	if (!LynxMaps)
 	    LYAddImageMap(map, NULL, node_anchor);
 	theList = LynxMaps;
@@ -282,9 +272,8 @@ BOOL LYAddMapElement(char *map,
 	StrAllocCopy(tmp->title, title);
     else
 	StrAllocCopy(tmp->title, address);
-#ifndef DONT_TRACK_INTERNAL_LINKS
-    tmp->intern_flag = intern_flag;
-#endif
+    if (track_internal_links)
+	tmp->intern_flag = (BOOLEAN) intern_flag;
     HTList_appendObject(theMap->elements, tmp);
 
     CTRACE((tfp,
@@ -326,14 +315,17 @@ BOOL LYHaveImageMap(char *address)
  * anAnchor is the LYNXIMGMAP: anchor; if it is associated with POST
  *	    data, we want the specific list, otherwise the global list.
  */
-static void fill_DocAddress(DocAddress *wwwdoc, char *address,
+static void fill_DocAddress(DocAddress *wwwdoc,
+			    const char *address,
 			    HTParentAnchor *anAnchor,
 			    HTParentAnchor **punderlying)
 {
+    char *doc_address = NULL;
     HTParentAnchor *underlying;
 
+    StrAllocCopy(doc_address, address);
     if (anAnchor && anAnchor->post_data) {
-	wwwdoc->address = address;
+	wwwdoc->address = doc_address;
 	wwwdoc->post_data = anAnchor->post_data;
 	wwwdoc->post_content_type = anAnchor->post_content_type;
 	wwwdoc->bookmark = NULL;
@@ -345,7 +337,7 @@ static void fill_DocAddress(DocAddress *wwwdoc, char *address,
 	if (punderlying)
 	    *punderlying = underlying;
     } else {
-	wwwdoc->address = address;
+	wwwdoc->address = doc_address;
 	wwwdoc->post_data = NULL;
 	wwwdoc->post_content_type = NULL;
 	wwwdoc->bookmark = NULL;
@@ -369,23 +361,29 @@ static void fill_DocAddress(DocAddress *wwwdoc, char *address,
  *	   requested; if it is associated with POST data, we want the
  *	   specific list for this combination of address+post_data.
  *
- * if DONT_TRACK_INTERNAL_LINKS is defined, the Anchor passed to
+ * if track_internal_links is false, the Anchor passed to
  * LYLoadIMGmap() will never have post_data, so that the global list
  * will be used. - kw
  */
-static HTList *get_the_list(DocAddress *wwwdoc, char *address,
+static HTList *get_the_list(DocAddress *wwwdoc,
+			    const char *address,
 			    HTParentAnchor *anchor,
 			    HTParentAnchor **punderlying)
 {
-    if (anchor && anchor->post_data) {
+    HTList *result;
+
+    if (anchor->post_data) {
 	fill_DocAddress(wwwdoc, address, anchor, punderlying);
-	if (non_empty(punderlying))
-	    return (*punderlying)->imaps;
-	return anchor->imaps;
+	if (non_empty(punderlying)) {
+	    result = (*punderlying)->imaps;
+	} else {
+	    result = anchor->imaps;
+	}
     } else {
 	fill_DocAddress(wwwdoc, address, NULL, punderlying);
-	return LynxMaps;
+	result = LynxMaps;
     }
+    return result;
 }
 
 /*	LYLoadIMGmap - F.Macrides (macrides@sci.wfeb.edu)
@@ -408,7 +406,7 @@ static int LYLoadIMGmap(const char *arg,
     char *MapAddress = NULL;
     HTList *theList;
     HTList *cur = NULL;
-    char *address = NULL;
+    const char *address = NULL;
     char *cp = NULL;
     DocAddress WWWDoc;
     HTParentAnchor *underlying;
@@ -417,9 +415,9 @@ static int LYLoadIMGmap(const char *arg,
     HTFormat old_format_out = HTOutputFormat;
 
     if (isLYNXIMGMAP(arg)) {
-	address = (char *) (arg + LEN_LYNXIMGMAP);
+	address = (arg + LEN_LYNXIMGMAP);
     }
-    if (!(address && strchr(address, ':'))) {
+    if (!(address && StrChr(address, ':'))) {
 	HTAlert(MISDIRECTED_MAP_REQUEST);
 	return (HT_NOT_LOADED);
     }
@@ -517,9 +515,8 @@ static int LYLoadIMGmap(const char *arg,
 	    return (HT_NOT_LOADED);
 	}
     }
-#ifdef DONT_TRACK_INTERNAL_LINKS
-    anAnchor->no_cache = TRUE;
-#endif
+    if (track_internal_links)
+	anAnchor->no_cache = TRUE;
 
     target = HTStreamStack(format_in,
 			   format_out,
@@ -540,7 +537,7 @@ static int LYLoadIMGmap(const char *arg,
     } else if (non_empty(LYRequestTitle) &&
 	       strcasecomp(LYRequestTitle, NO_MAP_TITLE)) {
 	StrAllocCopy(MapTitle, LYRequestTitle);
-    } else if ((cp = strchr(address, '#')) != NULL) {
+    } else if ((cp = StrChr(address, '#')) != NULL) {
 	StrAllocCopy(MapTitle, (cp + 1));
     }
     if (isEmpty(MapTitle)) {
@@ -549,7 +546,7 @@ static int LYLoadIMGmap(const char *arg,
 	LYEntify(&MapTitle, TRUE);
     }
 
-#define PUTS(buf)    (*target->isa->put_block)(target, buf, strlen(buf))
+#define PUTS(buf)    (*target->isa->put_block)(target, buf, (int) strlen(buf))
 
     HTSprintf0(&buf, "<html>\n<head>\n");
     PUTS(buf);
@@ -585,10 +582,9 @@ static int LYLoadIMGmap(const char *arg,
 	PUTS("<li><a href=\"");
 	PUTS(MapAddress);
 	PUTS("\"");
-#ifndef DONT_TRACK_INTERNAL_LINKS
-	if (tmp->intern_flag)
+	if (track_internal_links && tmp->intern_flag) {
 	    PUTS(" TYPE=\"internal link\"");
-#endif
+	}
 	PUTS("\n>");
 	LYformTitle(&MapTitle, tmp->title);
 	LYEntify(&MapTitle, TRUE);
@@ -611,7 +607,7 @@ static int LYLoadIMGmap(const char *arg,
 void LYPrintImgMaps(FILE *fp)
 {
     const char *only = HTLoadedDocumentURL();
-    int only_len = strlen(only);
+    size_t only_len = strlen(only);
     HTList *outer = LynxMaps;
     HTList *inner;
     LYImageMap *map;
@@ -621,7 +617,7 @@ void LYPrintImgMaps(FILE *fp)
     if (HTList_count(outer) > 0) {
 	while (NULL != (map = (LYImageMap *) HTList_nextObject(outer))) {
 	    if (only_len != 0) {
-		if (strncmp(only, map->address, only_len)
+		if (StrNCmp(only, map->address, only_len)
 		    || (map->address[only_len] != '\0'
 			&& map->address[only_len] != '#')) {
 		    continue;
@@ -633,10 +629,8 @@ void LYPrintImgMaps(FILE *fp)
 	    count = 0;
 	    while (NULL != (elt = (LYMapElement *) HTList_nextObject(inner))) {
 		fprintf(fp, "%4d. %s", ++count, elt->address);
-#ifndef DONT_TRACK_INTERNAL_LINKS
-		if (elt->intern_flag)
+		if (track_internal_links && elt->intern_flag)
 		    fprintf(fp, " TYPE=\"internal link\"");
-#endif
 		fprintf(fp, "\n");
 	    }
 	}

@@ -1,3 +1,5 @@
+# $LynxId: makefile.inn,v 1.19 2010/09/19 18:34:55 tom Exp $
+#
 # Makefile for program source directory in GNU NLS utilities package.
 # Copyright (C) 1995, 1996, 1997 by Ulrich Drepper <drepper@gnu.ai.mit.edu>
 #
@@ -6,56 +8,65 @@
 # but which still want to provide support for the GNU gettext functionality.
 # Please note that the actual code is *not* freely available.
 
-PACKAGE = @PACKAGE@
-VERSION = @VERSION@
-
 SHELL = /bin/sh
 @SET_MAKE@
 
-srcdir = @srcdir@
-top_srcdir = @top_srcdir@
-VPATH = @srcdir@
+PACKAGE		= @PACKAGE@
+VERSION		= @VERSION@
+NLS_TEXTDOMAIN	= @NLS_TEXTDOMAIN@
 
-DESTDIR= @DESTDIR@
+srcdir		= @srcdir@
+top_srcdir	= @top_srcdir@
+VPATH		= @srcdir@
 
-prefix = @prefix@
-exec_prefix = @exec_prefix@
-datadir = @NLS_DATADIR@
-localedir = $(DESTDIR)$(datadir)/locale
-gnulocaledir = $(DESTDIR)$(prefix)/share/locale
-gettextsrcdir = $(DESTDIR)$(prefix)/share/gettext/po
-subdir = po
+DESTDIR		= @DESTDIR@
 
-INSTALL = @INSTALL@
-INSTALL_DATA = @INSTALL_DATA@
-MKINSTALLDIRS = @MKINSTALLDIRS@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
 
-CC = @CC@
-GENCAT = @GENCAT@
-GMSGFMT = PATH=../src:$$PATH @GMSGFMT@
-MSGFMT = @MSGFMT@
-XGETTEXT = PATH=../src:$$PATH @XGETTEXT@
-MSGMERGE = PATH=../src:$$PATH msgmerge
+datadir		= @NLS_DATADIR@
+localedir	= $(datadir)/locale
+gnulocaledir	= $(prefix)/share/locale
+gettextsrcdir	= $(prefix)/share/gettext/po
 
-DEFS = @DEFS@
-CFLAGS = @CFLAGS@
-CPPFLAGS = @CPPFLAGS@
+subdir		= po
 
-INCLUDES = -I.. -I$(top_srcdir)/intl
+DATADIR		= $(DESTDIR)$(datadir)
+LOCALEDIR	= $(DESTDIR)$(localedir)
+GNULOCALEDIR	= $(DESTDIR)$(gnulocaledir)
+GETTEXTSRCDIR	= $(DESTDIR)$(gettextsrcdir)
 
-COMPILE = $(CC) -c $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) $(XCFLAGS)
+INSTALL		= @INSTALL@
+INSTALL_DATA	= @INSTALL_DATA@
 
-SOURCES = # cat-id-tbl.c
-POFILES = @POFILES@
-GMOFILES = @GMOFILES@
-DISTFILES = ChangeLog makefile.inn POTFILES.in $(PACKAGE).pot \
+CC		= @CC@
+GENCAT		= @GENCAT@
+GMSGFMT		= PATH=../src:$$PATH @GMSGFMT@
+MSGFMT		= @MSGFMT@
+XGETTEXT	= PATH=../src:$$PATH @XGETTEXT@
+MSGMERGE	= PATH=../src:$$PATH msgmerge
+
+DEFS		= @DEFS@
+CFLAGS		= @CFLAGS@
+CPPFLAGS	= @CPPFLAGS@
+
+INCLUDES	= -I.. -I$(top_srcdir)/intl
+
+COMPILE		= $(CC) -c $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS) $(XCFLAGS)
+
+SOURCES		= # cat-id-tbl.c
+POFILES		= @POFILES@
+GMOFILES	= @GMOFILES@
+DISTFILES	= ChangeLog makefile.inn POTFILES.in $(PACKAGE).pot \
 stamp-cat-id $(POFILES) $(GMOFILES) $(SOURCES)
 
 POTFILES = \
 
-CATALOGS = @CATALOGS@
-CATOBJEXT = @CATOBJEXT@
-INSTOBJEXT = @INSTOBJEXT@
+CATALOGS	= @CATALOGS@
+CATOBJEXT	= @CATOBJEXT@
+INSTOBJEXT	= @INSTOBJEXT@
+
+INSTOBJ		= $(NLS_TEXTDOMAIN)$(INSTOBJEXT)
 
 .SUFFIXES:
 .SUFFIXES: .c .o .po .pox .gmo .mo .msg .cat
@@ -84,8 +95,11 @@ all: all-@USE_NLS@
 all-yes: $(SOURCES) $(CATALOGS)
 all-no:
 
+en.po :	
+	msginit --no-translator -l en -i $(PACKAGE).pot
+
 $(srcdir)/$(PACKAGE).pot: $(POTFILES)
-	$(XGETTEXT) --default-domain=$(PACKAGE) --directory=$(top_srcdir) \
+	$(XGETTEXT) --default-domain=$(NLS_TEXTDOMAIN) --directory=$(top_srcdir) \
 	  --add-comments --keyword=_ --keyword=N_ \
 	  --files-from=$(srcdir)/POTFILES.in \
 	&& test ! -f $(PACKAGE).po \
@@ -112,55 +126,43 @@ install-exec:
 install-data: install-data-@USE_NLS@
 install-data-no: all
 install-data-yes: all
-	if test -r "$(MKINSTALLDIRS)"; then \
-	  $(MKINSTALLDIRS) $(datadir); \
-	else \
-	  $(SHELL) $(top_srcdir)/mkdirs.sh $(datadir); \
-	fi
+	mkdir -p $(DATADIR)
 	@catalogs='$(CATALOGS)'; \
 	for cat in $$catalogs; do \
 	  cat=`basename $$cat`; \
 	  case "$$cat" in \
-	    *.gmo) destdir=$(gnulocaledir);; \
-	    *)     destdir=$(localedir);; \
+	    *.gmo) destdir=$(GNULOCALEDIR);; \
+	    *)     destdir=$(LOCALEDIR);; \
 	  esac; \
 	  lang=`echo $$cat | sed 's/\$(CATOBJEXT)$$//'`; \
 	  dir=$$destdir/$$lang/LC_MESSAGES; \
-	  if test -r "$(MKINSTALLDIRS)"; then \
-	    $(MKINSTALLDIRS) $$dir; \
-	  else \
-	    $(SHELL) $(top_srcdir)/mkdirs.sh $$dir; \
-	  fi; \
+	  mkdir -p $$dir; \
 	  if test -r $$cat; then \
-	    $(INSTALL_DATA) $$cat $$dir/$(PACKAGE)$(INSTOBJEXT); \
-	    echo "installing $$cat as $$dir/$(PACKAGE)$(INSTOBJEXT)"; \
+	    $(INSTALL_DATA) $$cat $$dir/$(INSTOBJ); \
+	    echo "installing $$cat as $$dir/$(INSTOBJ)"; \
 	  else \
-	    $(INSTALL_DATA) $(srcdir)/$$cat $$dir/$(PACKAGE)$(INSTOBJEXT); \
+	    $(INSTALL_DATA) $(srcdir)/$$cat $$dir/$(INSTOBJ); \
 	    echo "installing $(srcdir)/$$cat as" \
-		 "$$dir/$(PACKAGE)$(INSTOBJEXT)"; \
+		 "$$dir/$(INSTOBJ)"; \
 	  fi; \
 	  if test -r $$cat.m; then \
-	    $(INSTALL_DATA) $$cat.m $$dir/$(PACKAGE)$(INSTOBJEXT).m; \
-	    echo "installing $$cat.m as $$dir/$(PACKAGE)$(INSTOBJEXT).m"; \
+	    $(INSTALL_DATA) $$cat.m $$dir/$(INSTOBJ).m; \
+	    echo "installing $$cat.m as $$dir/$(INSTOBJ).m"; \
 	  else \
 	    if test -r $(srcdir)/$$cat.m ; then \
 	      $(INSTALL_DATA) $(srcdir)/$$cat.m \
-		$$dir/$(PACKAGE)$(INSTOBJEXT).m; \
+		$$dir/$(INSTOBJ).m; \
 	      echo "installing $(srcdir)/$$cat as" \
-		   "$$dir/$(PACKAGE)$(INSTOBJEXT).m"; \
+		   "$$dir/$(INSTOBJ).m"; \
 	    else \
 	      true; \
 	    fi; \
 	  fi; \
 	done
 	if test "$(PACKAGE)" = "gettext"; then \
-	  if test -r "$(MKINSTALLDIRS)"; then \
-	    $(MKINSTALLDIRS) $(gettextsrcdir); \
-	  else \
-	    $(SHELL) $(top_srcdir)/mkdirs.sh $(gettextsrcdir); \
-	  fi; \
+	  mkdir -p $(GETTEXTSRCDIR); \
 	  $(INSTALL_DATA) $(srcdir)/makefile.inn \
-			  $(gettextsrcdir)/makefile.inn; \
+			  $(GETTEXTSRCDIR)/makefile.inn; \
 	else \
 	  : ; \
 	fi
@@ -173,12 +175,12 @@ uninstall:
 	for cat in $$catalogs; do \
 	  cat=`basename $$cat`; \
 	  lang=`echo $$cat | sed 's/\$(CATOBJEXT)$$//'`; \
-	  rm -f $(localedir)/$$lang/LC_MESSAGES/$(PACKAGE)$(INSTOBJEXT); \
-	  rm -f $(localedir)/$$lang/LC_MESSAGES/$(PACKAGE)$(INSTOBJEXT).m; \
-	  rm -f $(gnulocaledir)/$$lang/LC_MESSAGES/$(PACKAGE)$(INSTOBJEXT); \
-	  rm -f $(gnulocaledir)/$$lang/LC_MESSAGES/$(PACKAGE)$(INSTOBJEXT).m; \
+	  rm -f $(LOCALEDIR)/$$lang/LC_MESSAGES/$(INSTOBJ); \
+	  rm -f $(LOCALEDIR)/$$lang/LC_MESSAGES/$(INSTOBJ).m; \
+	  rm -f $(GNULOCALEDIR)/$$lang/LC_MESSAGES/$(INSTOBJ); \
+	  rm -f $(GNULOCALEDIR)/$$lang/LC_MESSAGES/$(INSTOBJ).m; \
 	done
-	rm -f $(gettextsrcdir)/po-makefile.inn
+	rm -f $(GETTEXTSRCDIR)/po-makefile.inn
 
 check: all
 
@@ -187,7 +189,7 @@ cat-id-tbl.o: ../intl/libgettext.h
 dvi info tags TAGS ID:
 
 mostlyclean:
-	rm -f core core.* *.pox $(PACKAGE).po *.old.po cat-id-tbl.tmp
+	rm -f core core.* *.pox $(PACKAGE).po en.po *.old.po cat-id-tbl.tmp
 	rm -fr *.o
 
 clean: mostlyclean
@@ -207,6 +209,17 @@ dist distdir: update-po $(DISTFILES)
 	for file in $$dists; do \
 	  ln $(srcdir)/$$file $(distdir) 2> /dev/null \
 	    || cp -p $(srcdir)/$$file $(distdir); \
+	done
+
+# GNU msgfmt -C option can also check for X/Open compat.
+check-po:
+	cd $(srcdir); \
+	catalogs='$(CATALOGS)'; \
+	for cat in $$catalogs; do \
+	  cat=`basename $$cat`; \
+	  lang=`echo $$cat | sed 's/\$(CATOBJEXT)$$//'`; \
+	  echo "$$lang:"; \
+	  $(MSGFMT) -f -c -v $$lang.po; \
 	done
 
 update-po: makefile

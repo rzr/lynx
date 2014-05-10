@@ -1,4 +1,7 @@
-/*	Configuration manager for Hypertext Daemon		HTRules.c
+/*
+ * $LynxId: HTRules.c,v 1.45 2013/11/28 11:14:29 tom Exp $
+ *
+ *	Configuration manager for Hypertext Daemon		HTRules.c
  *	==========================================
  *
  *
@@ -43,6 +46,7 @@ typedef struct _rule {
 
 #include <HTTP.h>		/* for redirecting_url, indirectly HTPermitRedir - kw */
 #include <LYGlobalDefs.h>	/* for LYUserSpecifiedURL - kw */
+#include <LYStrings.h>		/* for LYscanFloat */
 #include <LYUtils.h>		/* for LYFixCursesOn - kw */
 #include <HTAlert.h>
 
@@ -86,6 +90,9 @@ int HTAddRule(HTRuleOp op, const char *pattern,
     temp = typecalloc(rule);
     if (temp == NULL)
 	outofmem(__FILE__, "HTAddRule");
+
+    assert(temp != NULL);
+
     if (equiv) {		/* Two operands */
 	char *pEquiv = NULL;
 
@@ -103,9 +110,9 @@ int HTAddRule(HTRuleOp op, const char *pattern,
     temp->op = op;
 
     if (equiv) {
-	CTRACE((tfp, "Rule: For `%s' op %d `%s'", pattern, op, equiv));
+	CTRACE((tfp, "Rule: For `%s' op %d `%s'", pattern, (int) op, equiv));
     } else {
-	CTRACE((tfp, "Rule: For `%s' op %d", pattern, op));
+	CTRACE((tfp, "Rule: For `%s' op %d", pattern, (int) op));
     }
     if (cond_op) {
 	CTRACE((tfp, "\t%s %s\n", cond_op, NONNULL(cond)));
@@ -229,7 +236,7 @@ char *HTTranslate(const char *required)
 	}
 
 	if (*p == '*') {	/* Match up to wildcard */
-	    m = strlen(q) - strlen(p + 1);	/* Amount to match to wildcard */
+	    m = (int) strlen(q) - (int) strlen(p + 1);	/* Amount to match to wildcard */
 	    if (m < 0)
 		continue;	/* tail is too short to match */
 	    if (0 != strcmp(q + m, p + 1))
@@ -243,9 +250,9 @@ char *HTTranslate(const char *required)
 
 	switch (r->op) {	/* Perform operation */
 
-#ifdef ACCESS_AUTH
 	case HT_DefProt:
 	case HT_Protect:
+#ifdef ACCESS_AUTH
 	    {
 		char *local_copy = NULL;
 		char *p2;
@@ -275,8 +282,8 @@ char *HTTranslate(const char *required)
 
 		/* continue translating rules */
 	    }
-	    break;
 #endif /* ACCESS_AUTH */
+	    break;
 
 	case HT_UserMsg:	/* Produce message immediately */
 	    LYFixCursesOn("show rule message:");
@@ -289,7 +296,7 @@ char *HTTranslate(const char *required)
 	case HT_AlwaysAlert:
 	    pMsg = r->equiv ? r->equiv :
 		(r->op == HT_AlwaysAlert) ? "%s" : "Rule: %s";
-	    if (strchr(pMsg, '%')) {
+	    if (StrChr(pMsg, '%')) {
 		HTSprintf0(&msgtmp, pMsg, current);
 		pMsg = msgtmp;
 	    }
@@ -339,7 +346,7 @@ char *HTTranslate(const char *required)
 		CTRACE((tfp, "For `%s' using `%s'\n", current, r->equiv));
 		StrAllocCopy(current, r->equiv);	/* use entire translation */
 	    } else {
-		char *ins = strchr(r->equiv, '*');	/* Insertion point */
+		char *ins = StrChr(r->equiv, '*');	/* Insertion point */
 
 		if (ins) {	/* Consistent rule!!! */
 		    char *temp = NULL;
@@ -446,22 +453,29 @@ int HTSetConfiguration(char *config)
 {
     HTRuleOp op;
     char *line = NULL;
-    char *pointer = line;
+    char *pointer = NULL;
     char *word1;
     const char *word2;
     const char *word3;
     const char *cond_op = NULL;
     const char *cond = NULL;
     float quality, secs, secs_per_byte;
-    int maxbytes;
+    long maxbytes;
     int status;
 
     StrAllocCopy(line, config);
-    {
-	char *p = strchr(line, '#');	/* Chop off comments */
+    if (line != NULL) {
+	char *p = line;
 
-	if (p)
-	    *p = 0;
+	/* Chop off comments */
+	while ((p = StrChr(p, '#'))) {
+	    if (p == line || isspace(UCH(*(p - 1)))) {
+		*p = 0;
+		break;
+	    } else {
+		p++;
+	    }
+	}
     }
     pointer = line;
     word1 = HTNextField(&pointer);
@@ -487,20 +501,33 @@ int HTSetConfiguration(char *config)
     if (0 == strcasecomp(word1, "suffix")) {
 	char *encoding = HTNextField(&pointer);
 
+	status = 0;
 	if (pointer)
-	    status = sscanf(pointer, "%f", &quality);
-	else
-	    status = 0;
+	    status = LYscanFloat(pointer, &quality);
+
 	HTSetSuffix(word2, word3,
 		    encoding ? encoding : "binary",
 		    status >= 1 ? quality : (float) 1.0);
 
     } else if (0 == strcasecomp(word1, "presentation")) {
-	if (pointer)
-	    status = sscanf(pointer, "%f%f%f%d",
-			    &quality, &secs, &secs_per_byte, &maxbytes);
-	else
-	    status = 0;
+	status = 0;
+	if (pointer) {
+	    const char *temp = pointer;
+
+	    if (LYscanFloat2(&temp, &quality)) {
+		status = 1;
+		if (LYscanFloat2(&temp, &secs)) {
+		    status = 2;
+		    if (LYscanFloat2(&temp, &secs_per_byte)) {
+			status = 3;
+			if (sscanf(temp, "%ld", &maxbytes)) {
+			    status = 4;
+			}
+		    }
+		}
+	    }
+	}
+
 	HTSetPresentation(word2, word3, NULL,
 			  status >= 1 ? quality : 1.0,
 			  status >= 2 ? secs : 0.0,
@@ -593,7 +620,7 @@ int HTSetConfiguration(char *config)
 		    const char *cp = word3;
 		    char *cp1, *cp2;
 
-		    while ((cp1 = strchr(cp, '%'))) {
+		    while ((cp1 = StrChr(cp, '%'))) {
 			if (cp1[1] == '\0') {
 			    *cp1 = '\0';
 			    break;
@@ -601,7 +628,7 @@ int HTSetConfiguration(char *config)
 			    cp = cp1 + 2;
 			    continue;
 			} else
-			    while ((cp2 = strchr(cp1 + 2, '%'))) {
+			    while ((cp2 = StrChr(cp1 + 2, '%'))) {
 				if (cp2[1] == '\0') {
 				    *cp2 = '\0';
 				    break;
@@ -630,10 +657,10 @@ int HTSetConfiguration(char *config)
 		FREE(line);	/* syntax error, condition is a mess - kw */
 		return -2;	/* NB unrecognized cond passes here - kw */
 	    }
-	    if (cond && !strncasecomp(cond, "redirected", strlen(cond))) {
+	    if (cond && !strncasecomp(cond, "redirected", (int) strlen(cond))) {
 		cond = "redirected";	/* recognized, canonical case - kw */
 	    } else if (cond && strlen(cond) >= 8 &&
-		       !strncasecomp(cond, "userspecified", strlen(cond))) {
+		       !strncasecomp(cond, "userspecified", (int) strlen(cond))) {
 		cond = "userspec";	/* also allow abbreviation - kw */
 	    }
 	    HTAddRule(op, word2, word3, cond_op, cond);

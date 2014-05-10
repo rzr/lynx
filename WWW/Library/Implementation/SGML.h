@@ -1,18 +1,20 @@
-/*						  SGML parse and stream definition for libwww
-			       SGML AND STRUCTURED STREAMS
-
-   The SGML parser is a state machine.	It is called for every character
-   of the input stream.	 The DTD data structure contains pointers
-   to functions which are called to implement the actual effect of the
-   text read. When these functions are called, the attribute structures pointed to by the
-   DTD are valid, and the function is passed a pointer to the current tag structure, and an
-   "element stack" which represents the state of nesting within SGML elements.
-
-   The following aspects are from Dan Connolly's suggestions:  Binary search,
-   Structured object scheme basically, SGML content enum type.
-
-   (c) Copyright CERN 1991 - See Copyright.html
-
+/*
+ * $LynxId: SGML.h,v 1.46 2012/02/10 18:32:26 tom Exp $
+ *			       SGML parse and stream definition for libwww
+ *                             SGML AND STRUCTURED STREAMS
+ *
+ * The SGML parser is a state machine.	It is called for every character
+ * of the input stream.	 The DTD data structure contains pointers
+ * to functions which are called to implement the actual effect of the
+ * text read. When these functions are called, the attribute structures pointed to by the
+ * DTD are valid, and the function is passed a pointer to the current tag structure, and an
+ * "element stack" which represents the state of nesting within SGML elements.
+ *
+ * The following aspects are from Dan Connolly's suggestions:  Binary search,
+ * Structured object scheme basically, SGML content enum type.
+ *
+ * (c) Copyright CERN 1991 - See Copyright.html
+ *
  */
 #ifndef SGML_H
 #define SGML_H
@@ -55,6 +57,13 @@ extern "C" {
 #endif
     } attr;
 
+    typedef const attr *AttrList;
+
+    typedef struct {
+	const char *name;
+	AttrList list;
+    } AttrType;
+
     typedef int TagClass;
 
     /* textflow */
@@ -90,6 +99,13 @@ extern "C" {
 #define Tgc_HEADstuff	0x40000	/* HEAD,BASE,STYLE,TITLE; */
     /* special relations */
 #define Tgc_same	0x80000
+
+/*
+ * Groups for contains-data.
+ */
+#define Tgc_INLINElike	(Tgc_Alike | Tgc_APPLETlike | Tgc_BRlike | Tgc_EMlike | Tgc_FONTlike | Tgc_SELECTlike)
+#define Tgc_LISTlike	(Tgc_LIlike | Tgc_ULlike)
+#define Tgc_BLOCKlike	(Tgc_DIVlike | Tgc_LISTlike)
 
 /* Some more properties of tags (or rather, elements) and rules how
    to deal with them. - kw */
@@ -130,13 +146,14 @@ extern "C" {
     struct _tag {
 	const char *name;	/* The name of the tag */
 #ifdef USE_COLOR_STYLE
-	int name_len;		/* The length of the name */
+	unsigned name_len;	/* The length of the name */
 #endif
-#ifdef EXP_JUSTIFY_ELTS
+#ifdef USE_JUSTIFY_ELTS
 	BOOL can_justify;	/* justification allowed? */
 #endif
-	attr *attributes;	/* The list of acceptable attributes */
+	AttrList attributes;	/* The list of acceptable attributes */
 	int number_of_attributes;	/* Number of possible attributes */
+	const AttrType *attr_types;
 	SGMLContent contents;	/* End only on end tag @@ */
 	TagClass tagclass;
 	TagClass contains;	/* which classes of elements this one can contain directly */
@@ -156,7 +173,7 @@ extern "C" {
     typedef struct {
 	HTTag *tags;		/* Must be in strcmp order by name */
 	int number_of_tags;
-	const char **entity_names;	/* Must be in strcmp order by name */
+	STRING2PTR entity_names;	/* Must be in strcmp order by name */
 	size_t number_of_entities;
 	/*  "entity_names" table probably unused,
 	 *  see comments in HTMLDTD.c near the top
@@ -199,7 +216,7 @@ Structured Object definition
 
 	void (*_abort) (HTStructured * me, HTError e);
 
-	void (*put_character) (HTStructured * me, char ch);
+	void (*put_character) (HTStructured * me, int ch);
 
 	void (*put_string) (HTStructured * me, const char *str);
 
@@ -209,7 +226,7 @@ Structured Object definition
 
 	int (*start_element) (HTStructured * me, int element_number,
 			      const BOOL *attribute_present,
-			      const char **attribute_value,
+			      STRING2PTR attribute_value,
 			      int charset,
 			      char **include);
 

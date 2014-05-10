@@ -1,4 +1,7 @@
-/*      Displaying messages and getting input for WWW Library
+/*
+ * $LynxId: HTAlert.h,v 1.34 2010/09/26 16:36:38 tom Exp $
+ *
+ *      Displaying messages and getting input for WWW Library
  *      =====================================================
  *
  *         May 92 Created By C.T. Barker
@@ -31,6 +34,7 @@ extern "C" {
     extern void HTAlert(const char *Msg);
     extern void HTAlwaysAlert(const char *extra_prefix, const char *Msg);
     extern void HTInfoMsg(const char *Msg);
+    extern void HTInfoMsg2(const char *Msg, const char *Arg);
     extern void HTUserMsg(const char *Msg);
     extern void HTUserMsg2(const char *Msg, const char *Arg);
 
@@ -41,7 +45,7 @@ extern "C" {
  */
     extern const char *HTProgressUnits(int kilobytes);
     extern void HTProgress(const char *Msg);
-    extern void HTReadProgress(long bytes, long total);
+    extern void HTReadProgress(off_t bytes, off_t total);
 
 #define _HTProgress(msg)	mustshow = TRUE, HTProgress(msg)
 
@@ -112,7 +116,7 @@ extern "C" {
     extern void HTPromptUsernameAndPassword(const char *Msg,
 					    char **username,
 					    char **password,
-					    BOOL IsProxy);
+					    int IsProxy);
 
 /*	Confirm a cookie operation.			HTConfirmCookie()
  *	---------------------------
@@ -147,7 +151,7 @@ extern "C" {
 				     int server_status);
 
     extern void LYSleepAlert(void);
-    extern void LYSleepDebug(void);
+    extern void LYSleepDelay(void);
     extern void LYSleepInfo(void);
     extern void LYSleepMsg(void);
     extern void LYSleepReplay(void);

@@ -1,3 +1,6 @@
+/*
+ * $LynxId: LYHistory.h,v 1.21 2010/09/25 00:45:55 tom Exp $
+ */
 #ifndef LYHISTORY_H
 #define LYHISTORY_H
 
@@ -12,7 +15,7 @@ extern "C" {
     extern BOOLEAN historytarget(DocInfo *newdoc);
     extern int LYShowVisitedLinks(char **newfile);
     extern int LYhist_next(DocInfo *doc, DocInfo *newdoc);
-    extern int LYpush(DocInfo *doc, BOOLEAN force_push);
+    extern int LYpush(DocInfo *doc, int force_push);
     extern int showhistory(char **newfile);
     extern void LYAddVisitedLink(DocInfo *doc);
     extern void LYAllocHistory(int entries);
@@ -26,7 +29,9 @@ extern "C" {
     extern void LYstore_message(const char *message);
     extern void LYstore_message2(const char *message, const char *argument);
 
+    extern HTList *Visited_Links;
     extern int nhist_extra;
+    extern int status_buf_size;
 
 #ifdef __cplusplus
 }

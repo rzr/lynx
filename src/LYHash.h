@@ -1,3 +1,4 @@
+/* $LynxId: LYHash.h,v 1.25 2011/06/06 09:28:19 tom Exp $ */
 #ifndef _LYHASH_H_
 #define _LYHASH_H_ 1
 
@@ -34,10 +35,10 @@ extern "C" {
      */
     extern bucket hashStyles[CSHASHSIZE];
     extern int hash_code(const char *string);
-    extern bucket nostyle_bucket;
+    extern bucket *nostyle_bucket(void);
 
     extern int hash_code_lowercase_on_fly(const char *string);
-    extern int hash_code_aggregate_char(char c, int hash);
+    extern int hash_code_aggregate_char(int c, int hash);
     extern int hash_code_aggregate_lower_str(const char *c, int hash_was);
 
     extern int s_a;
@@ -73,14 +74,8 @@ extern "C" {
 #endif
 
 #if OMIT_SCN_KEEPING
-    extern bucket special_bucket;
+    extern bucket *special_bucket(void);
 #endif
-
-#define CACHEW 128
-#define CACHEH 64
-
-    extern unsigned cached_styles[CACHEH][CACHEW];
-#define CACHE_VALIDATE_YX(y, x) ((y) >= 0 && (x) >= 0 && (y) < CACHEH && (x) < CACHEW)
 
 #ifdef __cplusplus
 }
