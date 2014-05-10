@@ -1,0 +1,61 @@
+Name: lynx
+Summary: Text-mode WWW Browser with NLS support
+Version: 2.8.8dev.9
+Release: 2
+Group: Applications/Internet
+License: LGPLv2
+URL: http://lynx.isc.org/
+Sources:
+    - http://lynx.isc.org/current/%{name}%{version}.tar.bz2
+Description: |
+    Lynx is a fully-featured World Wide Web (WWW) client for users running
+    cursor-addressable, character-cell display devices.
+    It is very fast and easy to use. It will display HTML documents
+    containing links to files residing on the local system,
+    as well as files residing on remote systems running Gopher, HTTP, FTP,
+    WAIS, and NNTP servers.
+    
+    This package contains a development version of lynx.
+
+PkgBR:
+    - bzip2-devel
+PkgConfigBR:
+    - libidn
+    - ncursesw
+    - openssl
+    - zlib
+Configure: configure
+ConfigOptions:
+    - --enable-cgi-links
+    - --enable-cjk
+    - --enable-default-colors
+    - --enable-exec-links
+    - --enable-exec-scripts
+    - --enable-externs
+    - --enable-gzip-help
+    - --enable-ipv6
+    - --enable-kbd-layout
+    - --enable-japanese-utf8
+    - --enable-nested-tables
+    - --enable-nls
+    - --enable-nsl-fork
+    - --enable-syslog
+    - --with-bzlib
+    - --with-screen=ncursesw
+    - --with-ssl
+    - --with-zlib
+Builder: make
+SubPackages:
+    - Name: doc
+      Summary: Text-mode WWW Browser - documentation
+      Group: Documentation
+      Description: |
+          Lynx is a fully-featured World Wide Web (WWW) client for users running
+          cursor-addressable, character-cell display devices.
+          It is very fast and easy to use. It will display HTML documents
+          containing links to files residing on the local system,
+          as well as files residing on remote systems running Gopher, HTTP, FTP,
+          WAIS, and NNTP servers.
+          
+          This package contains the documentation.
+
