@@ -6,6 +6,7 @@
 Name:       lynx
 
 # >> macros
+%define directoryversion 2-8-8
 # << macros
 
 Summary:    Text-mode WWW Browser with NLS support
@@ -92,15 +93,22 @@ rm -rf %{buildroot}
 %make_install
 
 # >> install post
+
 # << install post
 
 
 %files
 %defattr(-,root,root,-)
 # >> files
+%doc COPYHEADER
+%config(noreplace) %{_sysconfdir}/lynx.cfg
+%config(noreplace) %{_sysconfdir}/lynx.lss
+%{_bindir}/lynx
+%{_mandir}/man1/lynx.1.gz
 # << files
 
 %files doc
 %defattr(-,root,root,-)
 # >> files doc
+%doc ABOUT-NLS AUTHORS CHANGES COPYING PROBLEMS README
 # << files doc
