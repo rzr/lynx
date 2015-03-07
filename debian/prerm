@@ -1,9 +1,0 @@
-#!/bin/sh
-
-case "$1" in
-    remove|deconfigure)
-        update-alternatives --quiet --remove www-browser /usr/bin/lynx
-	update-alternatives --quiet --remove lynx /usr/bin/lynx.stable
-        ;;
-    *)
-esac
